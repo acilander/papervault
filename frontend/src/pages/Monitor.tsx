@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Circle, RefreshCw, Play, Square, Inbox, FileText, AlertCircle } from 'lucide-react'
 import axios from 'axios'
-import { scanOrphans, importOrphans } from '../api'
+import { scanOrphans, importOrphans, scanMissing } from '../api'
 
 interface LogLine { id: number; text: string; ts: string }
 interface InboxFile { filename: string; size_kb: number; modified: string }
@@ -19,6 +19,9 @@ export default function Monitor() {
   const [orphans, setOrphans] = useState<Orphan[] | null>(null)
   const [orphanBusy, setOrphanBusy] = useState(false)
   const [selectedOrphans, setSelectedOrphans] = useState<Set<string>>(new Set())
+  type MissingDoc = { id: number; filename: string; sender: string | null; date: string | null; category: string | null; file_path: string }
+  const [missingDocs, setMissingDocs] = useState<MissingDoc[] | null>(null)
+  const [missingBusy, setMissingBusy] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const esRef = useRef<EventSource | null>(null)
   const counterRef = useRef(0)
@@ -286,6 +289,56 @@ export default function Monitor() {
                 <p className="text-xs text-gray-400">{o.size_kb} KB · {o.modified}</p>
               </div>
             </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Missing-files panel */}
+      <div className="w-80 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col">
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center gap-2">
+          <AlertCircle size={14} className="text-red-500" />
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Fehlende Dateien</h3>
+          {missingDocs !== null && (
+            <span className={`ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              missingDocs.length > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
+            }`}>{missingDocs.length}</span>
+          )}
+        </div>
+
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 space-y-2">
+          <button
+            onClick={async () => {
+              setMissingBusy(true)
+              try { const r = await scanMissing(); setMissingDocs(r.missing) }
+              catch { setMissingDocs([]) }
+              setMissingBusy(false)
+            }}
+            disabled={missingBusy}
+            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs rounded-lg disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw size={12} className={missingBusy ? 'animate-spin' : ''} />
+            {missingBusy ? 'Scanne…' : 'DB gegen Dateisystem prüfen'}
+          </button>
+          {missingDocs !== null && missingDocs.length === 0 && (
+            <p className="text-xs text-green-600 dark:text-green-400 text-center">✓ Alle Dateien vorhanden</p>
+          )}
+          {missingDocs !== null && missingDocs.length > 0 && (
+            <p className="text-xs text-red-600 dark:text-red-400 text-center">
+              {missingDocs.length} Einträge als „missing" markiert
+            </p>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-800">
+          {missingDocs === null && (
+            <p className="px-4 py-6 text-xs text-gray-400 text-center">Scan starten um fehlende Dateien zu finden</p>
+          )}
+          {missingDocs?.map(d => (
+            <div key={d.id} className="px-4 py-2.5">
+              <p className="text-xs font-medium text-red-700 dark:text-red-400 truncate" title={d.filename}>{d.filename}</p>
+              <p className="text-xs text-gray-400">{d.sender ?? '–'} · {d.date ?? '–'}</p>
+              <p className="text-xs text-gray-300 dark:text-gray-600 truncate" title={d.file_path}>{d.file_path}</p>
+            </div>
           ))}
         </div>
       </div>

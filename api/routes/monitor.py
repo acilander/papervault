@@ -146,6 +146,29 @@ def inbox_preview():
     return {"source_dir": SOURCE_DIR, "files": files}
 
 
+@router.post("/scan-missing")
+def scan_missing():
+    """
+    Check all 'ok' DB entries against the filesystem.
+    Entries whose file_path no longer exists are marked status='missing'.
+    Returns list of affected documents.
+    """
+    docs = db.search_documents(status="ok", limit=99999)
+    missing = []
+    for doc in docs:
+        if doc.get("file_path") and not os.path.exists(doc["file_path"]):
+            db.update_document(doc["id"], status="missing")
+            missing.append({
+                "id": doc["id"],
+                "filename": doc.get("filename"),
+                "sender": doc.get("sender"),
+                "date": doc.get("date"),
+                "category": doc.get("category"),
+                "file_path": doc.get("file_path"),
+            })
+    return {"scanned": len(docs), "missing_found": len(missing), "missing": missing}
+
+
 @router.get("/orphans")
 def scan_orphans():
     """

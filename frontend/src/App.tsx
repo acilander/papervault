@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, Copy, AlertTriangle, Receipt, Clock } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, Copy, AlertTriangle, Receipt, Clock, FileX } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import DocumentDetail from './pages/DocumentDetail'
@@ -22,6 +22,7 @@ interface SidebarBadges {
   duplicates: number
   failed: number
   tax: number
+  missing: number
 }
 
 function SidebarQuickLinks({ badges }: { badges: SidebarBadges }) {
@@ -31,6 +32,7 @@ function SidebarQuickLinks({ badges }: { badges: SidebarBadges }) {
     { label: 'Fehlgeschlagen', icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20', count: badges.failed, filter: '?status=classification_failed' },
     { label: 'Steuerrelevant', icon: Receipt, color: 'text-yellow-600', bg: 'bg-yellow-50 dark:bg-yellow-900/20', count: badges.tax, filter: '?tax=1' },
     { label: 'Läuft ab', icon: Clock, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20', count: badges.expiring, filter: '?expires=1' },
+    { label: 'Datei fehlt', icon: FileX, color: 'text-red-700', bg: 'bg-red-50 dark:bg-red-900/20', count: badges.missing, filter: '?status=missing' },
   ]
   return (
     <div className="px-3 pb-3 space-y-1">
@@ -54,7 +56,7 @@ export default function App() {
   const [dark, setDark] = useState(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches
   )
-  const [badges, setBadges] = useState<SidebarBadges>({ unreviewed: 0, expiring: 0, inbox: 0, duplicates: 0, failed: 0, tax: 0 })
+  const [badges, setBadges] = useState<SidebarBadges>({ unreviewed: 0, expiring: 0, inbox: 0, duplicates: 0, failed: 0, tax: 0, missing: 0 })
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -79,8 +81,9 @@ export default function App() {
           expiring: Array.isArray(expiringData) ? expiringData.length : 0,
           inbox: inboxData.files?.length ?? 0,
           duplicates: byStatus.find(s => s.status === 'duplicate')?.count ?? 0,
-          failed: byStatus.filter(s => !['ok','encrypted','duplicate'].includes(s.status)).reduce((a, b) => a + b.count, 0),
+          failed: byStatus.filter(s => !['ok','encrypted','duplicate','missing'].includes(s.status)).reduce((a, b) => a + b.count, 0),
           tax: 0,
+          missing: byStatus.find(s => s.status === 'missing')?.count ?? 0,
         })
       } catch {}
     }

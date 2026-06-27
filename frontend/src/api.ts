@@ -129,6 +129,11 @@ export const reorganizeSender = (name: string) =>
     `/senders/${encodeURIComponent(name)}/reorganize`
   ).then(r => r.data)
 
+export const scanMissing = () =>
+  api.post<{ scanned: number; missing_found: number; missing: { id: number; filename: string; sender: string | null; date: string | null; category: string | null; file_path: string }[] }>(
+    '/monitor/scan-missing'
+  ).then(r => r.data)
+
 export const scanOrphans = () =>
   api.get<{ count: number; orphans: { file_path: string; filename: string; folder: string; category_hint: string; size_kb: number; modified: string }[] }>(
     '/monitor/orphans'

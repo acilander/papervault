@@ -14,8 +14,10 @@ const STATUS_COLORS: Record<string, string> = {
   ok: 'bg-green-50 text-green-700',
   encrypted: 'bg-yellow-50 text-yellow-700',
   corrupt: 'bg-red-50 text-red-700',
+  duplicate: 'bg-purple-50 text-purple-700',
   classification_failed: 'bg-orange-50 text-orange-700',
   no_text: 'bg-gray-100 text-gray-600',
+  missing: 'bg-red-100 text-red-800',
 }
 
 export default function Documents() {
@@ -119,6 +121,7 @@ export default function Documents() {
           <option value="encrypted">Verschlüsselt</option>
           <option value="corrupt">Korrupt</option>
           <option value="duplicate">Duplikat</option>
+          <option value="missing">Datei fehlt</option>
         </select>
         <button onClick={() => setTaxFilter(v => !v)}
           className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${taxFilter ? 'bg-yellow-500 text-white border-yellow-500' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
