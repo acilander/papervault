@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import db
 import storage
 from config import DB_PATH
-from api.routes import documents, senders, stats
+from api.routes import documents, senders, stats, monitor
 
 app = FastAPI(
     title="Document Archiver API",
@@ -35,6 +35,7 @@ def startup():
 app.include_router(documents.router)
 app.include_router(senders.router)
 app.include_router(stats.router)
+app.include_router(monitor.router)
 
 
 @app.get("/health")

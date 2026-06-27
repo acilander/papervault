@@ -17,8 +17,17 @@ import db
 _pdf_queue = queue.Queue()
 
 
+_LOG_FILE = os.path.join(TARGET_BASE, "archiver.log")
+
+
 def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
+    line = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
+    print(line, flush=True)
+    try:
+        with open(_LOG_FILE, "a", encoding="utf-8") as _f:
+            _f.write(line + "\n")
+    except Exception:
+        pass
 
 
 def _worker():
