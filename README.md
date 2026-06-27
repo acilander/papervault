@@ -1,17 +1,18 @@
 # Document Archiver
 
-Automatisches PDF-Archivierungssystem mit lokalem LLM (llama-cpp-python) und React Web-UI.  
-Überwacht einen Inbox-Ordner, klassifiziert PDFs per LLM und legt sie in einer strukturierten Ordnerhierarchie ab. Alle Metadaten werden in einer SQLite-Datenbank gehalten und sind über eine FastAPI + React-Oberfläche verwaltbar.
+Automatisches PDF-Archivierungssystem mit **lokalem LLM** (llama-cpp-python, keine Cloud) und **React Web-UI**.  
+Überwacht einen Inbox-Ordner, klassifiziert PDFs vollautomatisch und legt sie strukturiert im Dateisystem ab.  
+Metadaten in SQLite, vollständig verwaltbar über FastAPI + React.
 
 ---
 
 ## Voraussetzungen
 
 - Python 3.10+
-- Node.js 18+ (für das Frontend)
-- [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) (optional, für gescannte PDFs)
-- [Poppler](https://github.com/oschwartz10612/poppler-windows/releases/) im PATH (für OCR)
-- GGUF-Modell (z.B. Qwen2.5 1.5B oder größer)
+- Node.js 18+
+- [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) – optional, für gescannte PDFs
+- [Poppler](https://github.com/oschwartz10612/poppler-windows/releases/) – im PATH, für OCR
+- GGUF-Modell (z.B. Qwen2.5 1.5B Instruct oder größer)
 
 ---
 
@@ -30,171 +31,295 @@ npm install
 
 ## Konfiguration
 
-Kopiere `.env.example` zu `.env` und passe die Pfade an:
-
 ```bash
-copy .env.example .env
+copy .env.example .env   # dann .env anpassen
 ```
 
-| Variable | Beschreibung |
-|---|---|
-| `SOURCE_DIR` | Inbox-Ordner der überwacht wird |
-| `TARGET_BASE` | Zielverzeichnis für das Archiv |
-| `MODEL_PATH` | Pfad zur GGUF-Modelldatei |
-| `MAX_RETRIES` | Maximale LLM-Versuche pro Dokument (Standard: 3) |
-| `SENDER_SUBFOLDERS` | Unterordner pro Absender anlegen (true/false) |
-| `DB_PATH` | Pfad zur SQLite-Datenbank (Standard: `TARGET_BASE/archive.db`) |
+| Variable | Beschreibung | Standard |
+|---|---|---|
+| `SOURCE_DIR` | Inbox-Ordner, der überwacht wird | – |
+| `TARGET_BASE` | Zielverzeichnis für das Archiv | – |
+| `MODEL_PATH` | Pfad zur GGUF-Modelldatei | – |
+| `MAX_RETRIES` | LLM-Versuche pro Dokument | `3` |
+| `SENDER_SUBFOLDERS` | Unterordner pro Absender | `true` |
+| `DB_PATH` | SQLite-Datenbank | `TARGET_BASE/archive.db` |
 
 ---
 
 ## Starten
 
-### Schnellstart (alles auf einmal)
-```
-start_all.bat
-```
-
-### Manuell
 ```bash
-# Backend (Port 8000)
-python -m uvicorn api.main:app --reload --port 8000
+start_all.bat          # Backend + Frontend gleichzeitig (Port-Guard enthalten)
+```
 
-# Frontend (Port 5173)
-cd frontend && npm run dev
+oder manuell:
+
+```bash
+python -m uvicorn api.main:app --reload --port 8000   # Backend
+cd frontend && npm run dev                             # Frontend (Port 5173)
 ```
 
 → Web-UI: **http://localhost:5173**  
-→ API-Docs: **http://localhost:8000/docs**
+→ API-Docs (Swagger): **http://localhost:8000/docs**
 
 ---
 
-## Archiver
+## Architektur
 
-Der Archiver kann direkt gestartet werden oder über die Web-UI (Monitor-Seite → Start-Button).
-
-```bash
-python archiver.py
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        React Frontend                        │
+│  Dashboard │ Dokumente │ Absender │ Monitor │ Dokument-Detail│
+└────────────────────────┬────────────────────────────────────┘
+                         │ HTTP / SSE
+┌────────────────────────▼────────────────────────────────────┐
+│                     FastAPI Backend                          │
+│  /documents  /senders  /stats  /monitor  /tax               │
+└──────┬──────────────────────────────────────┬───────────────┘
+       │                                      │
+┌──────▼──────┐                    ┌──────────▼──────────┐
+│  SQLite DB  │                    │   archiver.py        │
+│  (FTS5)     │◄───────────────────│   Watchdog + Worker  │
+└─────────────┘                    └──────────┬──────────┘
+                                              │
+                              ┌───────────────▼──────────────┐
+                              │         archive.py            │
+                              │  extract → LLM → validate    │
+                              │  → DB → Filesystem           │
+                              └───────────────┬──────────────┘
+                                              │
+                              ┌───────────────▼──────────────┐
+                              │           llm.py              │
+                              │  llama-cpp (lokal, kein API) │
+                              │  Similar-Doc-Hint             │
+                              │  Few-Shot-Injection           │
+                              │  Keyword-Filter               │
+                              └──────────────────────────────┘
 ```
 
-Er überwacht `SOURCE_DIR` dauerhaft per Watchdog. Neue PDFs werden:
-1. Text extrahiert (PyMuPDF, ggf. Tesseract OCR)
-2. Per LLM klassifiziert (Absender, Datum, Kategorie, Typ, Zusammenfassung, **Keywords**)
-3. Validiert und ggf. automatisch korrigiert (Absender-Override, Few-Shot-Feedback)
-4. **Ähnliche Dokumente aus der DB** werden als Kontext in den LLM-Prompt injiziert (gleicher Absender oder gleiche Kategorie)
-5. Keywords werden gegen den Originaltext validiert – Halluzinationen werden verworfen
-6. In die SQLite-DB eingetragen
-7. In den passenden Archiv-Ordner verschoben
+### Verarbeitungs-Pipeline (pro PDF)
+
+```
+PDF eingelegt in SOURCE_DIR
+  │
+  ├─► Text extrahieren (PyMuPDF)
+  │     └─► kein Text → Tesseract OCR
+  │
+  ├─► Duplikat-Check (SHA256 gegen hashes.json)
+  │     └─► Duplikat → duplicates/ → DB status=duplicate
+  │
+  ├─► LLM-Prompt aufbauen:
+  │     ├── System-Prompt (Kategorien, Regeln, JSON-Schema)
+  │     ├── Few-Shot-Beispiele (aus feedback.json, max. 15)
+  │     ├── Similar-Doc-Hint (letzte 3 Docs desselben Absenders aus DB)
+  │     └── PDF-Text (erste 3000 Zeichen)
+  │
+  ├─► LLM klassifiziert → JSON:
+  │     sender, date, document_type, category, summary, keywords
+  │
+  ├─► Validierung + Normalisierung:
+  │     ├── Datum plausibel? (kein Zukunftsdatum)
+  │     ├── Absender normalisiert (Alias-Matching, Fuzzy)
+  │     ├── Absender-Override (pinned_category / excluded_categories)
+  │     └── Keywords gegen Originaltext validiert (Halluzinationen entfernt)
+  │
+  ├─► DB: upsert_document → keywords update
+  │
+  └─► Datei → TARGET_BASE/{Kategorie}/{Jahr}/{Absender}/
+```
 
 ---
 
-## Web-UI – Seiten & Features
+## Features im Detail
+
+### Automatische Klassifizierung
+- **Absender** – Firma/Organisation, nie der Empfänger (Alexander/Sonja Staiger)
+- **Datum** – aus dem Dokument, nicht das Archivierungsdatum; Zukunftsdaten werden zurückgewiesen
+- **Dokumenttyp** – Rechnung, Vertrag, Bescheid, Kontoauszug u.a. (10 Typen)
+- **Kategorie** – 14 Kategorien (Arbeit, Bank, Versicherung, KFZ, Wohnen …)
+- **Zusammenfassung** – ein Satz auf Deutsch
+- **Keywords** – 5–15 spezifische Begriffe (Beträge, Vertragsnummern, Produktnamen) für FTS5-Suche
+
+### Lernfähigkeit (3 Ebenen)
+
+**1. Few-Shot-Feedback** – jede manuelle Korrektur in der GUI wird in `feedback.json` gespeichert. Beim nächsten PDF bekommt der LLM die 15 aktuellsten Korrekturen als Kontext. Kategorie-Korrekturen werden priorisiert (max. 200 Einträge gesamt).
+
+**2. Similar-Doc-Hint** – vor jeder Klassifizierung sucht das System in der DB nach den letzten 3 Dokumenten desselben Absenders und injiziert sie als Prompt-Kontext. Dadurch klassifiziert es wiederkehrende Rechnungen konsistent. Fallback: keyword-basiertes Kategorie-Matching (z.B. „kWh, Abrechnung" → Energie & Versorgung).
+
+**3. Absender-Overrides** (`senders.json`):
+- `pinned_category` – überschreibt LLM-Entscheidung dauerhaft
+- `excluded_categories` – verhindert, dass der LLM eine entfernte Kategorie erneut wählt
+- `aliases` – alte Absendernamen nach Umbenennung, LLM erkennt sie weiterhin (4-stufiges Matching: exact → alias → fuzzy canonical → fuzzy alias)
+
+### Halluzinations-Filter
+Der LLM neigt dazu, generische Begriffe wie „IBAN" oder „Vertragsnummer" als Keywords zu liefern statt der tatsächlichen Werte. `filter_keywords_against_text()` in `llm.py` prüft jedes Keyword gegen den Originaltext (normalisiert: Umlauts, Groß-/Kleinschreibung) und entfernt alles was nicht wörtlich vorkommt oder auf einer Blocklist steht.
+
+### Absender-Verwaltung
+- **Umbenennen** – alter Name wird als Alias gespeichert, alle DB-Einträge umgeschrieben, LLM erkennt weiterhin
+- **Zusammenführen** – PDFs von Absender A → Ordner von Absender B, DB-Einträge aktualisiert
+- **Reorganisieren** – alle PDFs eines Absenders in den korrekten Kategorie-Ordner verschieben
+- **Kategorie entfernen** – mit Auswahl: belassen / nach Sonstiges / in andere Kategorie / Neu klassifizieren
+- **Bestätigen-Workflow** – neue Absender als „unbestätigt" markiert, Badge in Sidebar, Filteransicht
+
+### Dateisystem-Konsistenz
+- **Scan-Missing** (`POST /monitor/scan-missing`) – prüft alle `ok`-Einträge gegen das Filesystem, markiert fehlende Dateien mit `status='missing'`
+- **Bulk-Delete-Missing** (`DELETE /monitor/missing`) – löscht alle `missing`-Einträge auf einmal; umbenannte Dateien können danach neu eingelesen werden
+- **Orphan-Scan** – findet PDFs im Archivordner ohne DB-Eintrag, ermöglicht Re-Import als `pending`
+- Sidebar-Badge „Datei fehlt" aktualisiert sich alle 15 Sekunden
+
+---
+
+## Web-UI – Seiten
 
 ### Dashboard
-- KPI-Karten: Gesamtzahl, OK, Verschlüsselt, Fehlgeschlagen, Duplikate
+- KPI-Karten: Gesamt / OK / Verschlüsselt / Fehlgeschlagen / Duplikate
 - Balkendiagramm nach Kategorie und Jahr
-- **Ablauf-Widget**: Dokumente die in den nächsten 60 Tagen ablaufen
-- **Steuer-Export**: ZIP-Download aller steuerrelevanten PDFs eines Jahres
+- **Ablauf-Widget** – Dokumente die in ≤ 60 Tagen ablaufen
+- **Steuer-Export** – ZIP-Download aller steuerrelevanten PDFs eines Jahres
 
 ### Dokumente
-- Volltext-Suche + Filter: Kategorie, Jahr, Absender, Status
-- Schnell-Toggle: 🧾 Steuerrelevant / ⏰ Läuft ab / Duplikate
-- Klick auf Zeile → Dokument-Detail
+- Volltext-FTS5-Suche (durchsucht Inhalt, Zusammenfassung, Keywords)
+- Filter: Kategorie / Jahr / Absender / Status
+- **Aktive Filter-Pills** – zeigen aktive Filter, einzeln oder per „Alle löschen" aufhebbar
+- Status-Dropdown: OK / Fehlgeschlagen / Verschlüsselt / Korrupt / Duplikat / **Datei fehlt**
+- Schnell-Toggles: 🧾 Steuer / ⏰ Läuft ab
+- Filter-Links sind URL-basiert (bookmarkbar, Zurück-Button funktioniert)
 
 ### Dokument-Detail
 - PDF-Vorschau direkt im Browser
 - Metadaten-Editor: Absender, Datum, Typ, Kategorie, Zusammenfassung
-- **Tags** (kommagetrennt, als farbige Pills dargestellt)
+- **Tags** (kommagetrennt, als farbige Pills)
 - **Steuer-Flag** + Steuerjahr
 - **Ablaufdatum** (Datepicker)
 - **Notizen** (Freitext)
-- Datei umbenennen (ändert Dateiname auf Disk + DB)
+- Datei umbenennen (Disk + DB synchron)
 - Im Explorer öffnen
-- Aktionen für Problemdokumente: Neu klassifizieren, Löschen inkl. Datei
+- Aktionen: Neu klassifizieren / Löschen inkl. Datei
 
 ### Absender-Manager
-- Tabelle aller bekannten Absender mit Kategorien
-- **Bestätigen-Workflow**: Neue Absender sind als „unbestätigt" markiert (blauer Punkt), Zähler in der Sidebar
-- **Filter „Nicht bestätigt"** – zeigt nur neue, noch nicht geprüfte Absender
-- `pinned_category` per Dropdown setzen (überschreibt LLM dauerhaft)
-- **Kategorie entfernen** – Modal mit 4 Optionen:
-  - Dateien belassen (nur DB-Sperre, LLM wählt diese Kat nie wieder)
-  - In Sonstiges verschieben
-  - In andere Kategorie verschieben
-  - Neu klassifizieren per LLM
-- **Zusammenführen** – verschiebt alle PDFs des Quell-Absenders in den Zielordner und aktualisiert DB
-- **Reorganisieren** – verschiebt alle PDFs eines Absenders in den korrekten Kategorie-Ordner
-- Absender löschen
+- Tabelle mit Absender-Name, **Dokument-Anzahl (Badge, klickbar → gefilterte Liste)**, Kategorien, feste Kategorie
+- **Umbenennen** – Pencil-Icon, Modal mit Erklärung dass alter Name als Alias gespeichert wird
+- **Alias-Pills** – alte Namen werden unter dem aktuellen Namen angezeigt
+- **Kategorie entfernen** – Modal mit 4 Optionen für betroffene Dokumente
+- Zusammenführen, Reorganisieren, Löschen
+- Bestätigen-Workflow (blauer Punkt, Filter, Sidebar-Badge)
 
 ### Monitor
-- Live-Log via Server-Sent Events (SSE), farbkodiert nach Schweregrad
-- **Archiver Start / Stop** – startet `archiver.py` als Subprocess, Output fließt in den Live-Log
-- **Inbox-Panel** (rechts): zeigt alle noch nicht verarbeiteten PDFs in `SOURCE_DIR` mit Größe und Datum, aktualisiert sich alle 5 Sekunden
-- **Orphan-Panel** (ganz rechts): scannt das Archivverzeichnis auf PDFs ohne DB-Eintrag, ermöglicht Auswahl und Re-Import mit Status `pending` zur erneuten LLM-Klassifizierung
+- **Live-Log** via SSE, farbkodiert (grün/gelb/rot nach Schweregrad)
+- **Archiver Start/Stop** – Subprocess-Management, Output direkt im Log
+- **Inbox-Panel** – PDFs in `SOURCE_DIR`, aktualisiert alle 5 Sekunden
+- **Orphan-Panel** – PDFs im Archiv ohne DB-Eintrag, Checkbox-Auswahl, Bulk-Import
+- **Fehlende-Dateien-Panel** – Scan-Button + Liste der `missing`-Einträge + „Alle löschen"-Button
 
 ### Sidebar (global)
-- Badge bei „Absender": Anzahl unbestätigter Absender
-- Badge bei „Monitor": Anzahl PDFs in der Inbox
-- **Schnellfilter**: Duplikate / Fehlgeschlagen / Steuerrelevant / Läuft ab – direkter Sprung in gefilterte Dokumentenliste
-
----
-
-## Lernfähigkeit / Feedback-Loop
-
-Das System lernt auf drei Ebenen:
-
-**1. Few-Shot-Feedback (`feedback.json`)**
-Jede manuelle Korrektur in der GUI wird gespeichert. Der LLM bekommt beim nächsten Dokument die 15 letzten bestätigten Klassifizierungen als Kontext. Kategorie-Korrekturen werden bevorzugt (max. 200 Einträge).
-
-**2. Ähnliche-Dokumente-Hint (DB-basiert)**
-Vor jeder Klassifizierung wird im PDF-Text nach bekannten Absendern gesucht. Wird ein Match gefunden, kommen die letzten 3 Dokumente dieses Absenders als Kontext in den Prompt – das System klassifiziert wiederkehrende Dokumente (z.B. Monatsrechnungen) konsistent. Ohne Absender-Match greift ein keyword-basierter Kategorie-Fallback (z.B. „kWh, Strom" → Energie & Versorgung).
-
-**3. Absender-Overrides (`senders.json`)**
-- `excluded_categories` – verhindert, dass der LLM entfernte Kategorien wieder wählt
-- `pinned_category` – überschreibt LLM-Entscheidung vollständig für einen Absender
-
-**Keyword-Volltextsuche**
-Der LLM extrahiert pro Dokument 5–15 spezifische Suchbegriffe (Beträge, IBANs, Vertragsnummern, Produktnamen). Diese werden gegen den Originaltext validiert – generische Platzhalter und Halluzinationen werden automatisch verworfen. Die Keywords fließen in die FTS5-Volltextsuche ein.
+- Badge „Absender": unbestätigte Absender
+- Badge „Monitor": Anzahl PDFs in Inbox
+- **Schnellfilter**: Duplikate / Fehlgeschlagen / Steuerrelevant / Läuft ab / **Datei fehlt**
+- Alle Schnellfilter sind URL-basiert und landen direkt in der gefilterten Dokumentenliste
 
 ---
 
 ## Projektstruktur
 
-| Datei / Ordner | Beschreibung |
-|---|---|
-| `archiver.py` | Entry-Point, Watchdog, Worker-Thread |
-| `archive.py` | `process_pdf()`, Duplikat-Check, Datei verschieben, Keyword-Validierung |
-| `config.py` | Konstanten, Kategorien, System-Prompt (inkl. Keywords-Feld), Pfade |
-| `db.py` | SQLite-Schema, CRUD, FTS5-Suche (inkl. keywords), Migrationen |
-| `llm.py` | Modell laden, klassifizieren, validieren, Few-Shot + Similar-Doc-Hint, `filter_keywords_against_text` |
-| `storage.py` | `senders.json`, `hashes.json`, Processing-Log |
-| `feedback.py` | Few-Shot-Beispiele sammeln, priorisieren und in LLM-Prompt injizieren |
-| `pdf_utils.py` | Text-Extraktion, OCR, Dateiname-Helpers |
-| `extract_keywords.py` | Batch-Nachextraktion von Keywords für bereits archivierte Dokumente |
-| `api/` | FastAPI-Backend (routes: documents, senders, stats, monitor + orphans) |
-| `frontend/` | React + Vite + TailwindCSS |
-| `tests/` | 92 Unit-Tests (db, storage, feedback, llm, pdf_utils, config, validate) |
-| `senders.json` | Absender-Registry mit Kategorien, pinned_category, excluded_categories |
-| `hashes.json` | SHA256-Hashes für Duplikat-Erkennung |
-| `feedback.json` | Gespeicherte Korrekturen als Few-Shot-Beispiele |
-| `start_all.bat` | Startet Backend + Frontend gleichzeitig (mit Port-Guard) |
+```
+document_processor/
+├── archiver.py          Entry-Point: Watchdog-Loop + Worker-Thread
+├── archive.py           process_pdf(): Text → LLM → DB → Filesystem
+├── llm.py               Modell laden, klassifizieren, normalisieren
+│                          build_similar_docs_hint()
+│                          normalize_sender()  (4-stufig inkl. Aliases)
+│                          filter_keywords_against_text()
+├── config.py            Konstanten, Kategorien, System-Prompt (JSON-Schema)
+├── db.py                SQLite CRUD, FTS5, Migrationen, Schema
+├── storage.py           senders.json, hashes.json, Processing-Log
+├── feedback.py          Few-Shot: sammeln, priorisieren, in Prompt injizieren
+├── pdf_utils.py         Text-Extraktion (PyMuPDF), OCR (Tesseract), Dateinamen
+├── extract_keywords.py  Batch-Nachextraktion für bestehende Dokumente
+├── migrate_to_db.py     Einmalige Migration: Filesystem → SQLite
+│
+├── api/
+│   ├── main.py          FastAPI-App, Router-Registrierung, CORS
+│   ├── models.py        Pydantic-Modelle (Document, SenderEntry, …)
+│   └── routes/
+│       ├── documents.py  CRUD, Suche, Reprocess, Tax-Export, Delete-with-File
+│       ├── senders.py    List, PATCH, Rename, Merge, Reorganize, Remove-Cat, Delete
+│       ├── stats.py      KPI-Aggregation, by_category, by_year, by_status
+│       ├── monitor.py    SSE-Log, Archiver-Control, Inbox, Scan-Missing,
+│       │                  Delete-Missing, Orphan-Scan, Orphan-Import
+│       └── tax.py        ZIP-Export steuerrelevanter PDFs
+│
+├── frontend/
+│   └── src/
+│       ├── App.tsx          Router, Sidebar, Sidebar-Badges (alle 15s)
+│       ├── api.ts           Axios-Wrapper für alle API-Calls
+│       └── pages/
+│           ├── Dashboard.tsx
+│           ├── Documents.tsx     (URL-basierte Filter)
+│           ├── DocumentDetail.tsx
+│           ├── Senders.tsx       (Rename-Modal, Doc-Count-Badge)
+│           └── Monitor.tsx       (SSE, Orphan-Panel, Missing-Panel)
+│
+├── tests/
+│   ├── test_db.py               Basis-CRUD, Suche, Stats
+│   ├── test_db_extended.py      Expiring, Tax, FTS, Keywords
+│   ├── test_storage.py          Sender-Registry, Hash-Registry
+│   ├── test_storage_extended.py Reviewed-Flag, Excluded-Categories
+│   ├── test_feedback.py         Few-Shot Sammlung + Priorisierung
+│   ├── test_llm_utils.py        filter_keywords_against_text
+│   ├── test_pdf_utils.py        Text-Extraktion, Dateinamen
+│   ├── test_config.py           System-Prompt, Kategorien
+│   └── test_validate.py         Klassifizierungs-Validierung
+│
+├── senders.json         Absender-Registry (categories, pinned, excluded, aliases)
+├── hashes.json          SHA256-Hashes für Duplikat-Erkennung (In-Memory)
+├── feedback.json        Gespeicherte Korrekturen für Few-Shot
+├── .env                 Konfiguration (nicht im Repo)
+├── .env.example         Vorlage
+├── requirements.txt     Python-Abhängigkeiten
+└── start_all.bat        Startet Backend + Frontend (mit Port-Guard)
+```
 
 ---
 
-## Archivstruktur
+## Datenbank-Schema (SQLite)
 
+```sql
+CREATE TABLE documents (
+    id            INTEGER PRIMARY KEY,
+    file_path     TEXT UNIQUE NOT NULL,
+    filename      TEXT,
+    sender        TEXT,
+    date          TEXT,              -- YYYY-MM-DD oder YYYY
+    document_type TEXT,
+    category      TEXT,
+    summary       TEXT,
+    keywords      TEXT,              -- kommagetrennt, FTS5-indexiert
+    content_hash  TEXT,
+    status        TEXT DEFAULT 'ok', -- ok | duplicate | classification_failed |
+                                     -- encrypted | corrupt | pending | missing
+    archived_at   TEXT,
+    tags          TEXT,
+    tax_relevant  INTEGER DEFAULT 0,
+    tax_year      TEXT,
+    expires_at    TEXT,
+    notes         TEXT
+);
+
+-- FTS5 Volltext-Index (sender, filename, summary, category, keywords)
+CREATE VIRTUAL TABLE documents_fts USING fts5(...);
 ```
-TARGET_BASE/
-├── 01 - Arbeit & Rente/
-│   └── 2025/
-│       └── Arbeitgeber GmbH/
-│           └── 20250101_Entgeltnachweis.pdf
-├── 02 - Bank & Finanzen/
-│   └── ...
-├── duplicates/     ← Duplikate (Shortcut zum Original)
-├── failed/         ← nicht klassifizierbare PDFs
-├── encrypted/      ← passwortgeschützte PDFs
-└── archive.db      ← SQLite-Datenbank
-```
+
+### Status-Werte
+
+| Status | Bedeutung |
+|---|---|
+| `ok` | Erfolgreich klassifiziert und archiviert |
+| `pending` | Wartet auf (Re-)Klassifizierung |
+| `duplicate` | Inhaltlich identisch mit bestehendem Dokument |
+| `classification_failed` | LLM-Klassifizierung fehlgeschlagen (max. Retries) |
+| `encrypted` | PDF ist passwortgeschützt |
+| `corrupt` | PDF nicht lesbar |
+| `missing` | DB-Eintrag vorhanden, Datei nicht mehr im Filesystem |
 
 ---
 
@@ -212,10 +337,30 @@ TARGET_BASE/
 | 08 | Energie & Versorgung |
 | 09 | Kommunikation |
 | 10 | Einkauf & Bestellungen |
-| 11 | Geraete & Garantie |
-| 12 | Behoerde & Urkunden |
+| 11 | Geräte & Garantie |
+| 12 | Behörde & Urkunden |
 | 13 | Ausbildung & Verein |
 | 14 | Sonstiges |
+
+---
+
+## Archivstruktur
+
+```
+TARGET_BASE/
+├── 01 - Arbeit & Rente/
+│   └── 2025/
+│       └── Arbeitgeber GmbH/
+│           └── 20250101_Entgeltnachweis.pdf
+├── 02 - Bank & Finanzen/
+│   └── 2025/
+│       └── Sparkasse/
+│           └── 20250301_Kontoauszug.pdf
+├── duplicates/          ← Duplikate mit Hash-Unterordner
+├── failed/              ← Klassifizierung fehlgeschlagen
+├── encrypted/           ← passwortgeschützte PDFs
+└── archive.db           ← SQLite-Datenbank
+```
 
 ---
 
@@ -223,17 +368,32 @@ TARGET_BASE/
 
 ```bash
 python -m pytest tests/ -v
-# 92 Tests: db, db_extended, storage, storage_extended, feedback, llm_utils, pdf_utils, config, validate
+# 92 Tests in 9 Dateien
 ```
+
+| Testdatei | Abgedeckte Bereiche |
+|---|---|
+| `test_db.py` | Basis-CRUD, Suche, Stats |
+| `test_db_extended.py` | Expiring, Tax-Docs, FTS-Keywords, Few-Shot-Prio |
+| `test_storage.py` | Sender-Registry, Hash-Registry |
+| `test_storage_extended.py` | `reviewed`-Flag, `excluded_categories` |
+| `test_feedback.py` | Few-Shot sammeln, Kategorie-Priorisierung |
+| `test_llm_utils.py` | `filter_keywords_against_text` (Blocklist, Umlauts, Fuzzy) |
+| `test_pdf_utils.py` | Text-Extraktion, Dateinamen-Generierung |
+| `test_config.py` | System-Prompt, Kategorienliste |
+| `test_validate.py` | Datum-Validierung, Kategorie-Check |
 
 ---
 
 ## Hilfsskripte
 
 ```bash
-# Keywords für alle bestehenden Dokumente nachträglich extrahieren
+# Keywords nachträglich für bestehende Dokumente extrahieren
 python extract_keywords.py              # alle ohne Keywords
 python extract_keywords.py --limit 10  # nur 10 (zum Testen)
-python extract_keywords.py --force     # alle, auch mit vorhandenen Keywords überschreiben
-python extract_keywords.py --dry-run   # zeigt was gemacht würde, ohne zu schreiben
+python extract_keywords.py --force     # auch vorhandene überschreiben
+python extract_keywords.py --dry-run   # zeigt was gemacht würde
+
+# Einmalige Migration: Filesystem-Struktur → SQLite
+python migrate_to_db.py
 ```
