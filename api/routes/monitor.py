@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import time
+from datetime import datetime
 
 aiofiles = None
 try:
@@ -16,6 +17,7 @@ from fastapi.responses import StreamingResponse
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import TARGET_BASE, SOURCE_DIR
+import db
 
 router = APIRouter(prefix="/monitor", tags=["monitor"])
 
@@ -142,3 +144,90 @@ def inbox_preview():
             "modified": time.strftime("%Y-%m-%d %H:%M", time.localtime(stat.st_mtime)),
         })
     return {"source_dir": SOURCE_DIR, "files": files}
+
+
+@router.get("/orphans")
+def scan_orphans():
+    """
+    Scan TARGET_BASE for PDFs that have no matching DB entry (by file_path).
+    Excludes SOURCE_DIR, duplicates/, failed/, encrypted/ folders.
+    """
+    EXCLUDE_DIRS = {"duplicates", "failed", "encrypted"}
+
+    # Get all known file paths from DB
+    all_docs = db.search_documents(limit=99999)
+    known_paths = {os.path.normcase(os.path.normpath(d["file_path"])) for d in all_docs if d.get("file_path")}
+
+    orphans = []
+    for root, dirs, files in os.walk(TARGET_BASE):
+        # Skip excluded top-level dirs
+        rel = os.path.relpath(root, TARGET_BASE)
+        top = rel.split(os.sep)[0]
+        if top in EXCLUDE_DIRS:
+            dirs.clear()
+            continue
+        # Skip SOURCE_DIR
+        if os.path.normcase(os.path.normpath(root)).startswith(
+            os.path.normcase(os.path.normpath(SOURCE_DIR))
+        ):
+            dirs.clear()
+            continue
+
+        for fname in files:
+            if not fname.lower().endswith(".pdf"):
+                continue
+            fpath = os.path.join(root, fname)
+            norm = os.path.normcase(os.path.normpath(fpath))
+            if norm not in known_paths:
+                stat = os.stat(fpath)
+                # Try to infer category from folder name
+                parts = rel.split(os.sep)
+                category_hint = parts[0] if parts else ""
+                orphans.append({
+                    "file_path": fpath,
+                    "filename": fname,
+                    "folder": rel,
+                    "category_hint": category_hint,
+                    "size_kb": round(stat.st_size / 1024, 1),
+                    "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d"),
+                })
+
+    orphans.sort(key=lambda x: x["modified"], reverse=True)
+    return {"count": len(orphans), "orphans": orphans}
+
+
+@router.post("/orphans/import")
+def import_orphans(body: dict):
+    """
+    Import selected orphan PDFs into the DB with status='pending'.
+    body: { "paths": ["/path/to/file.pdf", ...] }
+    The archiver will pick them up on next run for LLM classification.
+    """
+    paths = body.get("paths", [])
+    if not paths:
+        raise HTTPException(status_code=400, detail="Keine Pfade angegeben")
+
+    imported, skipped, errors = 0, 0, []
+    for fpath in paths:
+        if not os.path.exists(fpath):
+            errors.append(f"Nicht gefunden: {fpath}")
+            continue
+        fname = os.path.basename(fpath)
+        try:
+            db.upsert_document(
+                file_path=fpath,
+                filename=fname,
+                sender=None,
+                date=None,
+                document_type=None,
+                category=None,
+                summary=None,
+                status="pending",
+            )
+            imported += 1
+        except Exception as e:
+            # Likely already exists with different path – skip
+            skipped += 1
+            errors.append(f"{fname}: {e}")
+
+    return {"imported": imported, "skipped": skipped, "errors": errors}

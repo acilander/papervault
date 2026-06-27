@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Circle, RefreshCw, Play, Square, Inbox, FileText } from 'lucide-react'
+import { Circle, RefreshCw, Play, Square, Inbox, FileText, AlertCircle } from 'lucide-react'
 import axios from 'axios'
+import { scanOrphans, importOrphans } from '../api'
 
 interface LogLine { id: number; text: string; ts: string }
 interface InboxFile { filename: string; size_kb: number; modified: string }
 interface InboxData { source_dir: string; files: InboxFile[]; error?: string }
 interface ArchiverStatus { running: boolean; pid: number | null }
+interface Orphan { file_path: string; filename: string; folder: string; category_hint: string; size_kb: number; modified: string }
 
 export default function Monitor() {
   const [lines, setLines] = useState<LogLine[]>([])
@@ -14,6 +16,9 @@ export default function Monitor() {
   const [archiver, setArchiver] = useState<ArchiverStatus>({ running: false, pid: null })
   const [inbox, setInbox] = useState<InboxData | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
+  const [orphans, setOrphans] = useState<Orphan[] | null>(null)
+  const [orphanBusy, setOrphanBusy] = useState(false)
+  const [selectedOrphans, setSelectedOrphans] = useState<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
   const esRef = useRef<EventSource | null>(null)
   const counterRef = useRef(0)
@@ -81,6 +86,38 @@ export default function Monitor() {
     } catch (e: any) {
       alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
     } finally { setActionBusy(false) }
+  }
+
+  const handleOrphanScan = async () => {
+    setOrphanBusy(true)
+    try {
+      const res = await scanOrphans()
+      setOrphans(res.orphans)
+      setSelectedOrphans(new Set())
+    } catch (e: any) {
+      alert('Scan-Fehler: ' + (e?.response?.data?.detail ?? e.message))
+    } finally { setOrphanBusy(false) }
+  }
+
+  const handleOrphanImport = async () => {
+    if (selectedOrphans.size === 0) return
+    if (!confirm(`${selectedOrphans.size} Datei(en) in DB importieren? Status wird auf "pending" gesetzt – der Archiver klassifiziert sie neu.`)) return
+    setOrphanBusy(true)
+    try {
+      const res = await importOrphans(Array.from(selectedOrphans))
+      alert(`✓ ${res.imported} importiert, ${res.skipped} übersprungen.` + (res.errors.length ? `\n${res.errors.join('\n')}` : ''))
+      await handleOrphanScan()
+    } catch (e: any) {
+      alert('Import-Fehler: ' + (e?.response?.data?.detail ?? e.message))
+    } finally { setOrphanBusy(false) }
+  }
+
+  const toggleOrphan = (path: string) => {
+    setSelectedOrphans(prev => {
+      const s = new Set(prev)
+      s.has(path) ? s.delete(path) : s.add(path)
+      return s
+    })
   }
 
   const levelColor = (text: string) => {
@@ -193,6 +230,64 @@ export default function Monitor() {
             <p className="text-xs text-gray-400 truncate" title={inbox.source_dir}>📁 {inbox.source_dir}</p>
           </div>
         )}
+      </div>
+
+      {/* Orphan panel */}
+      <div className="w-80 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col">
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center gap-2">
+          <AlertCircle size={14} className="text-orange-500" />
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Orphan-Dateien</h3>
+          {orphans !== null && (
+            <span className={`ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              orphans.length > 0 ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'
+            }`}>{orphans.length}</span>
+          )}
+        </div>
+
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 space-y-2">
+          <button onClick={handleOrphanScan} disabled={orphanBusy}
+            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs rounded-lg disabled:opacity-50 transition-colors">
+            <RefreshCw size={12} className={orphanBusy ? 'animate-spin' : ''} />
+            {orphanBusy ? 'Scanne…' : 'Archiv scannen'}
+          </button>
+          {orphans !== null && orphans.length === 0 && (
+            <p className="text-xs text-green-600 dark:text-green-400 text-center">✓ Keine Orphans gefunden</p>
+          )}
+          {selectedOrphans.size > 0 && (
+            <button onClick={handleOrphanImport} disabled={orphanBusy}
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg disabled:opacity-50 transition-colors">
+              {selectedOrphans.size} ausgewählte importieren
+            </button>
+          )}
+          {orphans !== null && orphans.length > 0 && (
+            <div className="flex gap-2">
+              <button onClick={() => setSelectedOrphans(new Set(orphans.map(o => o.file_path)))}
+                className="flex-1 text-xs text-blue-600 hover:underline">Alle wählen</button>
+              <button onClick={() => setSelectedOrphans(new Set())}
+                className="flex-1 text-xs text-gray-400 hover:underline">Keinen</button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-800">
+          {orphans === null && (
+            <p className="px-4 py-6 text-xs text-gray-400 text-center">Scan starten um Orphan-Dateien zu finden</p>
+          )}
+          {orphans?.map(o => (
+            <label key={o.file_path} className={`flex items-start gap-2 px-4 py-2.5 cursor-pointer transition-colors ${
+              selectedOrphans.has(o.file_path) ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}>
+              <input type="checkbox" checked={selectedOrphans.has(o.file_path)}
+                onChange={() => toggleOrphan(o.file_path)}
+                className="mt-0.5 accent-blue-600" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate" title={o.filename}>{o.filename}</p>
+                <p className="text-xs text-gray-400 truncate" title={o.folder}>{o.folder}</p>
+                <p className="text-xs text-gray-400">{o.size_kb} KB · {o.modified}</p>
+              </div>
+            </label>
+          ))}
+        </div>
       </div>
 
     </div>

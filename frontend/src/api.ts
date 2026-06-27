@@ -119,4 +119,14 @@ export const reorganizeSender = (name: string) =>
     `/senders/${encodeURIComponent(name)}/reorganize`
   ).then(r => r.data)
 
+export const scanOrphans = () =>
+  api.get<{ count: number; orphans: { file_path: string; filename: string; folder: string; category_hint: string; size_kb: number; modified: string }[] }>(
+    '/monitor/orphans'
+  ).then(r => r.data)
+
+export const importOrphans = (paths: string[]) =>
+  api.post<{ imported: number; skipped: number; errors: string[] }>(
+    '/monitor/orphans/import', { paths }
+  ).then(r => r.data)
+
 export const pdfUrl = (id: number) => `/documents/${id}/file`
