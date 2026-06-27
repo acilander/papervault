@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil } from 'lucide-react'
-import { getSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, type SenderEntry } from '../api'
+import { getSenders, getSenderCounts, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, type SenderEntry } from '../api'
 
 const CATEGORIES = [
   'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'KFZ',
@@ -10,7 +11,9 @@ const CATEGORIES = [
 ]
 
 export default function Senders() {
+  const navigate = useNavigate()
   const [senders, setSenders] = useState<Record<string, SenderEntry>>({})
+  const [counts, setCounts] = useState<Record<string, number>>({})
   const [q, setQ] = useState('')
   const [showUnreviewed, setShowUnreviewed] = useState(false)
   const [mergeTarget, setMergeTarget] = useState<Record<string, string>>({})
@@ -23,7 +26,7 @@ export default function Senders() {
   const [renameValue, setRenameValue] = useState('')
   const [renameBusy, setRenameBusy] = useState(false)
 
-  const load = () => getSenders().then(setSenders)
+  const load = () => Promise.all([getSenders().then(setSenders), getSenderCounts().then(setCounts)])
   useEffect(() => { load() }, [])
 
   const unreviewedCount = Object.values(senders).filter(e => e.reviewed === false).length
@@ -132,6 +135,7 @@ export default function Senders() {
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-800 text-left text-xs text-gray-500 dark:text-gray-400">
               <th className="px-4 py-2 font-medium">Absender</th>
+              <th className="px-4 py-2 font-medium text-center">Dokumente</th>
               <th className="px-4 py-2 font-medium">Kategorien</th>
               <th className="px-4 py-2 font-medium">Feste Kategorie</th>
               <th className="px-4 py-2 font-medium">Zusammenführen mit</th>
@@ -161,6 +165,19 @@ export default function Senders() {
                       )}
                     </div>
                   </div>
+                </td>
+                <td className="px-4 py-2 text-center">
+                  {counts[name] != null ? (
+                    <button
+                      onClick={() => navigate(`/documents?sender=${encodeURIComponent(name)}`)}
+                      className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                      title={`${counts[name]} Dokumente von ${name} anzeigen`}
+                    >
+                      {counts[name]}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-300 dark:text-gray-600">–</span>
+                  )}
                 </td>
                 <td className="px-4 py-2">
                   <div className="flex flex-wrap gap-1">

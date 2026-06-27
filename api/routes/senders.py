@@ -24,6 +24,16 @@ def list_senders():
     return storage.sender_registry
 
 
+@router.get("/counts")
+def sender_counts():
+    """Return document count per sender in one query."""
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            "SELECT sender, COUNT(*) as cnt FROM documents WHERE status='ok' GROUP BY sender"
+        ).fetchall()
+    return {row["sender"]: row["cnt"] for row in rows if row["sender"]}
+
+
 @router.get("/{name}", response_model=SenderEntry)
 def get_sender(name: str):
     if name not in storage.sender_registry:

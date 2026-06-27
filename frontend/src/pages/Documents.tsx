@@ -24,13 +24,13 @@ export default function Documents() {
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
   const [year, setYear] = useState('')
-  const [sender, setSender] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Derive filter state directly from URL so sidebar quick-links always work
+  // Derive filter state directly from URL so sidebar quick-links and cross-page navigation work
   const status = searchParams.get('status') ?? ''
   const taxFilter = searchParams.get('tax') === '1'
   const expiresFilter = searchParams.get('expires') === '1'
+  const sender = searchParams.get('sender') ?? ''
 
   const setStatus = (v: string) => {
     const p = new URLSearchParams(searchParams)
@@ -50,11 +50,16 @@ export default function Documents() {
     setSearchParams(p, { replace: true })
   }
 
+  const setSender = (v: string) => {
+    const p = new URLSearchParams(searchParams)
+    v ? p.set('sender', v) : p.delete('sender')
+    setSearchParams(p, { replace: true })
+  }
+
   const resetAll = () => {
     setQ('')
     setCategory('')
     setYear('')
-    setSender('')
     setSearchParams({}, { replace: true })
   }
 

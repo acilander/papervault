@@ -94,6 +94,9 @@ export const deleteDocumentWithFile = (id: number) =>
 export const getSenders = () =>
   api.get<Record<string, SenderEntry>>('/senders/').then(r => r.data)
 
+export const getSenderCounts = () =>
+  api.get<Record<string, number>>('/senders/counts').then(r => r.data)
+
 export const updateSender = (name: string, body: { pinned_category?: string | null; categories?: string[]; reviewed?: boolean }) =>
   api.patch<SenderEntry>(`/senders/${encodeURIComponent(name)}`, body).then(r => r.data)
 
