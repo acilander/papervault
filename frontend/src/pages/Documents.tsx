@@ -19,16 +19,44 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function Documents() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [docs, setDocs] = useState<Document[]>([])
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
   const [year, setYear] = useState('')
   const [sender, setSender] = useState('')
-  const [status, setStatus] = useState(() => searchParams.get('status') ?? '')
-  const [taxFilter, setTaxFilter] = useState(() => searchParams.get('tax') === '1')
-  const [expiresFilter, setExpiresFilter] = useState(() => searchParams.get('expires') === '1')
   const [loading, setLoading] = useState(false)
+
+  // Derive filter state directly from URL so sidebar quick-links always work
+  const status = searchParams.get('status') ?? ''
+  const taxFilter = searchParams.get('tax') === '1'
+  const expiresFilter = searchParams.get('expires') === '1'
+
+  const setStatus = (v: string) => {
+    const p = new URLSearchParams(searchParams)
+    v ? p.set('status', v) : p.delete('status')
+    setSearchParams(p, { replace: true })
+  }
+  const setTaxFilter = (fn: (prev: boolean) => boolean) => {
+    const next = fn(taxFilter)
+    const p = new URLSearchParams(searchParams)
+    next ? p.set('tax', '1') : p.delete('tax')
+    setSearchParams(p, { replace: true })
+  }
+  const setExpiresFilter = (fn: (prev: boolean) => boolean) => {
+    const next = fn(expiresFilter)
+    const p = new URLSearchParams(searchParams)
+    next ? p.set('expires', '1') : p.delete('expires')
+    setSearchParams(p, { replace: true })
+  }
+
+  const resetAll = () => {
+    setQ('')
+    setCategory('')
+    setYear('')
+    setSender('')
+    setSearchParams({}, { replace: true })
+  }
 
   const load = useCallback(() => {
     setLoading(true)
@@ -99,7 +127,42 @@ export default function Documents() {
           className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
           Suchen
         </button>
+        {(status || taxFilter || expiresFilter || q || category || year || sender) && (
+          <button onClick={resetAll}
+            className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            ✕ Zurücksetzen
+          </button>
+        )}
       </div>
+
+      {/* Active filter pills */}
+      {(status || taxFilter || expiresFilter) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-400">Aktive Filter:</span>
+          {status && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs">
+              Status: {status}
+              <button onClick={() => setStatus('')} className="hover:text-blue-900 dark:hover:text-blue-100 leading-none">✕</button>
+            </span>
+          )}
+          {taxFilter && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full text-xs">
+              🧾 Steuerrelevant
+              <button onClick={() => setTaxFilter(() => false)} className="hover:text-yellow-900 leading-none">✕</button>
+            </span>
+          )}
+          {expiresFilter && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs">
+              ⏰ Läuft ab (60 Tage)
+              <button onClick={() => setExpiresFilter(() => false)} className="hover:text-red-900 leading-none">✕</button>
+            </span>
+          )}
+          <button onClick={resetAll}
+            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline ml-1">
+            Alle löschen
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
