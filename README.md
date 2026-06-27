@@ -99,6 +99,32 @@ python reorganize_archive.py --dry-run
 python reorganize_archive.py --run
 ```
 
+## Future Features
+
+### Phase 3: React Web-UI
+Vollwertige Browser-Oberfläche auf Basis von Vite + React + TypeScript + TailwindCSS + shadcn/ui.
+
+Geplante Seiten:
+- **Dashboard** – Gesamtzahl Dokumente, Balkendiagramm nach Kategorie, letzte 10 archivierten Dokumente
+- **Dokumente** – Tabelle mit Suchfeld + Filter (Kategorie, Jahr, Sender), Klick öffnet Detail
+- **Dokument-Detail** – PDF-Vorschau im Browser, Metadaten-Editor (Kategorie/Sender/Datum korrigieren), Button „Im Explorer öffnen"
+- **Sender-Manager** – Tabelle aller Absender, `pinned_category` per Dropdown setzen, Absender zusammenführen
+
+Start:
+```bash
+# Terminal 1
+python -m uvicorn api.main:app --port 8000
+
+# Terminal 2
+cd frontend && npm run dev   # → http://localhost:5173
+```
+
+### Phase 4: Archiver-Monitor
+- Live-Log des Archivers via Server-Sent Events (SSE)
+- PDFs aus `failed/` direkt aus der UI neu verarbeiten (Retry-Button)
+
+---
+
 ## Kategorien
 
 | # | Kategorie |
