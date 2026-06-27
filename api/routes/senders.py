@@ -1,11 +1,15 @@
+import json
 import os
+import shutil
 import sys
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+import db
 import storage
+from config import TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, SENDERS_FILE
 from api.models import SenderEntry, SenderUpdate
 
 router = APIRouter(prefix="/senders", tags=["senders"])
@@ -36,6 +40,10 @@ def update_sender(name: str, body: SenderUpdate):
         entry["pinned_category"] = body.pinned_category or None
     if body.categories is not None:
         entry["categories"] = body.categories
+    if body.reviewed is not None:
+        entry["reviewed"] = body.reviewed
+    if body.excluded_categories is not None:
+        entry["excluded_categories"] = body.excluded_categories
     # persist
     import json
     from config import SENDERS_FILE
@@ -44,9 +52,9 @@ def update_sender(name: str, body: SenderUpdate):
     return entry
 
 
-@router.post("/{name}/merge/{target}", response_model=SenderEntry)
+@router.post("/{name}/merge/{target}")
 def merge_sender(name: str, target: str):
-    """Merge 'name' into 'target': combine categories, delete 'name'."""
+    """Merge 'name' into 'target': combine categories, move PDFs, reassign DB entries."""
     if name not in storage.sender_registry:
         raise HTTPException(status_code=404, detail=f"Absender '{name}' nicht gefunden")
     if target not in storage.sender_registry:
@@ -55,6 +63,7 @@ def merge_sender(name: str, target: str):
     src = storage.sender_registry[name]
     dst = storage.sender_registry[target]
 
+    # Merge categories
     for cat in src["categories"]:
         if cat not in dst["categories"]:
             dst["categories"].append(cat)
@@ -63,14 +72,61 @@ def merge_sender(name: str, target: str):
     if not dst["pinned_category"] and src.get("pinned_category"):
         dst["pinned_category"] = src["pinned_category"]
 
-    del storage.sender_registry[name]
+    # Merge excluded_categories
+    src_excl = src.get("excluded_categories", [])
+    dst_excl = dst.get("excluded_categories", [])
+    for e in src_excl:
+        if e not in dst_excl:
+            dst_excl.append(e)
+    dst["excluded_categories"] = dst_excl
 
-    import json
-    from config import SENDERS_FILE
+    # Determine target category for file placement
+    dest_cat = dst.get("pinned_category") or (dst["categories"][0] if dst["categories"] else "Sonstiges")
+    dest_folder = CATEGORY_FOLDER_MAP.get(dest_cat, "14 - Sonstiges")
+    dest_dir = os.path.join(TARGET_BASE, dest_folder, target) if SENDER_SUBFOLDERS else os.path.join(TARGET_BASE, dest_folder)
+    os.makedirs(dest_dir, exist_ok=True)
+
+    # Move all PDFs of source sender and reassign in DB
+    docs = db.search_documents(sender=name, limit=500)
+    moved, skipped, errors = 0, 0, []
+
+    for doc in docs:
+        src_path = doc["file_path"]
+        # Update sender name in DB regardless of file existence
+        new_category = dest_cat if doc.get("status") == "ok" else doc.get("category")
+        if doc.get("status") == "ok" and os.path.exists(src_path):
+            dest_path = os.path.join(dest_dir, os.path.basename(src_path))
+            if os.path.abspath(src_path) != os.path.abspath(dest_path):
+                if os.path.exists(dest_path):
+                    base, ext = os.path.splitext(os.path.basename(src_path))
+                    dest_path = os.path.join(dest_dir, f"{base}_1{ext}")
+                try:
+                    shutil.move(src_path, dest_path)
+                    db.update_document(doc["id"], sender=target, category=new_category, file_path=dest_path)
+                    moved += 1
+                except Exception as e:
+                    errors.append(f"{os.path.basename(src_path)}: {e}")
+                    db.update_document(doc["id"], sender=target)
+            else:
+                db.update_document(doc["id"], sender=target, category=new_category)
+                skipped += 1
+        else:
+            db.update_document(doc["id"], sender=target)
+            skipped += 1
+
+    # Remove source sender from registry
+    del storage.sender_registry[name]
     with open(SENDERS_FILE, "w", encoding="utf-8") as f:
         json.dump(dict(sorted(storage.sender_registry.items())), f, ensure_ascii=False, indent=2)
 
-    return dst
+    return {
+        "merged_into": target,
+        "moved": moved,
+        "skipped": skipped,
+        "errors": errors,
+        "dest_dir": dest_dir,
+        "entry": dst,
+    }
 
 
 @router.delete("/{name}", status_code=204)
@@ -78,7 +134,139 @@ def delete_sender(name: str):
     if name not in storage.sender_registry:
         raise HTTPException(status_code=404, detail="Absender nicht gefunden")
     del storage.sender_registry[name]
-    import json
-    from config import SENDERS_FILE
     with open(SENDERS_FILE, "w", encoding="utf-8") as f:
         json.dump(dict(sorted(storage.sender_registry.items())), f, ensure_ascii=False, indent=2)
+
+
+@router.post("/{name}/remove-category")
+def remove_category(name: str, body: dict):
+    """
+    Remove a category from a sender with optional action on affected documents.
+    body: {
+      category: str,
+      action: 'keep' | 'sonstiges' | 'reclassify' | 'move',
+      target_category: str  (only for action='move')
+    }
+    Returns count of affected documents and what was done.
+    """
+    if name not in storage.sender_registry:
+        raise HTTPException(status_code=404, detail="Absender nicht gefunden")
+
+    category = body.get("category")
+    action = body.get("action", "keep")
+    target_category = body.get("target_category", "Sonstiges")
+
+    if not category:
+        raise HTTPException(status_code=400, detail="Keine Kategorie angegeben")
+
+    entry = storage.sender_registry[name]
+
+    # Remove from categories list
+    entry["categories"] = [c for c in entry["categories"] if c != category]
+
+    # Add to excluded so LLM won't pick it again
+    excluded = entry.get("excluded_categories", [])
+    if category not in excluded:
+        excluded.append(category)
+    entry["excluded_categories"] = excluded
+
+    # Clear pinned if it was this category
+    if entry.get("pinned_category") == category:
+        entry["pinned_category"] = None
+
+    # Save sender registry
+    with open(SENDERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(dict(sorted(storage.sender_registry.items())), f, ensure_ascii=False, indent=2)
+
+    # Handle affected documents
+    docs = db.search_documents(sender=name, status="ok", limit=500)
+    affected = [d for d in docs if d.get("category") == category]
+    moved, errors = 0, []
+
+    if action == "keep":
+        pass  # Leave files in place
+
+    elif action in ("sonstiges", "move"):
+        dest_cat = "Sonstiges" if action == "sonstiges" else target_category
+        if dest_cat not in CATEGORY_FOLDER_MAP:
+            raise HTTPException(status_code=400, detail=f"Unbekannte Zielkategorie: {dest_cat}")
+        cat_folder = os.path.join(TARGET_BASE, CATEGORY_FOLDER_MAP[dest_cat])
+        dest_dir = os.path.join(cat_folder, name) if SENDER_SUBFOLDERS else cat_folder
+        os.makedirs(dest_dir, exist_ok=True)
+        for doc in affected:
+            src = doc["file_path"]
+            if not os.path.exists(src):
+                continue
+            dest = os.path.join(dest_dir, os.path.basename(src))
+            if os.path.exists(dest):
+                base, ext = os.path.splitext(os.path.basename(src))
+                dest = os.path.join(dest_dir, f"{base}_1{ext}")
+            try:
+                shutil.move(src, dest)
+                db.update_document(doc["id"], file_path=dest, category=dest_cat)
+                moved += 1
+            except Exception as e:
+                errors.append(str(e))
+
+    elif action == "reclassify":
+        # Reset status to pending – reprocess endpoint handles the rest
+        for doc in affected:
+            db.update_document(doc["id"], status="pending", category=None)
+        moved = len(affected)
+
+    return {
+        "affected": len(affected),
+        "action": action,
+        "moved": moved,
+        "errors": errors,
+    }
+
+
+@router.post("/{name}/reorganize")
+def reorganize_sender(name: str):
+    """Move all PDFs of a sender into the folder matching their current category."""
+    if name not in storage.sender_registry:
+        raise HTTPException(status_code=404, detail="Absender nicht gefunden")
+
+    entry = storage.sender_registry[name]
+    target_category = entry.get("pinned_category") or (entry["categories"][0] if entry["categories"] else None)
+    if not target_category:
+        raise HTTPException(status_code=400, detail="Kein Kategorie für diesen Absender festgelegt")
+    if target_category not in CATEGORY_FOLDER_MAP:
+        raise HTTPException(status_code=400, detail=f"Unbekannte Kategorie: {target_category}")
+
+    cat_folder = os.path.join(TARGET_BASE, CATEGORY_FOLDER_MAP[target_category])
+    if SENDER_SUBFOLDERS:
+        dest_dir = os.path.join(cat_folder, name)
+    else:
+        dest_dir = cat_folder
+    os.makedirs(dest_dir, exist_ok=True)
+
+    docs = db.search_documents(sender=name, limit=500)
+    moved, skipped, errors = 0, 0, []
+
+    for doc in docs:
+        if doc["status"] != "ok":
+            skipped += 1
+            continue
+        src = doc["file_path"]
+        if not os.path.exists(src):
+            skipped += 1
+            continue
+        # Already in the right place?
+        if os.path.abspath(os.path.dirname(src)) == os.path.abspath(dest_dir):
+            skipped += 1
+            continue
+        dest = os.path.join(dest_dir, os.path.basename(src))
+        # Avoid overwrite
+        if os.path.exists(dest):
+            base, ext = os.path.splitext(os.path.basename(src))
+            dest = os.path.join(dest_dir, f"{base}_1{ext}")
+        try:
+            shutil.move(src, dest)
+            db.update_document(doc["id"], file_path=dest, category=target_category)
+            moved += 1
+        except Exception as e:
+            errors.append(f"{os.path.basename(src)}: {e}")
+
+    return {"moved": moved, "skipped": skipped, "errors": errors, "dest_dir": dest_dir}
