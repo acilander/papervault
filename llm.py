@@ -12,6 +12,7 @@ from config import (
     OWNER_NAMES, TYPE_CATEGORY_MAP, SYSTEM_PROMPT,
 )
 import storage
+import feedback as fb
 
 _llm = None
 
@@ -115,9 +116,11 @@ def classify_document(safe_text, filename=None):
     else:
         filename_hint = ""
 
+    few_shot_hint = fb.build_few_shot_prompt(n=15)
+
     base_messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}\n\n{safe_text}"},
+        {"role": "user", "content": f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}{few_shot_hint}\n\n{safe_text}"},
     ]
     feedback = None
 

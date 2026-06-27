@@ -92,7 +92,7 @@ def record_sender(category, sender):
         return
     changed = False
     if sender not in sender_registry:
-        sender_registry[sender] = {"categories": [], "pinned_category": None}
+        sender_registry[sender] = {"categories": [], "pinned_category": None, "reviewed": False, "excluded_categories": []}
         changed = True
     entry = sender_registry[sender]
     if category not in entry["categories"]:
@@ -111,9 +111,15 @@ def apply_sender_overrides(data):
     sender = data.get("sender")
     if not sender or sender not in sender_registry:
         return data
-    pinned = sender_registry[sender].get("pinned_category")
+    entry = sender_registry[sender]
+    pinned = entry.get("pinned_category")
+    excluded = entry.get("excluded_categories", [])
     if pinned and pinned in CATEGORIES:
         if data.get("category") != pinned:
             log(f"Kategorie durch Absender-Register ueberschrieben: '{data['category']}' -> '{pinned}' (Absender: {sender})")
             data["category"] = pinned
+    elif excluded and data.get("category") in excluded:
+        fallback = next((c for c in entry.get("categories", []) if c not in excluded), "Sonstiges")
+        log(f"Kategorie '{data['category']}' ist gesperrt fuer '{sender}', verwende '{fallback}'")
+        data["category"] = fallback
     return data
