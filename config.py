@@ -27,6 +27,7 @@ FAILED_DIR     = os.path.join(TARGET_BASE, "failed")
 ENCRYPTED_DIR  = os.path.join(TARGET_BASE, "encrypted")
 SENDERS_FILE   = os.path.join(_HERE, "senders.json")
 HASHES_FILE    = os.path.join(_HERE, "hashes.json")
+FEEDBACK_FILE  = os.path.join(_HERE, "feedback.json")
 LOG_FILE       = os.path.join(TARGET_BASE, "processing_log.jsonl")
 DB_PATH        = os.getenv("DB_PATH", os.path.join(TARGET_BASE, "archive.db"))
 

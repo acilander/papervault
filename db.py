@@ -66,10 +66,25 @@ END;
 """
 
 
+MIGRATIONS = [
+    "ALTER TABLE documents ADD COLUMN tags TEXT DEFAULT ''",
+    "ALTER TABLE documents ADD COLUMN tax_relevant INTEGER DEFAULT 0",
+    "ALTER TABLE documents ADD COLUMN tax_year TEXT",
+    "ALTER TABLE documents ADD COLUMN expires_at TEXT",
+    "ALTER TABLE documents ADD COLUMN notes TEXT",
+]
+
+
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH) if os.path.dirname(DB_PATH) else ".", exist_ok=True)
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        # Run additive migrations (safe to re-run – ignore 'duplicate column' errors)
+        for migration in MIGRATIONS:
+            try:
+                conn.execute(migration)
+            except Exception:
+                pass
 
 
 def upsert_document(file_path, filename, sender, date, document_type,
@@ -99,7 +114,8 @@ def get_document(doc_id):
 
 
 def update_document(doc_id, **fields):
-    allowed = {"sender", "date", "document_type", "category", "summary", "status", "file_path", "filename"}
+    allowed = {"sender", "date", "document_type", "category", "summary", "status",
+               "file_path", "filename", "tags", "tax_relevant", "tax_year", "expires_at", "notes"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
@@ -110,7 +126,7 @@ def update_document(doc_id, **fields):
 
 
 def search_documents(query=None, category=None, year=None, sender=None,
-                     status=None, limit=100, offset=0):
+                     status=None, tax_relevant=None, tag=None, limit=100, offset=0):
     """Full-text search + optional filters. Returns list of dicts."""
     with get_conn() as conn:
         if query:
@@ -136,6 +152,12 @@ def search_documents(query=None, category=None, year=None, sender=None,
         if status:
             sql += " AND status = ?"
             params.append(status)
+        if tax_relevant is not None:
+            sql += " AND tax_relevant = ?"
+            params.append(int(tax_relevant))
+        if tag:
+            sql += " AND tags LIKE ?"
+            params.append(f"%{tag}%")
 
         sql += " ORDER BY archived_at DESC LIMIT ? OFFSET ?"
         params += [limit, offset]
@@ -183,3 +205,31 @@ def get_stats():
 def delete_document(doc_id):
     with get_conn() as conn:
         conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+
+
+def get_expiring_documents(days=30):
+    """Return documents whose expires_at is within the next `days` days."""
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT * FROM documents
+            WHERE expires_at IS NOT NULL AND expires_at != ''
+              AND expires_at <= date('now', ? || ' days')
+              AND expires_at >= date('now')
+            ORDER BY expires_at ASC
+        """, (f"+{days}",)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_tax_documents(year=None):
+    """Return all tax-relevant documents, optionally filtered by tax_year."""
+    with get_conn() as conn:
+        if year:
+            rows = conn.execute(
+                "SELECT * FROM documents WHERE tax_relevant = 1 AND tax_year = ? ORDER BY date",
+                (str(year),)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM documents WHERE tax_relevant = 1 ORDER BY tax_year DESC, date"
+            ).fetchall()
+        return [dict(r) for r in rows]
