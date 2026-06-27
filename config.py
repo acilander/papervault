@@ -76,7 +76,8 @@ JSON-Schema (alle Felder sind Pflicht):
   "date": "Dokumentdatum im Format YYYY-MM-DD, oder YYYY wenn nur Jahr bekannt, oder null",
   "document_type": "einer der erlaubten Typen (s.u.)",
   "category": "eine der erlaubten Kategorien (s.u.)",
-  "summary": "Ein Satz auf Deutsch worum es in dem Dokument geht"
+  "summary": "Ein Satz auf Deutsch worum es in dem Dokument geht",
+  "keywords": "5-15 relevante Suchbegriffe aus dem Dokument, kommagetrennt (z.B. Betraege, Vertragsnummern, Produktnamen, Orte, spezifische Begriffe)"
 }
 
 Erlaubte Werte fuer document_type:
@@ -91,4 +92,5 @@ Wichtige Regeln:
 - Der Archivinhaber ist Alexander Staiger oder Sonja Staiger. Diese sind EMPFAENGER, niemals Absender.
 - 'sender' muss eine Firma, Behoerde oder Organisation sein, nicht eine Privatperson.
 - 'date' muss ein reales Datum sein. Das aktuelle Jahr ist {current_year}. Zukuenftige Jahre sind ungueltig.
-- 'summary' muss mindestens einen vollstaendigen Satz enthalten."""
+- 'summary' muss mindestens einen vollstaendigen Satz enthalten.
+- 'keywords' sollen spezifische, durchsuchbare Begriffe sein (keine allgemeinen Woerter wie 'Dokument' oder 'Brief')."""

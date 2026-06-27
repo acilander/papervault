@@ -43,25 +43,25 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
-    filename, sender, summary,
+    filename, sender, summary, keywords,
     content=documents, content_rowid=id
 );
 
 CREATE TRIGGER IF NOT EXISTS documents_ai AFTER INSERT ON documents BEGIN
-    INSERT INTO documents_fts(rowid, filename, sender, summary)
-    VALUES (new.id, new.filename, new.sender, new.summary);
+    INSERT INTO documents_fts(rowid, filename, sender, summary, keywords)
+    VALUES (new.id, new.filename, new.sender, new.summary, new.keywords);
 END;
 
 CREATE TRIGGER IF NOT EXISTS documents_au AFTER UPDATE ON documents BEGIN
-    INSERT INTO documents_fts(documents_fts, rowid, filename, sender, summary)
-    VALUES ('delete', old.id, old.filename, old.sender, old.summary);
-    INSERT INTO documents_fts(rowid, filename, sender, summary)
-    VALUES (new.id, new.filename, new.sender, new.summary);
+    INSERT INTO documents_fts(documents_fts, rowid, filename, sender, summary, keywords)
+    VALUES ('delete', old.id, old.filename, old.sender, old.summary, old.keywords);
+    INSERT INTO documents_fts(rowid, filename, sender, summary, keywords)
+    VALUES (new.id, new.filename, new.sender, new.summary, new.keywords);
 END;
 
 CREATE TRIGGER IF NOT EXISTS documents_ad AFTER DELETE ON documents BEGIN
-    INSERT INTO documents_fts(documents_fts, rowid, filename, sender, summary)
-    VALUES ('delete', old.id, old.filename, old.sender, old.summary);
+    INSERT INTO documents_fts(documents_fts, rowid, filename, sender, summary, keywords)
+    VALUES ('delete', old.id, old.filename, old.sender, old.summary, old.keywords);
 END;
 """
 
@@ -72,6 +72,9 @@ MIGRATIONS = [
     "ALTER TABLE documents ADD COLUMN tax_year TEXT",
     "ALTER TABLE documents ADD COLUMN expires_at TEXT",
     "ALTER TABLE documents ADD COLUMN notes TEXT",
+    "ALTER TABLE documents ADD COLUMN keywords TEXT DEFAULT ''",
+    # Rebuild FTS index to include new keywords column
+    "INSERT INTO documents_fts(documents_fts) VALUES('rebuild')",
 ]
 
 
@@ -105,6 +108,8 @@ def upsert_document(file_path, filename, sender, date, document_type,
                 content_hash  = excluded.content_hash,
                 status        = excluded.status
         """, (file_path, filename, sender, date, document_type, category, summary, content_hash, status, archived_at))
+        row = conn.execute("SELECT id FROM documents WHERE file_path = ?", (file_path,)).fetchone()
+        return row["id"] if row else None
 
 
 def get_document(doc_id):
@@ -115,7 +120,8 @@ def get_document(doc_id):
 
 def update_document(doc_id, **fields):
     allowed = {"sender", "date", "document_type", "category", "summary", "status",
-               "file_path", "filename", "tags", "tax_relevant", "tax_year", "expires_at", "notes"}
+               "file_path", "filename", "tags", "tax_relevant", "tax_year", "expires_at", "notes",
+               "keywords"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
@@ -213,8 +219,8 @@ def get_expiring_documents(days=30):
         rows = conn.execute("""
             SELECT * FROM documents
             WHERE expires_at IS NOT NULL AND expires_at != ''
-              AND expires_at <= date('now', ? || ' days')
-              AND expires_at >= date('now')
+              AND expires_at <= date('now', 'localtime', ? || ' days')
+              AND expires_at > date('now', 'localtime')
             ORDER BY expires_at ASC
         """, (f"+{days}",)).fetchall()
         return [dict(r) for r in rows]

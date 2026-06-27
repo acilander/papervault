@@ -11,7 +11,7 @@ from config import (
     CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, CATEGORIES,
 )
 from pdf_utils import extract_text, ocr_pdf, prepare_text_for_llm, is_cryptic_filename, build_filename, unique_path
-from llm import classify_document
+from llm import classify_document, filter_keywords_against_text
 from storage import content_hashes, save_hashes, record_sender, apply_sender_overrides, processing_log
 import db
 
@@ -152,7 +152,7 @@ def process_pdf(file_path):
 
     record_sender(category, data.get("sender"))
     processing_log(os.path.basename(dest_pdf), "ok", data=data)
-    db.upsert_document(
+    doc_id = db.upsert_document(
         file_path=dest_pdf,
         filename=os.path.basename(dest_pdf),
         sender=data.get("sender"),
@@ -163,6 +163,10 @@ def process_pdf(file_path):
         content_hash=None,
         status="ok",
     )
+    if doc_id and data.get("keywords"):
+        validated_kw = filter_keywords_against_text(data["keywords"], text)
+        if validated_kw:
+            db.update_document(doc_id, keywords=validated_kw)
 
     log(f"Fertig – verschoben nach: {dest_pdf}")
     log("--- Abgeschlossen ---")

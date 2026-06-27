@@ -99,6 +99,113 @@ def validate_classification(data):
     return errors
 
 
+def filter_keywords_against_text(keywords_str: str, source_text: str) -> str:
+    """
+    Remove keywords that do not appear in the source text (hallucinations).
+    Matching is case-insensitive and umlaut-normalized.
+    Single-char tokens and generic placeholder words are always removed.
+    Returns cleaned comma-separated string, or '' if nothing survives.
+    """
+    BLOCKLIST = {
+        "ibans", "iban", "vertragsnummern", "produktnamen", "ortsangaben",
+        "fachbegriffe", "betraege", "betrag", "dokument", "brief", "datum",
+        "absender", "empfaenger", "rechnung", "sonstiges",
+    }
+
+    def _norm(s: str) -> str:
+        return (s.lower()
+                .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
+                .replace("ß", "ss"))
+
+    text_norm = _norm(source_text)
+    kept = []
+    for kw in keywords_str.split(","):
+        kw = kw.strip()
+        if not kw or len(kw) < 3:
+            continue
+        kw_norm = _norm(kw)
+        if kw_norm in BLOCKLIST:
+            continue
+        # Accept if the keyword (or its first meaningful word ≥4 chars) is in text
+        words = [w for w in kw_norm.split() if len(w) >= 4]
+        if kw_norm in text_norm or any(w in text_norm for w in words):
+            kept.append(kw)
+
+    return ", ".join(kept)
+
+
+def build_similar_docs_hint(text_snippet: str) -> str:
+    """
+    Look up similar documents from the DB to guide LLM classification.
+    Strategy:
+      1. Try to match known senders in the text → fetch last 3 docs of that sender
+      2. If no sender match → skip (category fallback would need LLM-classified category first)
+    Returns a formatted hint string or empty string.
+    """
+    try:
+        import db as _db
+        known_senders = list(storage.sender_registry.keys())
+        matched_sender = None
+        def _normalize(s: str) -> str:
+            return (s.lower()
+                    .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
+                    .replace("ß", "ss"))
+
+        text_lower = _normalize(text_snippet[:2000])
+        # Longest match wins (avoids "ING" matching inside "ING-DiBa")
+        for s in sorted(known_senders, key=len, reverse=True):
+            if _normalize(s) in text_lower:
+                matched_sender = s
+                break
+
+        lines = []
+        if matched_sender:
+            past = _db.search_documents(sender=matched_sender, status="ok", limit=3)
+            if past:
+                lines.append(f"\n\nBekannte Dokumente von '{matched_sender}' in deinem Archiv:")
+                for d in past:
+                    date_str = d.get("date") or "?"
+                    lines.append(
+                        f"  - {date_str}: Typ={d.get('document_type','?')}, "
+                        f"Kategorie={d.get('category','?')}"
+                        + (f", Zusammenfassung: {d['summary'][:80]}" if d.get("summary") else "")
+                    )
+                lines.append("→ Orientiere dich an dieser Klassifizierung wenn das aktuelle Dokument aehnlich ist.")
+        else:
+            # No sender match – try category hint from keyword patterns
+            CATEGORY_KEYWORDS = {
+                "Kommunikation":       ["mobilfunk", "handyrechnung", "datenvolumen", "tarif", "sim", "router", "internet flat", "telefon"],
+                "Energie & Versorgung":["strom", "gas", "kwh", "abschlag", "jahresverbrauch", "netzbetreiber", "zaehlerstand"],
+                "Bank & Finanzen":     ["kontoauszug", "iban", "bic", "buchung", "ueberweisung", "depot", "zinsen", "lastschrift"],
+                "Versicherung":        ["versicherungsschein", "police", "praemie", "deckungssumme", "versicherungsnehmer", "beitrag"],
+                "Gesundheit":          ["arzt", "krankenhaus", "rezept", "diagnose", "behandlung", "krankenkasse", "patient"],
+                "KFZ":                 ["fahrzeugschein", "kfz", "fahrzeug", "hauptuntersuchung", "kennzeichen", "kraftstoff"],
+                "Wohnen & Eigentum":   ["miete", "nebenkosten", "betriebskosten", "grundsteuer", "eigentuemer", "mietvertrag"],
+                "Behoerde & Urkunden": ["bescheid", "finanzamt", "behoerde", "steuernummer", "personalausweis", "ummeldung"],
+            }
+            cat_scores: dict[str, int] = {}
+            for cat, kws in CATEGORY_KEYWORDS.items():
+                score = sum(1 for kw in kws if kw in text_lower)
+                if score:
+                    cat_scores[cat] = score
+            if cat_scores:
+                best_cat = max(cat_scores, key=lambda c: cat_scores[c])
+                recent = _db.search_documents(category=best_cat, status="ok", limit=2)
+                if recent:
+                    lines.append(f"\n\nAehnliche Dokumente der Kategorie '{best_cat}' in deinem Archiv:")
+                    for d in recent:
+                        lines.append(
+                            f"  - {d.get('sender','?')} ({d.get('date','?')}): "
+                            f"Typ={d.get('document_type','?')}"
+                            + (f", {d['summary'][:70]}" if d.get("summary") else "")
+                        )
+                    lines.append("→ Falls das aktuelle Dokument aehnlich ist, koennte dies die passende Kategorie sein.")
+
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 def classify_document(safe_text, filename=None):
     load_model()
     system_prompt = SYSTEM_PROMPT.replace("{current_year}", str(datetime.now().year))
@@ -117,10 +224,11 @@ def classify_document(safe_text, filename=None):
         filename_hint = ""
 
     few_shot_hint = fb.build_few_shot_prompt(n=15)
+    similar_hint = build_similar_docs_hint(safe_text)
 
     base_messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}{few_shot_hint}\n\n{safe_text}"},
+        {"role": "user", "content": f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}{few_shot_hint}{similar_hint}\n\n{safe_text}"},
     ]
     feedback = None
 
@@ -139,13 +247,13 @@ def classify_document(safe_text, filename=None):
         log(f"LLM Klassifizierung, Versuch {attempt}/{MAX_RETRIES}...")
         t0 = time.time()
         try:
-            result = _llm.create_chat_completion(messages=current_messages, max_tokens=200)
+            result = _llm.create_chat_completion(messages=current_messages, max_tokens=300)
             raw = result["choices"][0]["message"]["content"]
 
             cleaned = raw.replace("```json", "").replace("```", "").strip()
             data = json.loads(cleaned)
 
-            known_fields = {"sender", "date", "document_type", "category", "summary"}
+            known_fields = {"sender", "date", "document_type", "category", "summary", "keywords"}
             data = {k: v for k, v in data.items() if k in known_fields}
 
             if data.get("sender"):
