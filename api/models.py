@@ -1,0 +1,43 @@
+from typing import Optional
+from pydantic import BaseModel
+
+
+class DocumentOut(BaseModel):
+    id: int
+    file_path: str
+    filename: str
+    sender: Optional[str]
+    date: Optional[str]
+    document_type: Optional[str]
+    category: Optional[str]
+    summary: Optional[str]
+    content_hash: Optional[str]
+    status: str
+    archived_at: str
+
+
+class DocumentUpdate(BaseModel):
+    sender: Optional[str] = None
+    date: Optional[str] = None
+    document_type: Optional[str] = None
+    category: Optional[str] = None
+    summary: Optional[str] = None
+    status: Optional[str] = None
+
+
+class SenderEntry(BaseModel):
+    categories: list[str]
+    pinned_category: Optional[str]
+
+
+class SenderUpdate(BaseModel):
+    pinned_category: Optional[str] = None
+    categories: Optional[list[str]] = None
+
+
+class StatsOut(BaseModel):
+    total: int
+    by_category: list[dict]
+    by_year: list[dict]
+    by_status: list[dict]
+    recent: list[dict]
