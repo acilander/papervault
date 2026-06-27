@@ -3,7 +3,7 @@
     "categories": [
       "Gesundheit",
       "Kommunikation",
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Versicherung",
       "Wohnen & Eigentum"
     ],
@@ -17,16 +17,16 @@
   },
   "Akademie fur Innovative Bildung und Management Heilbronn-Franken gemeinnutzige GmbH": {
     "categories": [
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
   },
   "Anbieter": {
     "categories": [
-      "Einkauf & Bestellungen"
+      "Rechnung"
     ],
-    "pinned_category": "Einkauf & Bestellungen"
+    "pinned_category": "Rechnung"
   },
   "BENZ GmbH & Co. KG": {
     "categories": [
@@ -69,26 +69,27 @@
   "CHECK24 Vergleichsportal Finanzen GmbH": {
     "categories": [
       "Gesundheit",
-      "Einkauf & Bestellungen"
+      "Rechnung"
     ],
     "pinned_category": null
   },
   "CinemaxX Entertainment GmbH & Co. KG": {
     "categories": [
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
   },
   "Comdirect Bank": {
     "categories": [
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
   },
   "DE143046316": {
     "categories": [
+      "Bank & Finanzen",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
@@ -96,7 +97,7 @@
   "DHL": {
     "categories": [
       "Kommunikation",
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Versicherung"
     ],
     "pinned_category": null
@@ -104,14 +105,14 @@
   "DOSB New Media GmbH": {
     "categories": [
       "Kommunikation",
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
   },
   "Dennis Schnell Pforzheim-Nord GmbH &Co. KG": {
     "categories": [
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
@@ -129,7 +130,7 @@
     "categories": [
       "Bank & Finanzen",
       "Gesundheit",
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Versicherung"
     ],
     "pinned_category": null
@@ -142,7 +143,7 @@
   },
   "EDEKA": {
     "categories": [
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
@@ -174,7 +175,7 @@
   "Galaxus Deutschland GmbH": {
     "categories": [
       "Gesundheit",
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Versicherung"
     ],
     "pinned_category": null
@@ -182,7 +183,7 @@
   "Gartner Potschke GmbH": {
     "categories": [
       "Wohnen & Eigentum",
-      "Einkauf & Bestellungen"
+      "Rechnung"
     ],
     "pinned_category": null
   },
@@ -200,15 +201,21 @@
   },
   "ITS": {
     "categories": [
-      "Einkauf & Bestellungen"
+      "Rechnung"
     ],
-    "pinned_category": "Einkauf & Bestellungen"
+    "pinned_category": "Rechnung"
   },
   "InShared": {
     "categories": [
       "Versicherung"
     ],
     "pinned_category": "Versicherung"
+  },
+  "JOAH.M@ILUS.DE": {
+    "categories": [
+      "Kommunikation"
+    ],
+    "pinned_category": null
   },
   "Jawed Hassani": {
     "categories": [
@@ -218,13 +225,13 @@
   },
   "Joah Staiger": {
     "categories": [
-      "Einkauf & Bestellungen"
+      "Rechnung"
     ],
-    "pinned_category": "Einkauf & Bestellungen"
+    "pinned_category": "Rechnung"
   },
   "KU Europe GmbH": {
     "categories": [
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
@@ -251,7 +258,7 @@
     "categories": [
       "Arbeit & Rente",
       "Gesundheit",
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
@@ -272,7 +279,7 @@
   "Max Weishaupt AG": {
     "categories": [
       "Kommunikation",
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Versicherung"
     ],
     "pinned_category": null
@@ -309,7 +316,8 @@
   },
   "REWE": {
     "categories": [
-      "Einkauf & Bestellungen",
+      "Gesundheit",
+      "Rechnung",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
@@ -347,7 +355,7 @@
   },
   "Tanja Kinkel": {
     "categories": [
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
@@ -356,7 +364,7 @@
     "categories": [
       "Bank & Finanzen",
       "Gesundheit",
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
@@ -382,7 +390,7 @@
   "WaldNetzWerk e.V.": {
     "categories": [
       "Kommunikation",
-      "Einkauf & Bestellungen"
+      "Rechnung"
     ],
     "pinned_category": null
   },
@@ -395,7 +403,7 @@
   },
   "Zalando SE": {
     "categories": [
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Versicherung"
     ],
     "pinned_category": null
@@ -408,7 +416,7 @@
   },
   "shop its-projekt Bahnprojekt StuttgartUlm e.V.": {
     "categories": [
-      "Einkauf & Bestellungen",
+      "Rechnung",
       "Wohnen & Eigentum"
     ],
     "pinned_category": null

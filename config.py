@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 
 # HINWEIS: Ollama wird hier NICHT verwendet, obwohl das Modell im Ollama-Cache liegt.
 #
@@ -12,13 +13,14 @@ import os
 # ohne den Ollama-Server zu benötigen.
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(_HERE, ".env"))
 
-SOURCE_DIR        = "C:/Archive/Inbox"
-TARGET_BASE       = "C:/Archive"
-MODEL_PATH        = r"C:\Users\Alexander\.ollama\models\blobs\sha256-183715c435899236895da3869489cc30ac241476b4971a20285b1a462818a5b4"
-MAX_RETRIES       = 3
-FILE_READY_TIMEOUT = 30
-SENDER_SUBFOLDERS = True
+SOURCE_DIR         = os.getenv("SOURCE_DIR",         "C:/Archive/Inbox")
+TARGET_BASE        = os.getenv("TARGET_BASE",         "C:/Archive")
+MODEL_PATH         = os.getenv("MODEL_PATH",          r"C:\Users\Alexander\.ollama\models\blobs\sha256-183715c435899236895da3869489cc30ac241476b4971a20285b1a462818a5b4")
+MAX_RETRIES        = int(os.getenv("MAX_RETRIES",     "3"))
+FILE_READY_TIMEOUT = int(os.getenv("FILE_READY_TIMEOUT", "30"))
+SENDER_SUBFOLDERS  = os.getenv("SENDER_SUBFOLDERS", "true").lower() == "true"
 
 DUPLICATES_DIR = os.path.join(TARGET_BASE, "duplicates")
 FAILED_DIR     = os.path.join(TARGET_BASE, "failed")

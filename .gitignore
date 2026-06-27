@@ -7,6 +7,9 @@ __pycache__/
 .venv/
 venv/
 
+# Local config (contains personal paths)
+.env
+
 # Runtime state (regenerated automatically)
 hashes.json
 hashes.json.bak*
