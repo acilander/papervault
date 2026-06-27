@@ -83,8 +83,9 @@ def get_few_shot_examples(n: int = 20) -> list:
     # Prefer examples where user corrected the category (most valuable signal)
     corrected = [e for e in examples if "category" in e.get("corrected_fields", [])]
     others = [e for e in examples if "category" not in e.get("corrected_fields", [])]
-    combined = (corrected + others)[-n:]
-    return combined
+    # Take up to n, filling first from category-corrected, then others
+    combined = corrected[-n:] + others[-(max(0, n - len(corrected))):] if len(corrected) < n else corrected[-n:]
+    return combined[:n]
 
 
 def build_few_shot_prompt(n: int = 15) -> str:
