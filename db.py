@@ -1,0 +1,185 @@
+import sqlite3
+import os
+from datetime import datetime
+from contextlib import contextmanager
+
+from config import DB_PATH
+
+
+def _connect():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+@contextmanager
+def get_conn():
+    conn = _connect()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS documents (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_path     TEXT UNIQUE NOT NULL,
+    filename      TEXT NOT NULL,
+    sender        TEXT,
+    date          TEXT,
+    document_type TEXT,
+    category      TEXT,
+    summary       TEXT,
+    content_hash  TEXT,
+    status        TEXT DEFAULT 'ok',
+    archived_at   TEXT NOT NULL
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
+    filename, sender, summary,
+    content=documents, content_rowid=id
+);
+
+CREATE TRIGGER IF NOT EXISTS documents_ai AFTER INSERT ON documents BEGIN
+    INSERT INTO documents_fts(rowid, filename, sender, summary)
+    VALUES (new.id, new.filename, new.sender, new.summary);
+END;
+
+CREATE TRIGGER IF NOT EXISTS documents_au AFTER UPDATE ON documents BEGIN
+    INSERT INTO documents_fts(documents_fts, rowid, filename, sender, summary)
+    VALUES ('delete', old.id, old.filename, old.sender, old.summary);
+    INSERT INTO documents_fts(rowid, filename, sender, summary)
+    VALUES (new.id, new.filename, new.sender, new.summary);
+END;
+
+CREATE TRIGGER IF NOT EXISTS documents_ad AFTER DELETE ON documents BEGIN
+    INSERT INTO documents_fts(documents_fts, rowid, filename, sender, summary)
+    VALUES ('delete', old.id, old.filename, old.sender, old.summary);
+END;
+"""
+
+
+def init_db():
+    os.makedirs(os.path.dirname(DB_PATH) if os.path.dirname(DB_PATH) else ".", exist_ok=True)
+    with get_conn() as conn:
+        conn.executescript(SCHEMA)
+
+
+def upsert_document(file_path, filename, sender, date, document_type,
+                    category, summary, content_hash=None, status="ok", archived_at=None):
+    archived_at = archived_at or datetime.now().isoformat(timespec="seconds")
+    with get_conn() as conn:
+        conn.execute("""
+            INSERT INTO documents
+                (file_path, filename, sender, date, document_type, category, summary, content_hash, status, archived_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(file_path) DO UPDATE SET
+                filename      = excluded.filename,
+                sender        = excluded.sender,
+                date          = excluded.date,
+                document_type = excluded.document_type,
+                category      = excluded.category,
+                summary       = excluded.summary,
+                content_hash  = excluded.content_hash,
+                status        = excluded.status
+        """, (file_path, filename, sender, date, document_type, category, summary, content_hash, status, archived_at))
+
+
+def get_document(doc_id):
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def update_document(doc_id, **fields):
+    allowed = {"sender", "date", "document_type", "category", "summary", "status", "file_path", "filename"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        return
+    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [doc_id]
+    with get_conn() as conn:
+        conn.execute(f"UPDATE documents SET {set_clause} WHERE id = ?", values)
+
+
+def search_documents(query=None, category=None, year=None, sender=None,
+                     status=None, limit=100, offset=0):
+    """Full-text search + optional filters. Returns list of dicts."""
+    with get_conn() as conn:
+        if query:
+            sql = """
+                SELECT d.* FROM documents d
+                JOIN documents_fts fts ON d.id = fts.rowid
+                WHERE documents_fts MATCH ?
+            """
+            params = [query]
+        else:
+            sql = "SELECT * FROM documents WHERE 1=1"
+            params = []
+
+        if category:
+            sql += " AND category = ?"
+            params.append(category)
+        if year:
+            sql += " AND date LIKE ?"
+            params.append(f"{year}%")
+        if sender:
+            sql += " AND sender LIKE ?"
+            params.append(f"%{sender}%")
+        if status:
+            sql += " AND status = ?"
+            params.append(status)
+
+        sql += " ORDER BY archived_at DESC LIMIT ? OFFSET ?"
+        params += [limit, offset]
+
+        rows = conn.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_stats():
+    """Returns counts per category, per year, total, and recent."""
+    with get_conn() as conn:
+        total = conn.execute("SELECT COUNT(*) FROM documents WHERE status = 'ok'").fetchone()[0]
+
+        by_category = conn.execute("""
+            SELECT category, COUNT(*) as count
+            FROM documents WHERE status = 'ok'
+            GROUP BY category ORDER BY count DESC
+        """).fetchall()
+
+        by_year = conn.execute("""
+            SELECT SUBSTR(date, 1, 4) as year, COUNT(*) as count
+            FROM documents WHERE status = 'ok' AND date IS NOT NULL
+            GROUP BY year ORDER BY year DESC
+        """).fetchall()
+
+        by_status = conn.execute("""
+            SELECT status, COUNT(*) as count
+            FROM documents GROUP BY status
+        """).fetchall()
+
+        recent = conn.execute("""
+            SELECT * FROM documents WHERE status = 'ok'
+            ORDER BY archived_at DESC LIMIT 10
+        """).fetchall()
+
+        return {
+            "total": total,
+            "by_category": [dict(r) for r in by_category],
+            "by_year": [dict(r) for r in by_year],
+            "by_status": [dict(r) for r in by_status],
+            "recent": [dict(r) for r in recent],
+        }
+
+
+def delete_document(doc_id):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))

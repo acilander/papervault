@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 import time
 import threading
@@ -12,6 +12,7 @@ from config import SOURCE_DIR, TARGET_BASE, MODEL_PATH, FAILED_DIR
 from storage import load_sender_registry, load_hashes
 from archive import process_pdf, reindex_from_archive
 from pdf_utils import wait_for_file, OCR_AVAILABLE
+import db
 
 _pdf_queue = queue.Queue()
 
@@ -70,6 +71,7 @@ if __name__ == "__main__":
     log(f"Modell: {os.path.basename(MODEL_PATH)[:20]}... | OCR verfuegbar: {OCR_AVAILABLE}")
     load_sender_registry()
     load_hashes()
+    db.init_db()
 
     worker_thread = threading.Thread(target=_worker, daemon=True)
     worker_thread.start()

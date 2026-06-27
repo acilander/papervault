@@ -13,6 +13,7 @@ from config import (
 from pdf_utils import extract_text, ocr_pdf, prepare_text_for_llm, is_cryptic_filename, build_filename, unique_path
 from llm import classify_document
 from storage import content_hashes, save_hashes, record_sender, apply_sender_overrides, processing_log
+import db
 
 
 def log(msg):
@@ -72,6 +73,7 @@ def process_pdf(file_path):
         log(f"VERSCHLUESSELT: PDF ist passwortgeschuetzt. Verschoben nach: {dest}")
         log("--- Abgeschlossen (verschluesselt) ---")
         processing_log(os.path.basename(file_path), "encrypted")
+        db.upsert_document(dest, os.path.basename(dest), None, None, None, None, None, status="encrypted")
         return
 
     if status == "corrupt":
@@ -81,6 +83,7 @@ def process_pdf(file_path):
         log(f"FEHLER: PDF nicht lesbar (korrupt). Verschoben nach: {dest}")
         log("--- Abgeschlossen (fehlgeschlagen) ---")
         processing_log(os.path.basename(file_path), "corrupt")
+        db.upsert_document(dest, os.path.basename(dest), None, None, None, None, None, status="corrupt")
         return
 
     log(f"PyMuPDF: {len(text.strip())} Zeichen gefunden.")
@@ -95,6 +98,7 @@ def process_pdf(file_path):
         log(f"WARNUNG: Kein verwertbarer Text gefunden (auch nach OCR). Verschoben nach: {dest}")
         log("--- Abgeschlossen (fehlgeschlagen) ---")
         processing_log(os.path.basename(file_path), "no_text")
+        db.upsert_document(dest, os.path.basename(dest), None, None, None, None, None, status="no_text")
         return
 
     if check_duplicate(file_path, text):
@@ -113,6 +117,7 @@ def process_pdf(file_path):
         log(f"Alle Versuche fehlgeschlagen. Verschoben nach: {dest_pdf}")
         log("--- Abgeschlossen (fehlgeschlagen) ---")
         processing_log(os.path.basename(file_path), "classification_failed")
+        db.upsert_document(dest_pdf, os.path.basename(dest_pdf), None, None, None, None, None, status="classification_failed")
         return
 
     data = apply_sender_overrides(data)
@@ -147,6 +152,17 @@ def process_pdf(file_path):
 
     record_sender(category, data.get("sender"))
     processing_log(os.path.basename(dest_pdf), "ok", data=data)
+    db.upsert_document(
+        file_path=dest_pdf,
+        filename=os.path.basename(dest_pdf),
+        sender=data.get("sender"),
+        date=data.get("date"),
+        document_type=data.get("document_type"),
+        category=category,
+        summary=data.get("summary"),
+        content_hash=None,
+        status="ok",
+    )
 
     log(f"Fertig – verschoben nach: {dest_pdf}")
     log("--- Abgeschlossen ---")
