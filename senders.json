@@ -1,6 +1,7 @@
 {
   "AGB CoffeeB Delica AG": {
     "categories": [
+      "Arbeit & Rente",
       "Gesundheit",
       "Kommunikation",
       "Rechnung",
@@ -75,6 +76,7 @@
   },
   "CinemaxX Entertainment GmbH & Co. KG": {
     "categories": [
+      "Kommunikation",
       "Rechnung",
       "Wohnen & Eigentum"
     ],
@@ -106,6 +108,12 @@
     "categories": [
       "Kommunikation",
       "Rechnung",
+      "Wohnen & Eigentum"
+    ],
+    "pinned_category": null
+  },
+  "Dennis Schnell Bietigheim GmbH &Co. KG": {
+    "categories": [
       "Wohnen & Eigentum"
     ],
     "pinned_category": null
@@ -280,7 +288,8 @@
     "categories": [
       "Kommunikation",
       "Rechnung",
-      "Versicherung"
+      "Versicherung",
+      "Wohnen & Eigentum"
     ],
     "pinned_category": null
   },
@@ -390,7 +399,8 @@
   "WaldNetzWerk e.V.": {
     "categories": [
       "Kommunikation",
-      "Rechnung"
+      "Rechnung",
+      "Wohnen & Eigentum"
     ],
     "pinned_category": null
   },
