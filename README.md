@@ -1,14 +1,19 @@
 # Document Archiver
 
-Automatisches PDF-Archivierungssystem mit lokalem LLM (llama-cpp-python).  
-Überwacht einen Inbox-Ordner, klassifiziert PDFs und legt sie in einer strukturierten Ordnerhierarchie ab.
+Automatisches PDF-Archivierungssystem mit lokalem LLM (llama-cpp-python) und React Web-UI.  
+Überwacht einen Inbox-Ordner, klassifiziert PDFs per LLM und legt sie in einer strukturierten Ordnerhierarchie ab. Alle Metadaten werden in einer SQLite-Datenbank gehalten und sind über eine FastAPI + React-Oberfläche verwaltbar.
+
+---
 
 ## Voraussetzungen
 
 - Python 3.10+
+- Node.js 18+ (für das Frontend)
 - [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) (optional, für gescannte PDFs)
 - [Poppler](https://github.com/oschwartz10612/poppler-windows/releases/) im PATH (für OCR)
 - GGUF-Modell (z.B. Qwen2.5 1.5B oder größer)
+
+---
 
 ## Installation
 
@@ -16,7 +21,12 @@ Automatisches PDF-Archivierungssystem mit lokalem LLM (llama-cpp-python).
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+
+cd frontend
+npm install
 ```
+
+---
 
 ## Konfiguration
 
@@ -33,95 +43,144 @@ copy .env.example .env
 | `MODEL_PATH` | Pfad zur GGUF-Modelldatei |
 | `MAX_RETRIES` | Maximale LLM-Versuche pro Dokument (Standard: 3) |
 | `SENDER_SUBFOLDERS` | Unterordner pro Absender anlegen (true/false) |
+| `DB_PATH` | Pfad zur SQLite-Datenbank (Standard: `TARGET_BASE/archive.db`) |
 
-## Verwendung
+---
+
+## Starten
+
+### Schnellstart (alles auf einmal)
+```
+start_all.bat
+```
+
+### Manuell
+```bash
+# Backend (Port 8000)
+python -m uvicorn api.main:app --reload --port 8000
+
+# Frontend (Port 5173)
+cd frontend && npm run dev
+```
+
+→ Web-UI: **http://localhost:5173**  
+→ API-Docs: **http://localhost:8000/docs**
+
+---
+
+## Archiver
+
+Der Archiver kann direkt gestartet werden oder über die Web-UI (Monitor-Seite → Start-Button).
 
 ```bash
-# Archiver starten (überwacht Inbox dauerhaft)
 python archiver.py
-
-# Alle PDFs im failed/-Ordner erneut verarbeiten
-python archiver.py --retry-failed
-
-# senders.json aus bestehenden JSON-Sidecar-Dateien neu aufbauen
-python archiver.py --reindex
-
-# Tests ausführen
-python -m pytest tests/ -v
 ```
+
+Er überwacht `SOURCE_DIR` dauerhaft per Watchdog. Neue PDFs werden:
+1. Text extrahiert (PyMuPDF, ggf. Tesseract OCR)
+2. Per LLM klassifiziert (Absender, Datum, Kategorie, Typ, Zusammenfassung)
+3. Validiert und ggf. automatisch korrigiert (Absender-Override, Few-Shot-Feedback)
+4. In die SQLite-DB eingetragen
+5. In den passenden Archiv-Ordner verschoben
+
+---
+
+## Web-UI – Seiten & Features
+
+### Dashboard
+- KPI-Karten: Gesamtzahl, OK, Verschlüsselt, Fehlgeschlagen, Duplikate
+- Balkendiagramm nach Kategorie und Jahr
+- **Ablauf-Widget**: Dokumente die in den nächsten 60 Tagen ablaufen
+- **Steuer-Export**: ZIP-Download aller steuerrelevanten PDFs eines Jahres
+
+### Dokumente
+- Volltext-Suche + Filter: Kategorie, Jahr, Absender, Status
+- Schnell-Toggle: 🧾 Steuerrelevant / ⏰ Läuft ab / Duplikate
+- Klick auf Zeile → Dokument-Detail
+
+### Dokument-Detail
+- PDF-Vorschau direkt im Browser
+- Metadaten-Editor: Absender, Datum, Typ, Kategorie, Zusammenfassung
+- **Tags** (kommagetrennt, als farbige Pills dargestellt)
+- **Steuer-Flag** + Steuerjahr
+- **Ablaufdatum** (Datepicker)
+- **Notizen** (Freitext)
+- Datei umbenennen (ändert Dateiname auf Disk + DB)
+- Im Explorer öffnen
+- Aktionen für Problemdokumente: Neu klassifizieren, Löschen inkl. Datei
+
+### Absender-Manager
+- Tabelle aller bekannten Absender mit Kategorien
+- **Bestätigen-Workflow**: Neue Absender sind als „unbestätigt" markiert (blauer Punkt), Zähler in der Sidebar
+- **Filter „Nicht bestätigt"** – zeigt nur neue, noch nicht geprüfte Absender
+- `pinned_category` per Dropdown setzen (überschreibt LLM dauerhaft)
+- **Kategorie entfernen** – Modal mit 4 Optionen:
+  - Dateien belassen (nur DB-Sperre, LLM wählt diese Kat nie wieder)
+  - In Sonstiges verschieben
+  - In andere Kategorie verschieben
+  - Neu klassifizieren per LLM
+- **Zusammenführen** – verschiebt alle PDFs des Quell-Absenders in den Zielordner und aktualisiert DB
+- **Reorganisieren** – verschiebt alle PDFs eines Absenders in den korrekten Kategorie-Ordner
+- Absender löschen
+
+### Monitor
+- Live-Log via Server-Sent Events (SSE), farbkodiert nach Schweregrad
+- **Archiver Start / Stop** – startet `archiver.py` als Subprocess, Output fließt in den Live-Log
+- **Inbox-Panel** (rechts): zeigt alle noch nicht verarbeiteten PDFs in `SOURCE_DIR` mit Größe und Datum, aktualisiert sich alle 5 Sekunden
+
+### Sidebar (global)
+- Badge bei „Absender": Anzahl unbestätigter Absender
+- Badge bei „Monitor": Anzahl PDFs in der Inbox
+- **Schnellfilter**: Duplikate / Fehlgeschlagen / Steuerrelevant / Läuft ab – direkter Sprung in gefilterte Dokumentenliste
+
+---
+
+## Lernfähigkeit / Feedback-Loop
+
+Jede manuelle Korrektur in der GUI (Absender, Kategorie, Typ) wird als Few-Shot-Beispiel in `feedback.json` gespeichert. Der LLM bekommt beim nächsten Dokument die 15 zuletzt bestätigten Klassifizierungen als Kontext.
+
+- `feedback.json` – max. 200 Einträge, Kategorie-Korrekturen bevorzugt
+- `senders.json` – `excluded_categories` verhindert, dass der LLM entfernte Kategorien wieder wählt
+- `pinned_category` – überschreibt LLM-Entscheidung vollständig für einen Absender
+
+---
+
+## Projektstruktur
+
+| Datei / Ordner | Beschreibung |
+|---|---|
+| `archiver.py` | Entry-Point, Watchdog, Worker-Thread |
+| `archive.py` | `process_pdf()`, Duplikat-Check, Datei verschieben |
+| `config.py` | Konstanten, Kategorien, System-Prompt, Pfade |
+| `db.py` | SQLite-Schema, CRUD, Suche, Migrationen |
+| `llm.py` | Modell laden, klassifizieren, validieren, Few-Shot-Injection |
+| `storage.py` | `senders.json`, `hashes.json`, Processing-Log |
+| `feedback.py` | Few-Shot-Beispiele sammeln und in LLM-Prompt injizieren |
+| `pdf_utils.py` | Text-Extraktion, OCR, Dateiname-Helpers |
+| `api/` | FastAPI-Backend (routes: documents, senders, stats, monitor) |
+| `frontend/` | React + Vite + TailwindCSS |
+| `senders.json` | Absender-Registry mit Kategorien, pinned_category, excluded_categories |
+| `hashes.json` | SHA256-Hashes für Duplikat-Erkennung |
+| `feedback.json` | Gespeicherte Korrekturen als Few-Shot-Beispiele |
+| `start_all.bat` | Startet Backend + Frontend gleichzeitig |
+
+---
 
 ## Archivstruktur
 
 ```
-C:/Archive/
+TARGET_BASE/
 ├── 01 - Arbeit & Rente/
 │   └── 2025/
 │       └── Arbeitgeber GmbH/
-│           └── Entgeltnachweis_2025.pdf
+│           └── 20250101_Entgeltnachweis.pdf
 ├── 02 - Bank & Finanzen/
-│   └── 2025/
-│       └── Sparkasse Karlsruhe/
-│           └── Kontoauszug_2025-03.pdf
-├── duplicates/          ← erkannte Duplikate mit Shortcut zum Original
-├── failed/              ← nicht klassifizierbare PDFs
-└── encrypted/           ← passwortgeschützte PDFs
+│   └── ...
+├── duplicates/     ← Duplikate (Shortcut zum Original)
+├── failed/         ← nicht klassifizierbare PDFs
+├── encrypted/      ← passwortgeschützte PDFs
+└── archive.db      ← SQLite-Datenbank
 ```
-
-## Dateien
-
-| Datei | Beschreibung |
-|---|---|
-| `archiver.py` | Entry-Point, Watchdog, Worker-Thread |
-| `config.py` | Konstanten, Kategorien, System-Prompt |
-| `storage.py` | senders.json, hashes.json, processing_log |
-| `pdf_utils.py` | Text-Extraktion, OCR, Dateiname-Helpers |
-| `llm.py` | Modell laden, klassifizieren, validieren |
-| `archive.py` | process_pdf, Duplikat-Check, Reindex |
-| `senders.json` | Bekannte Absender mit optionaler Kategorie-Festlegung |
-
-## senders.json anpassen
-
-Um einen Absender dauerhaft einer Kategorie zuzuordnen, setze `pinned_category`:
-
-```json
-{
-  "Sparkasse Karlsruhe": {
-    "categories": ["Bank & Finanzen"],
-    "pinned_category": "Bank & Finanzen"
-  }
-}
-```
-
-Nach Änderungen an `senders.json` können bestehende Dateien mit dem Reorganize-Script verschoben werden:
-
-```bash
-python reorganize_archive.py --dry-run
-python reorganize_archive.py --run
-```
-
-## Future Features
-
-### Phase 3: React Web-UI
-Vollwertige Browser-Oberfläche auf Basis von Vite + React + TypeScript + TailwindCSS + shadcn/ui.
-
-Geplante Seiten:
-- **Dashboard** – Gesamtzahl Dokumente, Balkendiagramm nach Kategorie, letzte 10 archivierten Dokumente
-- **Dokumente** – Tabelle mit Suchfeld + Filter (Kategorie, Jahr, Sender), Klick öffnet Detail
-- **Dokument-Detail** – PDF-Vorschau im Browser, Metadaten-Editor (Kategorie/Sender/Datum korrigieren), Button „Im Explorer öffnen"
-- **Sender-Manager** – Tabelle aller Absender, `pinned_category` per Dropdown setzen, Absender zusammenführen
-
-Start:
-```bash
-# Terminal 1
-python -m uvicorn api.main:app --port 8000
-
-# Terminal 2
-cd frontend && npm run dev   # → http://localhost:5173
-```
-
-### Phase 4: Archiver-Monitor
-- Live-Log des Archivers via Server-Sent Events (SSE)
-- PDFs aus `failed/` direkt aus der UI neu verarbeiten (Retry-Button)
 
 ---
 
@@ -143,3 +202,11 @@ cd frontend && npm run dev   # → http://localhost:5173
 | 12 | Behoerde & Urkunden |
 | 13 | Ausbildung & Verein |
 | 14 | Sonstiges |
+
+---
+
+## Tests
+
+```bash
+python -m pytest tests/ -v
+```

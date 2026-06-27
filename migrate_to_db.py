@@ -24,6 +24,12 @@ SKIP_DIRS = {
     os.path.abspath(ENCRYPTED_DIR),
 }
 
+SPECIAL_DIRS = [
+    (FAILED_DIR, "classification_failed"),
+    (ENCRYPTED_DIR, "encrypted"),
+    (DUPLICATES_DIR, "duplicate"),
+]
+
 
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
@@ -98,6 +104,38 @@ def main():
 
                 ok += 1
 
+            except Exception as e:
+                log(f"  FEHLER bei {f}: {e}")
+                errors += 1
+
+    # Scan failed/ and encrypted/ directories
+    for special_dir, status_label in SPECIAL_DIRS:
+        if not os.path.isdir(special_dir):
+            continue
+        log(f"\nScanne {os.path.basename(special_dir)}/ ({status_label})...")
+        for f in os.listdir(special_dir):
+            if not f.lower().endswith(".pdf"):
+                continue
+            pdf_path = os.path.join(special_dir, f)
+            try:
+                mtime = os.path.getmtime(pdf_path)
+                archived_at = datetime.fromtimestamp(mtime).isoformat(timespec="seconds")
+                if DRY_RUN:
+                    log(f"  [DRY] {f} | {status_label}")
+                else:
+                    db.upsert_document(
+                        file_path=pdf_path,
+                        filename=f,
+                        sender=None,
+                        date=None,
+                        document_type=None,
+                        category=None,
+                        summary=None,
+                        content_hash=None,
+                        status=status_label,
+                        archived_at=archived_at,
+                    )
+                ok += 1
             except Exception as e:
                 log(f"  FEHLER bei {f}: {e}")
                 errors += 1
