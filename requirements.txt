@@ -1,0 +1,5 @@
+pymupdf
+watchdog
+llama-cpp-python
+pytesseract
+pdf2image

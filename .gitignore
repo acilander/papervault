@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+
+# Runtime state (regenerated automatically)
+hashes.json
+hashes.json.bak*
+
+# Backups from cleanup scripts
+senders.json.bak*
+
+# Cleanup helper (optional, not core app)
+cleanup_senders.py
+reorganize_archive.py

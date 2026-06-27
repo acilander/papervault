@@ -1,0 +1,182 @@
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+from datetime import datetime
+
+from config import (
+    TARGET_BASE, DUPLICATES_DIR, FAILED_DIR, ENCRYPTED_DIR,
+    CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, CATEGORIES,
+)
+from pdf_utils import extract_text, ocr_pdf, prepare_text_for_llm, is_cryptic_filename, build_filename, unique_path
+from llm import classify_document
+from storage import content_hashes, save_hashes, record_sender, apply_sender_overrides, processing_log
+
+
+def log(msg):
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+def create_shortcut(target_path, shortcut_path):
+    try:
+        ps_cmd = (
+            f'$ws = New-Object -ComObject WScript.Shell; '
+            f'$s = $ws.CreateShortcut("{shortcut_path}"); '
+            f'$s.TargetPath = "{target_path}"; '
+            f'$s.Save()'
+        )
+        subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True)
+    except Exception as e:
+        log(f"Shortcut konnte nicht erstellt werden: {e}")
+
+
+def check_duplicate(file_path, text):
+    content_hash = hashlib.sha256(text.strip().encode("utf-8")).hexdigest()[:16]
+    if content_hash in content_hashes:
+        existing_path = content_hashes[content_hash]
+        dup_dir = os.path.join(DUPLICATES_DIR, content_hash)
+        os.makedirs(dup_dir, exist_ok=True)
+        log(f"DUPLIKAT erkannt (Hash: {content_hash}) – identisch mit: {os.path.basename(existing_path)}")
+
+        dest = unique_path(os.path.join(dup_dir, os.path.basename(file_path)))
+        shutil.move(file_path, dest)
+        log(f"Duplikat verschoben nach: {dest}")
+
+        if os.path.exists(existing_path):
+            shortcut_name = "ORIGINAL - " + os.path.splitext(os.path.basename(existing_path))[0] + ".lnk"
+            shortcut_path = os.path.join(dup_dir, shortcut_name)
+            if not os.path.exists(shortcut_path):
+                create_shortcut(os.path.abspath(existing_path), shortcut_path)
+                log(f"Shortcut zum Original erstellt: {shortcut_name}")
+
+        log("--- Abgeschlossen (als Duplikat) ---")
+        return True
+
+    content_hashes[content_hash] = file_path
+    save_hashes()
+    return False
+
+
+def process_pdf(file_path):
+    log(f"--- Neue Datei: {os.path.basename(file_path)} ---")
+
+    log("Extrahiere Text via PyMuPDF...")
+    text, status = extract_text(file_path)
+
+    if status == "encrypted":
+        os.makedirs(ENCRYPTED_DIR, exist_ok=True)
+        dest = unique_path(os.path.join(ENCRYPTED_DIR, os.path.basename(file_path)))
+        shutil.move(file_path, dest)
+        log(f"VERSCHLUESSELT: PDF ist passwortgeschuetzt. Verschoben nach: {dest}")
+        log("--- Abgeschlossen (verschluesselt) ---")
+        processing_log(os.path.basename(file_path), "encrypted")
+        return
+
+    if status == "corrupt":
+        os.makedirs(FAILED_DIR, exist_ok=True)
+        dest = unique_path(os.path.join(FAILED_DIR, os.path.basename(file_path)))
+        shutil.move(file_path, dest)
+        log(f"FEHLER: PDF nicht lesbar (korrupt). Verschoben nach: {dest}")
+        log("--- Abgeschlossen (fehlgeschlagen) ---")
+        processing_log(os.path.basename(file_path), "corrupt")
+        return
+
+    log(f"PyMuPDF: {len(text.strip())} Zeichen gefunden.")
+
+    if len(text.strip()) < 50:
+        text = ocr_pdf(file_path)
+
+    if len(text.strip()) < 50:
+        os.makedirs(FAILED_DIR, exist_ok=True)
+        dest = unique_path(os.path.join(FAILED_DIR, os.path.basename(file_path)))
+        shutil.move(file_path, dest)
+        log(f"WARNUNG: Kein verwertbarer Text gefunden (auch nach OCR). Verschoben nach: {dest}")
+        log("--- Abgeschlossen (fehlgeschlagen) ---")
+        processing_log(os.path.basename(file_path), "no_text")
+        return
+
+    if check_duplicate(file_path, text):
+        return
+
+    safe_text = prepare_text_for_llm(text)
+    data = classify_document(safe_text, filename=os.path.basename(file_path))
+
+    if data is None:
+        os.makedirs(FAILED_DIR, exist_ok=True)
+        dest_pdf = unique_path(os.path.join(FAILED_DIR, os.path.basename(file_path)))
+        dest_json = os.path.splitext(dest_pdf)[0] + ".json"
+        shutil.move(file_path, dest_pdf)
+        with open(dest_json, "w", encoding="utf-8") as f:
+            json.dump({"error": "Klassifizierung fehlgeschlagen", "file": os.path.basename(file_path)}, f, ensure_ascii=False, indent=2)
+        log(f"Alle Versuche fehlgeschlagen. Verschoben nach: {dest_pdf}")
+        log("--- Abgeschlossen (fehlgeschlagen) ---")
+        processing_log(os.path.basename(file_path), "classification_failed")
+        return
+
+    data = apply_sender_overrides(data)
+
+    category = data.get("category") or "Sonstiges"
+    folder_name = CATEGORY_FOLDER_MAP.get(category, category)
+    raw_date = str(data.get("date") or "")
+    year_match = re.search(r'\b(\d{4})\b', raw_date)
+    year = year_match.group() if year_match else "Unbekannt"
+    sender = data.get("sender")
+
+    if SENDER_SUBFOLDERS and sender:
+        safe_sender = re.sub(r'[\\/:*?"<>|]', '_', sender)[:50].strip()
+        target_dir = os.path.join(TARGET_BASE, folder_name, year, safe_sender)
+    else:
+        target_dir = os.path.join(TARGET_BASE, folder_name, year)
+    os.makedirs(target_dir, exist_ok=True)
+
+    original_name = os.path.basename(file_path)
+    if is_cryptic_filename(original_name):
+        new_name = build_filename(data, original_name)
+        log(f"Kryptischer Dateiname erkannt – umbenannt zu: {new_name}")
+    else:
+        new_name = original_name
+
+    dest_pdf = unique_path(os.path.join(target_dir, new_name))
+    dest_json = os.path.splitext(dest_pdf)[0] + ".json"
+
+    shutil.move(file_path, dest_pdf)
+    with open(dest_json, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    record_sender(category, data.get("sender"))
+    processing_log(os.path.basename(dest_pdf), "ok", data=data)
+
+    log(f"Fertig – verschoben nach: {dest_pdf}")
+    log("--- Abgeschlossen ---")
+
+
+def reindex_from_archive():
+    from storage import record_sender as _record
+    log(f"Reindex: Lese bestehende JSON-Sidecar-Dateien aus {TARGET_BASE}...")
+    skip_dirs = {DUPLICATES_DIR, FAILED_DIR, ENCRYPTED_DIR}
+    count = 0
+    skipped = 0
+    for root, dirs, files in os.walk(TARGET_BASE):
+        dirs[:] = [
+            d for d in dirs
+            if os.path.abspath(os.path.join(root, d)) not in {os.path.abspath(p) for p in skip_dirs}
+        ]
+        for f in files:
+            if not f.lower().endswith(".json"):
+                continue
+            json_path = os.path.join(root, f)
+            try:
+                with open(json_path, "r", encoding="utf-8") as jf:
+                    data = json.load(jf)
+                sender = data.get("sender")
+                category = data.get("category")
+                if sender and category and category in CATEGORIES:
+                    _record(category, sender)
+                    count += 1
+                else:
+                    skipped += 1
+            except Exception as e:
+                log(f"  Fehler beim Lesen von {f}: {e}")
+    log(f"Reindex abgeschlossen: {count} Eintraege verarbeitet, {skipped} uebersprungen.")
