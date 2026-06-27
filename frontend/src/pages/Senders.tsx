@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle } from 'lucide-react'
-import { getSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, type SenderEntry } from '../api'
+import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil } from 'lucide-react'
+import { getSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, type SenderEntry } from '../api'
 
 const CATEGORIES = [
   'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'KFZ',
@@ -19,6 +19,9 @@ export default function Senders() {
   const [removeAction, setRemoveAction] = useState<'keep' | 'sonstiges' | 'move' | 'reclassify'>('keep')
   const [removeMoveTarget, setRemoveMoveTarget] = useState('Sonstiges')
   const [removeBusy, setRemoveBusy] = useState(false)
+  const [renameDlg, setRenameDlg] = useState<{ name: string } | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [renameBusy, setRenameBusy] = useState(false)
 
   const load = () => getSenders().then(setSenders)
   useEffect(() => { load() }, [])
@@ -63,6 +66,22 @@ export default function Senders() {
   const handleConfirm = async (name: string) => {
     await updateSender(name, { reviewed: true })
     await load()
+  }
+
+  const handleRename = async () => {
+    if (!renameDlg || !renameValue.trim()) return
+    setRenameBusy(true)
+    try {
+      const res = await renameSender(renameDlg.name, renameValue.trim())
+      if (res.renamed) {
+        setRenameDlg(null)
+        setRenameValue('')
+        await load()
+      }
+    } catch (e: any) {
+      alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+    }
+    setRenameBusy(false)
   }
 
   const problematic = filtered.filter(([, e]) => e.categories.length > 2 && !e.pinned_category)
@@ -126,12 +145,21 @@ export default function Senders() {
                 entry.reviewed === false ? 'bg-blue-50/40 dark:bg-blue-900/10' :
                 entry.categories.length > 2 && !entry.pinned_category ? 'bg-orange-50/30 dark:bg-orange-900/10' : ''
               }`}>
-                <td className="px-4 py-2 font-medium text-gray-800 dark:text-gray-100 max-w-[200px]">
+                <td className="px-4 py-2 font-medium text-gray-800 dark:text-gray-100 max-w-[220px]">
                   <div className="flex items-center gap-1.5">
                     {entry.reviewed === false && (
                       <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500" title="Nicht bestätigt" />
                     )}
-                    <span className="truncate" title={name}>{name}</span>
+                    <div className="min-w-0">
+                      <span className="truncate block" title={name}>{name}</span>
+                      {entry.aliases && entry.aliases.length > 0 && (
+                        <div className="flex flex-wrap gap-0.5 mt-0.5">
+                          {entry.aliases.map(a => (
+                            <span key={a} className="text-[10px] px-1 py-0 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded" title={`Alias: ${a}`}>{a}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </td>
                 <td className="px-4 py-2">
@@ -219,10 +247,19 @@ export default function Senders() {
                   </button>
                 </td>
                 <td className="px-4 py-2">
-                  <button onClick={() => handleDelete(name)} title="Löschen"
-                    className="p-1 text-red-400 hover:text-red-600">
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => { setRenameDlg({ name }); setRenameValue(name) }}
+                      title="Umbenennen"
+                      className="p-1 text-gray-400 hover:text-blue-500"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => handleDelete(name)} title="Löschen"
+                      className="p-1 text-red-400 hover:text-red-600">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -309,6 +346,43 @@ export default function Senders() {
                 }}
                 className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50 transition-colors">
                 {removeBusy ? 'Wird ausgeführt…' : 'Entfernen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Dialog */}
+      {renameDlg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Absender umbenennen</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Der alte Name <strong className="text-gray-800 dark:text-gray-200">„{renameDlg.name}"</strong> wird
+              als Alias gespeichert – das LLM erkennt zukünftige Dokumente dieses Absenders weiterhin.
+            </p>
+            <input
+              type="text"
+              value={renameValue}
+              onChange={e => setRenameValue(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleRename()}
+              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Neuer Name…"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                onClick={() => { setRenameDlg(null); setRenameValue('') }}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleRename}
+                disabled={renameBusy || !renameValue.trim() || renameValue.trim() === renameDlg.name}
+                className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"
+              >
+                {renameBusy ? '…' : 'Umbenennen'}
               </button>
             </div>
           </div>

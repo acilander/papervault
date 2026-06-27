@@ -39,6 +39,8 @@ export interface SenderEntry {
   categories: string[]
   pinned_category: string | null
   reviewed: boolean | null
+  excluded_categories?: string[]
+  aliases?: string[]
 }
 
 export interface Stats {
@@ -94,6 +96,11 @@ export const getSenders = () =>
 
 export const updateSender = (name: string, body: { pinned_category?: string | null; categories?: string[]; reviewed?: boolean }) =>
   api.patch<SenderEntry>(`/senders/${encodeURIComponent(name)}`, body).then(r => r.data)
+
+export const renameSender = (name: string, newName: string) =>
+  api.post<{ renamed: boolean; old_name: string; new_name: string; alias_added: string; docs_updated: number; entry: SenderEntry }>(
+    `/senders/${encodeURIComponent(name)}/rename`, { new_name: newName }
+  ).then(r => r.data)
 
 export const mergeSender = (name: string, target: string) =>
   api.post<{ merged_into: string; moved: number; skipped: number; errors: string[]; dest_dir: string; entry: SenderEntry }>(

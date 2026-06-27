@@ -31,17 +31,34 @@ def load_model():
 
 
 def normalize_sender(sender):
-    """Match sender against known senders in registry using fuzzy matching."""
+    """Match sender against known senders (and their aliases) using exact + fuzzy matching.
+    Always returns the canonical registry key name."""
     if not sender or not storage.sender_registry:
         return sender
     known = list(storage.sender_registry.keys())
+    # 1. Exact match on canonical name
     for k in known:
         if k.lower() == sender.lower():
             return k
+    # 2. Exact match on any alias → return canonical name
+    for k, entry in storage.sender_registry.items():
+        for alias in entry.get("aliases") or []:
+            if alias.lower() == sender.lower():
+                log(f"Absender via Alias erkannt: '{sender}' -> '{k}'")
+                return k
+    # 3. Fuzzy match on canonical names
     matches = get_close_matches(sender, known, n=1, cutoff=0.82)
     if matches:
         log(f"Absender normalisiert: '{sender}' -> '{matches[0]}'")
         return matches[0]
+    # 4. Fuzzy match on aliases
+    all_aliases = {alias: k for k, entry in storage.sender_registry.items()
+                   for alias in (entry.get("aliases") or [])}
+    alias_matches = get_close_matches(sender, list(all_aliases.keys()), n=1, cutoff=0.82)
+    if alias_matches:
+        canonical = all_aliases[alias_matches[0]]
+        log(f"Absender via Alias-Fuzzy erkannt: '{sender}' -> '{canonical}'")
+        return canonical
     return sender
 
 

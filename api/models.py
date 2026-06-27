@@ -40,6 +40,7 @@ class SenderEntry(BaseModel):
     pinned_category: Optional[str]
     reviewed: Optional[bool] = None
     excluded_categories: Optional[list[str]] = None
+    aliases: Optional[list[str]] = None
 
 
 class SenderUpdate(BaseModel):

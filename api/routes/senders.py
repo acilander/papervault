@@ -52,6 +52,55 @@ def update_sender(name: str, body: SenderUpdate):
     return entry
 
 
+@router.post("/{name}/rename")
+def rename_sender(name: str, body: dict):
+    """
+    Rename a sender to a new canonical name.
+    The old name is preserved as an alias so the LLM can still recognize it.
+    All DB documents are updated to the new name.
+    body: { "new_name": str }
+    """
+    new_name = (body.get("new_name") or "").strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="new_name darf nicht leer sein")
+    if name not in storage.sender_registry:
+        raise HTTPException(status_code=404, detail=f"Absender '{name}' nicht gefunden")
+    if new_name in storage.sender_registry and new_name != name:
+        raise HTTPException(status_code=409, detail=f"Absender '{new_name}' existiert bereits")
+    if new_name == name:
+        return {"renamed": False, "message": "Name unverändert"}
+
+    entry = storage.sender_registry[name]
+
+    # Add old name as alias (keep existing aliases)
+    aliases = entry.get("aliases") or []
+    if name not in aliases:
+        aliases.append(name)
+    entry["aliases"] = aliases
+
+    # Rename key in registry
+    storage.sender_registry[new_name] = entry
+    del storage.sender_registry[name]
+
+    # Persist
+    with open(SENDERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(dict(sorted(storage.sender_registry.items())), f, ensure_ascii=False, indent=2)
+
+    # Update all DB documents
+    docs = db.search_documents(sender=name, limit=9999)
+    for doc in docs:
+        db.update_document(doc["id"], sender=new_name)
+
+    return {
+        "renamed": True,
+        "old_name": name,
+        "new_name": new_name,
+        "alias_added": name,
+        "docs_updated": len(docs),
+        "entry": storage.sender_registry[new_name],
+    }
+
+
 @router.post("/{name}/merge/{target}")
 def merge_sender(name: str, target: str):
     """Merge 'name' into 'target': combine categories, move PDFs, reassign DB entries."""
