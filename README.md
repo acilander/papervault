@@ -78,10 +78,12 @@ python archiver.py
 
 Er überwacht `SOURCE_DIR` dauerhaft per Watchdog. Neue PDFs werden:
 1. Text extrahiert (PyMuPDF, ggf. Tesseract OCR)
-2. Per LLM klassifiziert (Absender, Datum, Kategorie, Typ, Zusammenfassung)
+2. Per LLM klassifiziert (Absender, Datum, Kategorie, Typ, Zusammenfassung, **Keywords**)
 3. Validiert und ggf. automatisch korrigiert (Absender-Override, Few-Shot-Feedback)
-4. In die SQLite-DB eingetragen
-5. In den passenden Archiv-Ordner verschoben
+4. **Ähnliche Dokumente aus der DB** werden als Kontext in den LLM-Prompt injiziert (gleicher Absender oder gleiche Kategorie)
+5. Keywords werden gegen den Originaltext validiert – Halluzinationen werden verworfen
+6. In die SQLite-DB eingetragen
+7. In den passenden Archiv-Ordner verschoben
 
 ---
 
@@ -127,6 +129,7 @@ Er überwacht `SOURCE_DIR` dauerhaft per Watchdog. Neue PDFs werden:
 - Live-Log via Server-Sent Events (SSE), farbkodiert nach Schweregrad
 - **Archiver Start / Stop** – startet `archiver.py` als Subprocess, Output fließt in den Live-Log
 - **Inbox-Panel** (rechts): zeigt alle noch nicht verarbeiteten PDFs in `SOURCE_DIR` mit Größe und Datum, aktualisiert sich alle 5 Sekunden
+- **Orphan-Panel** (ganz rechts): scannt das Archivverzeichnis auf PDFs ohne DB-Eintrag, ermöglicht Auswahl und Re-Import mit Status `pending` zur erneuten LLM-Klassifizierung
 
 ### Sidebar (global)
 - Badge bei „Absender": Anzahl unbestätigter Absender
@@ -137,11 +140,20 @@ Er überwacht `SOURCE_DIR` dauerhaft per Watchdog. Neue PDFs werden:
 
 ## Lernfähigkeit / Feedback-Loop
 
-Jede manuelle Korrektur in der GUI (Absender, Kategorie, Typ) wird als Few-Shot-Beispiel in `feedback.json` gespeichert. Der LLM bekommt beim nächsten Dokument die 15 zuletzt bestätigten Klassifizierungen als Kontext.
+Das System lernt auf drei Ebenen:
 
-- `feedback.json` – max. 200 Einträge, Kategorie-Korrekturen bevorzugt
-- `senders.json` – `excluded_categories` verhindert, dass der LLM entfernte Kategorien wieder wählt
+**1. Few-Shot-Feedback (`feedback.json`)**
+Jede manuelle Korrektur in der GUI wird gespeichert. Der LLM bekommt beim nächsten Dokument die 15 letzten bestätigten Klassifizierungen als Kontext. Kategorie-Korrekturen werden bevorzugt (max. 200 Einträge).
+
+**2. Ähnliche-Dokumente-Hint (DB-basiert)**
+Vor jeder Klassifizierung wird im PDF-Text nach bekannten Absendern gesucht. Wird ein Match gefunden, kommen die letzten 3 Dokumente dieses Absenders als Kontext in den Prompt – das System klassifiziert wiederkehrende Dokumente (z.B. Monatsrechnungen) konsistent. Ohne Absender-Match greift ein keyword-basierter Kategorie-Fallback (z.B. „kWh, Strom" → Energie & Versorgung).
+
+**3. Absender-Overrides (`senders.json`)**
+- `excluded_categories` – verhindert, dass der LLM entfernte Kategorien wieder wählt
 - `pinned_category` – überschreibt LLM-Entscheidung vollständig für einen Absender
+
+**Keyword-Volltextsuche**
+Der LLM extrahiert pro Dokument 5–15 spezifische Suchbegriffe (Beträge, IBANs, Vertragsnummern, Produktnamen). Diese werden gegen den Originaltext validiert – generische Platzhalter und Halluzinationen werden automatisch verworfen. Die Keywords fließen in die FTS5-Volltextsuche ein.
 
 ---
 
@@ -150,19 +162,21 @@ Jede manuelle Korrektur in der GUI (Absender, Kategorie, Typ) wird als Few-Shot-
 | Datei / Ordner | Beschreibung |
 |---|---|
 | `archiver.py` | Entry-Point, Watchdog, Worker-Thread |
-| `archive.py` | `process_pdf()`, Duplikat-Check, Datei verschieben |
-| `config.py` | Konstanten, Kategorien, System-Prompt, Pfade |
-| `db.py` | SQLite-Schema, CRUD, Suche, Migrationen |
-| `llm.py` | Modell laden, klassifizieren, validieren, Few-Shot-Injection |
+| `archive.py` | `process_pdf()`, Duplikat-Check, Datei verschieben, Keyword-Validierung |
+| `config.py` | Konstanten, Kategorien, System-Prompt (inkl. Keywords-Feld), Pfade |
+| `db.py` | SQLite-Schema, CRUD, FTS5-Suche (inkl. keywords), Migrationen |
+| `llm.py` | Modell laden, klassifizieren, validieren, Few-Shot + Similar-Doc-Hint, `filter_keywords_against_text` |
 | `storage.py` | `senders.json`, `hashes.json`, Processing-Log |
-| `feedback.py` | Few-Shot-Beispiele sammeln und in LLM-Prompt injizieren |
+| `feedback.py` | Few-Shot-Beispiele sammeln, priorisieren und in LLM-Prompt injizieren |
 | `pdf_utils.py` | Text-Extraktion, OCR, Dateiname-Helpers |
-| `api/` | FastAPI-Backend (routes: documents, senders, stats, monitor) |
+| `extract_keywords.py` | Batch-Nachextraktion von Keywords für bereits archivierte Dokumente |
+| `api/` | FastAPI-Backend (routes: documents, senders, stats, monitor + orphans) |
 | `frontend/` | React + Vite + TailwindCSS |
+| `tests/` | 92 Unit-Tests (db, storage, feedback, llm, pdf_utils, config, validate) |
 | `senders.json` | Absender-Registry mit Kategorien, pinned_category, excluded_categories |
 | `hashes.json` | SHA256-Hashes für Duplikat-Erkennung |
 | `feedback.json` | Gespeicherte Korrekturen als Few-Shot-Beispiele |
-| `start_all.bat` | Startet Backend + Frontend gleichzeitig |
+| `start_all.bat` | Startet Backend + Frontend gleichzeitig (mit Port-Guard) |
 
 ---
 
@@ -209,4 +223,17 @@ TARGET_BASE/
 
 ```bash
 python -m pytest tests/ -v
+# 92 Tests: db, db_extended, storage, storage_extended, feedback, llm_utils, pdf_utils, config, validate
+```
+
+---
+
+## Hilfsskripte
+
+```bash
+# Keywords für alle bestehenden Dokumente nachträglich extrahieren
+python extract_keywords.py              # alle ohne Keywords
+python extract_keywords.py --limit 10  # nur 10 (zum Testen)
+python extract_keywords.py --force     # alle, auch mit vorhandenen Keywords überschreiben
+python extract_keywords.py --dry-run   # zeigt was gemacht würde, ohne zu schreiben
 ```
