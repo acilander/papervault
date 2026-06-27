@@ -129,6 +129,9 @@ export const reorganizeSender = (name: string) =>
     `/senders/${encodeURIComponent(name)}/reorganize`
   ).then(r => r.data)
 
+export const deleteMissing = () =>
+  api.delete<{ deleted: number }>('/monitor/missing').then(r => r.data)
+
 export const scanMissing = () =>
   api.post<{ scanned: number; missing_found: number; missing: { id: number; filename: string; sender: string | null; date: string | null; category: string | null; file_path: string }[] }>(
     '/monitor/scan-missing'

@@ -169,6 +169,15 @@ def scan_missing():
     return {"scanned": len(docs), "missing_found": len(missing), "missing": missing}
 
 
+@router.delete("/missing")
+def delete_missing():
+    """Delete all DB entries with status='missing' at once."""
+    docs = db.search_documents(status="missing", limit=99999)
+    for doc in docs:
+        db.delete_document(doc["id"])
+    return {"deleted": len(docs)}
+
+
 @router.get("/orphans")
 def scan_orphans():
     """

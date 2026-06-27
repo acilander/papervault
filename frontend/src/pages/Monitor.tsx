@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Circle, RefreshCw, Play, Square, Inbox, FileText, AlertCircle } from 'lucide-react'
 import axios from 'axios'
-import { scanOrphans, importOrphans, scanMissing } from '../api'
+import { scanOrphans, importOrphans, scanMissing, deleteMissing } from '../api'
 
 interface LogLine { id: number; text: string; ts: string }
 interface InboxFile { filename: string; size_kb: number; modified: string }
@@ -323,9 +323,29 @@ export default function Monitor() {
             <p className="text-xs text-green-600 dark:text-green-400 text-center">✓ Alle Dateien vorhanden</p>
           )}
           {missingDocs !== null && missingDocs.length > 0 && (
-            <p className="text-xs text-red-600 dark:text-red-400 text-center">
-              {missingDocs.length} Einträge als „missing" markiert
-            </p>
+            <div className="space-y-1">
+              <p className="text-xs text-red-600 dark:text-red-400 text-center">
+                {missingDocs.length} Einträge als „missing“ markiert
+              </p>
+              <button
+                onClick={async () => {
+                  if (!confirm(`${missingDocs.length} DB-Einträge wirklich löschen? Die Dateien können danach neu eingelesen werden.`)) return
+                  setMissingBusy(true)
+                  try {
+                    const r = await deleteMissing()
+                    setMissingDocs([])
+                    alert(`✓ ${r.deleted} Einträge gelöscht`)
+                  } catch (e: any) {
+                    alert('Fehler: ' + e.message)
+                  }
+                  setMissingBusy(false)
+                }}
+                disabled={missingBusy}
+                className="w-full px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50 transition-colors"
+              >
+                Alle {missingDocs.length} löschen
+              </button>
+            </div>
           )}
         </div>
 
