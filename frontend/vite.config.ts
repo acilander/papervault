@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Tailwind dark mode via class is configured in index.css @import
   server: {
     proxy: {
       '/documents': 'http://localhost:8000',

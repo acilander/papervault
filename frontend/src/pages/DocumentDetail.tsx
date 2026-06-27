@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, FolderOpen, Trash2 } from 'lucide-react'
-import { getDocument, updateDocument, deleteDocument, openInExplorer, pdfUrl, type Document, type DocumentUpdate } from '../api'
+import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil } from 'lucide-react'
+import { getDocument, updateDocument, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, type Document, type DocumentUpdate } from '../api'
 
 const CATEGORIES = [
   'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'KFZ',
@@ -17,12 +17,19 @@ export default function DocumentDetail() {
   const [edit, setEdit] = useState<DocumentUpdate>({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [newFilename, setNewFilename] = useState('')
+  const [renaming, setRenaming] = useState(false)
 
   useEffect(() => {
     if (!id) return
     getDocument(Number(id)).then(d => {
       setDoc(d)
-      setEdit({ sender: d.sender, date: d.date, document_type: d.document_type, category: d.category, summary: d.summary })
+      setEdit({
+        sender: d.sender, date: d.date, document_type: d.document_type,
+        category: d.category, summary: d.summary,
+        tags: d.tags ?? '', tax_relevant: d.tax_relevant ?? 0,
+        tax_year: d.tax_year ?? '', expires_at: d.expires_at ?? '', notes: d.notes ?? '',
+      })
     })
   }, [id])
 
@@ -66,20 +73,32 @@ export default function DocumentDetail() {
     <div className="flex h-full">
       {/* Left: PDF preview */}
       <div className="flex-1 bg-gray-100 border-r border-gray-200">
-        <iframe
-          src={pdfUrl(doc.id)}
+        <object
+          data={pdfUrl(doc.id)}
+          type="application/pdf"
           className="w-full h-full"
-          title={doc.filename}
-        />
+        >
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-500">
+            <p className="text-sm">PDF-Vorschau nicht verfügbar</p>
+            <a
+              href={pdfUrl(doc.id)}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+            >
+              PDF öffnen
+            </a>
+          </div>
+        </object>
       </div>
 
       {/* Right: Metadata editor */}
-      <div className="w-80 bg-white flex flex-col">
-        <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+      <div className="w-80 bg-white dark:bg-gray-900 flex flex-col">
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center gap-2">
           <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-gray-700">
             <ArrowLeft size={16} />
           </button>
-          <h2 className="text-sm font-semibold text-gray-900 truncate flex-1">{doc.filename}</h2>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate flex-1">{doc.filename}</h2>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -89,6 +108,56 @@ export default function DocumentDetail() {
           {field('Kategorie', 'category', 'select')}
           {field('Zusammenfassung', 'summary', 'textarea')}
 
+          {/* Tags */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Tags (kommagetrennt)</label>
+            <input type="text" placeholder="z.B. Garantie, Wichtig"
+              value={edit.tags ?? ''}
+              onChange={e => setEdit(prev => ({ ...prev, tags: e.target.value }))}
+              className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+            {doc.tags && doc.tags.split(',').map(t => t.trim()).filter(Boolean).map(t => (
+              <span key={t} className="inline-block mt-1 mr-1 px-2 py-0.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs">{t}</span>
+            ))}
+          </div>
+
+          {/* Steuer */}
+          <div className="border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 bg-yellow-50 dark:bg-yellow-900/10 space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox"
+                checked={!!edit.tax_relevant}
+                onChange={e => setEdit(prev => ({ ...prev, tax_relevant: e.target.checked ? 1 : 0 }))}
+                className="w-4 h-4 accent-yellow-500" />
+              <span className="text-xs font-medium text-yellow-800 dark:text-yellow-300">Steuerrelevant</span>
+            </label>
+            {!!edit.tax_relevant && (
+              <div>
+                <label className="block text-xs text-yellow-700 dark:text-yellow-400 mb-1">Steuerjahr</label>
+                <input type="text" placeholder="z.B. 2024"
+                  value={edit.tax_year ?? ''}
+                  onChange={e => setEdit(prev => ({ ...prev, tax_year: e.target.value }))}
+                  className="w-full text-sm border border-yellow-300 dark:border-yellow-700 dark:bg-gray-800 rounded px-2 py-1.5 focus:outline-none" />
+              </div>
+            )}
+          </div>
+
+          {/* Ablaufdatum */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Ablaufdatum</label>
+            <input type="date"
+              value={edit.expires_at ?? ''}
+              onChange={e => setEdit(prev => ({ ...prev, expires_at: e.target.value }))}
+              className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+          </div>
+
+          {/* Notizen */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Notizen</label>
+            <textarea rows={2} placeholder="Persönliche Anmerkungen…"
+              value={edit.notes ?? ''}
+              onChange={e => setEdit(prev => ({ ...prev, notes: e.target.value }))}
+              className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none" />
+          </div>
+
           <div>
             <p className="text-xs font-medium text-gray-500 mb-1">Dateipfad</p>
             <p className="text-xs text-gray-400 break-all">{doc.file_path}</p>
@@ -97,25 +166,90 @@ export default function DocumentDetail() {
             <p className="text-xs font-medium text-gray-500 mb-1">Archiviert am</p>
             <p className="text-xs text-gray-400">{doc.archived_at}</p>
           </div>
+
+          {/* Rename */}
+          <div className="pt-1 border-t border-gray-100 dark:border-gray-800">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              <Pencil size={11} className="inline mr-1" />
+              Datei umbenennen
+            </label>
+            <div className="flex gap-1">
+              <input
+                type="text"
+                placeholder={doc.filename}
+                value={newFilename}
+                onChange={e => setNewFilename(e.target.value)}
+                className="flex-1 text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
+              />
+              <button
+                disabled={!newFilename.trim() || renaming}
+                onClick={async () => {
+                  if (!confirm(`Datei umbenennen zu "${newFilename.trim()}"?`)) return
+                  setRenaming(true)
+                  try {
+                    const updated = await renameDocument(doc.id, newFilename.trim())
+                    setDoc(updated)
+                    setNewFilename('')
+                  } catch (e: any) {
+                    alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                  } finally {
+                    setRenaming(false)
+                  }
+                }}
+                className="px-2 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-40 transition-colors whitespace-nowrap"
+              >
+                {renaming ? '…' : 'OK'}
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="px-4 py-3 border-t border-gray-200 space-y-2">
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
           <button onClick={save} disabled={saving}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
             <Save size={14} />
             {saved ? 'Gespeichert ✓' : saving ? 'Speichert…' : 'Speichern'}
           </button>
           <button onClick={() => openInExplorer(doc.id)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors">
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
             <FolderOpen size={14} />
             Im Explorer öffnen
           </button>
           <button onClick={remove}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-50 text-red-600 text-sm rounded-lg hover:bg-red-100 transition-colors">
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
             <Trash2 size={14} />
             Aus DB entfernen
           </button>
         </div>
+
+        {/* Problem document actions */}
+        {['classification_failed', 'encrypted', 'duplicate', 'corrupt', 'no_text', 'pending'].includes(doc.status) && (
+          <div className="px-4 py-3 border-t border-orange-200 dark:border-orange-900/50 bg-orange-50 dark:bg-orange-900/10 space-y-2">
+            <p className="text-xs font-medium text-orange-700 dark:text-orange-400">
+              Problemdokument – Status: <code className="font-mono">{doc.status}</code>
+            </p>
+            <button
+              onClick={async () => {
+                if (!confirm('PDF erneut klassifizieren? Das überschreibt die aktuellen Metadaten.')) return
+                await reprocessDocument(doc.id)
+                alert('Neu-Klassifizierung gestartet – öffne den Monitor-Tab für Live-Log.')
+              }}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-sm rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+              <RefreshCw size={14} />
+              Nochmal klassifizieren
+            </button>
+            <button
+              onClick={async () => {
+                if (!confirm(`"${doc.filename}" unwiderruflich von Disk löschen?`)) return
+                await deleteDocumentWithFile(doc.id)
+                navigate('/documents')
+              }}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+              <FileX size={14} />
+              Datei löschen (Disk + DB)
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

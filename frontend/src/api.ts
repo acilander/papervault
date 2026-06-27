@@ -14,6 +14,11 @@ export interface Document {
   content_hash: string | null
   status: string
   archived_at: string
+  tags: string | null
+  tax_relevant: number
+  tax_year: string | null
+  expires_at: string | null
+  notes: string | null
 }
 
 export interface DocumentUpdate {
@@ -23,11 +28,17 @@ export interface DocumentUpdate {
   category?: string | null
   summary?: string | null
   status?: string | null
+  tags?: string | null
+  tax_relevant?: number | null
+  tax_year?: string | null
+  expires_at?: string | null
+  notes?: string | null
 }
 
 export interface SenderEntry {
   categories: string[]
   pinned_category: string | null
+  reviewed: boolean | null
 }
 
 export interface Stats {
@@ -46,9 +57,17 @@ export const getDocuments = (params: {
   year?: string
   sender?: string
   status?: string
+  tax_relevant?: number
+  tag?: string
   limit?: number
   offset?: number
 }) => api.get<Document[]>('/documents/', { params }).then(r => r.data)
+
+export const getExpiring = (days = 30) =>
+  api.get<Document[]>('/documents/expiring', { params: { days } }).then(r => r.data)
+
+export const taxExportUrl = (year?: string) =>
+  `/documents/tax-export${year ? `?year=${year}` : ''}`
 
 export const getDocument = (id: number) =>
   api.get<Document>(`/documents/${id}`).then(r => r.data)
@@ -61,16 +80,43 @@ export const deleteDocument = (id: number) => api.delete(`/documents/${id}`)
 export const openInExplorer = (id: number) =>
   api.post(`/documents/${id}/open`)
 
+export const renameDocument = (id: number, filename: string) =>
+  api.post<Document>(`/documents/${id}/rename`, { filename }).then(r => r.data)
+
+export const reprocessDocument = (id: number) =>
+  api.post(`/documents/${id}/reprocess`)
+
+export const deleteDocumentWithFile = (id: number) =>
+  api.delete(`/documents/${id}/delete-file`)
+
 export const getSenders = () =>
   api.get<Record<string, SenderEntry>>('/senders/').then(r => r.data)
 
-export const updateSender = (name: string, body: { pinned_category?: string | null; categories?: string[] }) =>
+export const updateSender = (name: string, body: { pinned_category?: string | null; categories?: string[]; reviewed?: boolean }) =>
   api.patch<SenderEntry>(`/senders/${encodeURIComponent(name)}`, body).then(r => r.data)
 
 export const mergeSender = (name: string, target: string) =>
-  api.post<SenderEntry>(`/senders/${encodeURIComponent(name)}/merge/${encodeURIComponent(target)}`).then(r => r.data)
+  api.post<{ merged_into: string; moved: number; skipped: number; errors: string[]; dest_dir: string; entry: SenderEntry }>(
+    `/senders/${encodeURIComponent(name)}/merge/${encodeURIComponent(target)}`
+  ).then(r => r.data)
 
 export const deleteSender = (name: string) =>
   api.delete(`/senders/${encodeURIComponent(name)}`)
+
+export const removeSenderCategory = (
+  name: string,
+  category: string,
+  action: 'keep' | 'sonstiges' | 'move' | 'reclassify',
+  target_category?: string
+) =>
+  api.post<{ affected: number; action: string; moved: number; errors: string[] }>(
+    `/senders/${encodeURIComponent(name)}/remove-category`,
+    { category, action, target_category }
+  ).then(r => r.data)
+
+export const reorganizeSender = (name: string) =>
+  api.post<{ moved: number; skipped: number; errors: string[]; dest_dir: string }>(
+    `/senders/${encodeURIComponent(name)}/reorganize`
+  ).then(r => r.data)
 
 export const pdfUrl = (id: number) => `/documents/${id}/file`
