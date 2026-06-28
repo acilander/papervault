@@ -12,12 +12,13 @@ const CATEGORIES = [
 
 const STATUS_COLORS: Record<string, string> = {
   ok: 'bg-green-50 text-green-700',
-  encrypted: 'bg-yellow-50 text-yellow-700',
+  pending: 'bg-blue-100 text-blue-700',
+  missing: 'bg-orange-100 text-orange-700',
+  classification_failed: 'bg-red-100 text-red-700',
+  duplicate: 'bg-purple-100 text-purple-700',
+  no_text: 'bg-gray-200 text-gray-600',
+  encrypted: 'bg-yellow-100 text-yellow-700',
   corrupt: 'bg-red-50 text-red-700',
-  duplicate: 'bg-purple-50 text-purple-700',
-  classification_failed: 'bg-orange-50 text-orange-700',
-  no_text: 'bg-gray-100 text-gray-600',
-  missing: 'bg-red-100 text-red-800',
 }
 
 export default function Documents() {
