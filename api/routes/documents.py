@@ -38,6 +38,33 @@ def list_documents(
     )
 
 
+@router.get("/expiring")
+def get_expiring(days: int = Query(30, ge=1, le=365)):
+    return db.get_expiring_documents(days=days)
+
+
+@router.get("/tax-export")
+def tax_export(year: Optional[str] = Query(None)):
+    """Stream a ZIP of all tax-relevant PDFs for the given year."""
+    docs = db.get_tax_documents(year=year)
+    existing = [d for d in docs if os.path.exists(d["file_path"])]
+    if not existing:
+        raise HTTPException(status_code=404, detail="Keine steuerrelevanten Dokumente gefunden")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for doc in existing:
+            arcname = f"{doc['tax_year'] or 'kein-jahr'}/{doc['filename']}"
+            zf.write(doc["file_path"], arcname=arcname)
+    buf.seek(0)
+    label = f"steuer_{year}" if year else "steuer_alle"
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={label}.zip"},
+    )
+
+
 @router.get("/{doc_id}", response_model=DocumentOut)
 def get_document(doc_id: int):
     doc = db.get_document(doc_id)
@@ -145,33 +172,6 @@ def reprocess_document(doc_id: int):
     except Exception:
         pass
     return {"detail": "Neu-Klassifizierung gestartet", "file_path": path}
-
-
-@router.get("/expiring")
-def get_expiring(days: int = Query(30, ge=1, le=365)):
-    return db.get_expiring_documents(days=days)
-
-
-@router.get("/tax-export")
-def tax_export(year: Optional[str] = Query(None)):
-    """Stream a ZIP of all tax-relevant PDFs for the given year."""
-    docs = db.get_tax_documents(year=year)
-    existing = [d for d in docs if os.path.exists(d["file_path"])]
-    if not existing:
-        raise HTTPException(status_code=404, detail="Keine steuerrelevanten Dokumente gefunden")
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for doc in existing:
-            arcname = f"{doc['tax_year'] or 'kein-jahr'}/{doc['filename']}"
-            zf.write(doc["file_path"], arcname=arcname)
-    buf.seek(0)
-    label = f"steuer_{year}" if year else "steuer_alle"
-    return StreamingResponse(
-        buf,
-        media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename={label}.zip"},
-    )
 
 
 @router.delete("/{doc_id}/delete-file", status_code=204)
