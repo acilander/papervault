@@ -25,6 +25,7 @@ export default function Monitor() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const esRef = useRef<EventSource | null>(null)
   const counterRef = useRef(0)
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -53,18 +54,42 @@ export default function Monitor() {
     }
     es.onerror = () => {
       setConnected(false)
-      setSseError('SSE-Verbindung getrennt')
+      setSseError('SSE-Verbindung getrennt – verbinde neu…')
       es.close()
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+      reconnectTimer.current = setTimeout(() => connectRef.current(), 3000)
     }
   }, [])
+
+  const connectRef = useRef(connect)
+  useEffect(() => { connectRef.current = connect }, [connect])
 
   useEffect(() => {
     connect()
     fetchStatus()
     fetchInbox()
     const interval = setInterval(() => { fetchStatus(); fetchInbox() }, 5000)
-    return () => { esRef.current?.close(); clearInterval(interval) }
+    return () => {
+      esRef.current?.close()
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+      clearInterval(interval)
+    }
   }, [connect, fetchStatus, fetchInbox])
+
+  // Auto-start archiver if not running
+  useEffect(() => {
+    const autoStart = async () => {
+      try {
+        const res = await axios.get<ArchiverStatus>('/monitor/archiver/status')
+        if (!res.data.running) {
+          await axios.post('/monitor/archiver/start')
+          await fetchStatus()
+        }
+      } catch {}
+    }
+    const t = setTimeout(autoStart, 2000)
+    return () => clearTimeout(t)
+  }, [fetchStatus])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
