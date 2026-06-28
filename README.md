@@ -1,4 +1,4 @@
-# Document Archiver
+# PaperVault
 
 Automatisches PDF-Archivierungssystem mit **lokalem LLM** (llama-cpp-python, keine Cloud) und **React Web-UI**.  
 Überwacht einen Inbox-Ordner, klassifiziert PDFs vollautomatisch und legt sie strukturiert im Dateisystem ab.  

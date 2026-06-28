@@ -98,7 +98,7 @@ export default function App() {
         <aside className="w-56 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col shrink-0">
           <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
             <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight">
-              📂 Dokumentenarchiv
+              �️ PaperVault
             </h1>
             <button
               onClick={() => setDark(d => !d)}
