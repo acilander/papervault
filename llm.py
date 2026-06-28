@@ -229,8 +229,13 @@ def classify_document(safe_text, filename=None):
     system_prompt = SYSTEM_PROMPT.replace("{current_year}", str(datetime.now().year))
 
     if storage.sender_registry:
-        known_list = ", ".join(sorted(storage.sender_registry.keys())[:60])
-        sender_hint = f"\n\nBekannte Absender aus dem Archiv (bevorzuge diese Schreibweise wenn passend): {known_list}"
+        def _norm(s): return s.lower().replace("ä","ae").replace("ö","oe").replace("ü","ue").replace("ß","ss")
+        text_norm = _norm(safe_text)
+        matching = [k for k in storage.sender_registry if _norm(k) in text_norm]
+        if matching:
+            sender_hint = f"\n\nHinweis: Folgender bekannter Absender wurde im Text gefunden – verwende genau diese Schreibweise: {', '.join(matching)}"
+        else:
+            sender_hint = ""
     else:
         sender_hint = ""
 
