@@ -20,3 +20,19 @@ senders.json.bak*
 # Cleanup helper (optional, not core app)
 cleanup_senders.py
 reorganize_archive.py
+
+# Frontend build
+frontend/node_modules/
+frontend/dist/
+
+# Database (contains personal documents)
+*.db
+*.db-shm
+*.db-wal
+
+# Runtime state files (personal data)
+feedback.json
+senders.json
+
+# Logs
+*.log
