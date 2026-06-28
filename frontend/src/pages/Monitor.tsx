@@ -91,6 +91,18 @@ export default function Monitor() {
     } finally { setActionBusy(false) }
   }
 
+  const handleRestart = async () => {
+    setActionBusy(true)
+    try {
+      if (archiver.running) await axios.post('/monitor/archiver/stop')
+      await new Promise(r => setTimeout(r, 1200))
+      await axios.post('/monitor/archiver/start')
+      await fetchStatus()
+    } catch (e: any) {
+      alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+    } finally { setActionBusy(false) }
+  }
+
   const handleOrphanScan = async () => {
     setOrphanBusy(true)
     try {
@@ -160,17 +172,24 @@ export default function Monitor() {
               {archiver.running ? 'Überwacht Inbox auf neue PDFs' : 'Klicke Start um den Archiver zu starten'}
             </p>
           </div>
-          {archiver.running ? (
-            <button onClick={handleStop} disabled={actionBusy}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors">
-              <Square size={13} /> Stop
+          <div className="flex gap-2">
+            {archiver.running ? (
+              <button onClick={handleStop} disabled={actionBusy}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors">
+                <Square size={13} /> Stop
+              </button>
+            ) : (
+              <button onClick={handleStart} disabled={actionBusy}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors">
+                <Play size={13} /> Start
+              </button>
+            )}
+            <button onClick={handleRestart} disabled={actionBusy}
+              title="Archiver neu starten"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors">
+              <RefreshCw size={13} className={actionBusy ? 'animate-spin' : ''} /> Restart
             </button>
-          ) : (
-            <button onClick={handleStart} disabled={actionBusy}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors">
-              <Play size={13} /> Start
-            </button>
-          )}
+          </div>
         </div>
 
         {sseError && (
