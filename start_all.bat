@@ -1,5 +1,5 @@
 @echo off
-title Dokumentenarchiv - Start
+title PaperVault - Start
 cd /d "%~dp0"
 
 :: Check if API (port 8000) is already running
@@ -9,7 +9,7 @@ if %errorlevel%==0 (
     set API_RUNNING=1
 ) else (
     echo [API]      Starte API auf Port 8000...
-    start "Dokumentenarchiv API" cmd /k ".venv\Scripts\python.exe -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload"
+    start "PaperVault API" /B .venv\Scripts\python.exe -m uvicorn api.main:app --host 0.0.0.0 --port 8000
     set API_RUNNING=0
 )
 
@@ -21,7 +21,7 @@ if %errorlevel%==0 (
 ) else (
     echo [Frontend] Starte Frontend auf Port 5173...
     if %API_RUNNING%==0 timeout /t 2 /nobreak >nul
-    start "Dokumentenarchiv Frontend" cmd /k "cd frontend && npm run dev"
+    start "PaperVault Frontend" /B cmd /c "cd frontend && npm run dev"
     set FE_RUNNING=0
 )
 
