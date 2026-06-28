@@ -26,7 +26,7 @@ def load_model():
     if _llm is None:
         log("Lade LLM-Modell (einmalig)...")
         t0 = time.time()
-        _llm = Llama(model_path=MODEL_PATH, n_ctx=2048, n_threads=6, verbose=False, chat_format="chatml")
+        _llm = Llama(model_path=MODEL_PATH, n_ctx=4096, n_threads=6, verbose=False, chat_format="chatml")
         log(f"Modell geladen in {time.time()-t0:.1f}s")
 
 
@@ -225,6 +225,7 @@ def build_similar_docs_hint(text_snippet: str) -> str:
 
 def classify_document(safe_text, filename=None):
     load_model()
+    safe_text = safe_text[:3000]  # hard cap to stay within context window
     system_prompt = SYSTEM_PROMPT.replace("{current_year}", str(datetime.now().year))
 
     if storage.sender_registry:
