@@ -276,15 +276,22 @@ def classify_document(safe_text, filename=None):
             if data.get("sender"):
                 data["sender"] = normalize_sender(data["sender"])
 
+            # Auto-fix invalid category via fuzzy match
+            if data.get("category") not in CATEGORIES:
+                close = get_close_matches(data["category"] or "", CATEGORIES, n=1, cutoff=0.4)
+                if close:
+                    log(f"Kategorie '{data['category']}' auto-korrigiert zu '{close[0]}'")
+                    data["category"] = close[0]
+
             errors = validate_classification(data)
             if not errors:
                 log(f"LLM OK in {time.time()-t0:.1f}s: {data}")
                 return data
 
             owner_error = any("Empfaenger" in e for e in errors)
-            if attempt == MAX_RETRIES and owner_error and len(errors) == 1:
+            if owner_error and len(errors) == 1:
                 data["sender"] = None
-                log("Letzter Versuch: Absender nicht erkennbar, setze auf null. Akzeptiere restliche Klassifizierung.")
+                log("Absender ist Archivinhaber – setze sender=null und akzeptiere restliche Klassifizierung.")
                 return data
 
             feedback = "; ".join(errors)
