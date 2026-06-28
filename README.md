@@ -398,3 +398,21 @@ python scripts/extract_keywords.py --dry-run   # zeigt was gemacht würde
 # Einmalige Migration: Filesystem-Struktur → SQLite
 python scripts/migrate_to_db.py
 ```
+
+---
+
+## Changelog
+
+### 2026-06-28
+- **fix**: `scan-missing` prüft jetzt alle DB-Einträge (nicht nur `status=ok`)
+- **fix**: `GET /documents/expiring` und `/tax-export` kollidierten mit `/{doc_id}` → `422`-Fehler behoben (Reihenfolge der Routes korrigiert)
+- **fix**: `stop_all.bat` verwendete `Stop-Process` statt `taskkill /F /T` → uvicorn-Reloader-Subprocess blieb am Leben
+- **fix**: `POST /senders/reload` kollidierten mit `PATCH /{name}` → Route auf `POST /senders/~reload` verschoben
+- **fix**: `senders.json` war in Git getrackt (persönliche Daten) → aus Tracking entfernt
+- **feat**: Archiver startet automatisch beim Öffnen der Monitor-Seite
+- **feat**: SSE-Verbindung reconnectet automatisch alle 3 Sekunden bei Abbruch
+- **feat**: Dashboard zeigt eigene KPI-Karte „Datei fehlt" (`missing`-Status), nicht mehr in „Fehlgeschlagen" gezählt
+- **feat**: `Neu laden`-Button im Absender-Manager lädt `senders.json` ohne Backend-Neustart
+- **feat**: `stop_all.bat` – beendet Backend + Frontend zuverlässig
+- **chore**: App umbenannt zu **PaperVault**
+- **chore**: Root aufgeräumt, Hilfsskripte nach `scripts/` verschoben
