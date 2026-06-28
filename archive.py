@@ -10,7 +10,7 @@ from config import (
     TARGET_BASE, DUPLICATES_DIR, FAILED_DIR, ENCRYPTED_DIR,
     CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, CATEGORIES,
 )
-from pdf_utils import extract_text, ocr_pdf, prepare_text_for_llm, is_cryptic_filename, build_filename, unique_path, extract_features, build_feature_prompt
+from pdf_utils import extract_text, ocr_pdf, prepare_text_for_llm, is_cryptic_filename, build_filename, unique_path, extract_features, build_feature_prompt, detect_receipt
 from llm import classify_document, filter_keywords_against_text
 from storage import content_hashes, save_hashes, record_sender, apply_sender_overrides, processing_log
 import db
@@ -117,20 +117,48 @@ def process_pdf(file_path):
     )
     log(f"Merkmale: {', '.join(features.get('category_candidates', [])) or '–'} | Typ: {features.get('type_candidate') or '–'}")
 
-    # Read optional .hint sidecar file
-    hint_path = os.path.splitext(file_path)[0] + ".hint"
-    user_hint = None
-    if os.path.exists(hint_path):
-        try:
-            with open(hint_path, "r", encoding="utf-8") as f:
-                user_hint = f.read().strip()
-            os.remove(hint_path)
-            log(f"Benutzerhinweis geladen: {user_hint[:80]}")
-        except Exception:
-            pass
+    # Receipt detection – skip LLM for simple kassenbons
+    is_receipt, receipt_sender = detect_receipt(text, filename=os.path.basename(file_path))
+    if is_receipt:
+        raw_date = re.search(r'(20\d{2}-\d{2}-\d{2}|\d{2}\.\d{2}\.20\d{2})', text)
+        receipt_date = None
+        if raw_date:
+            d = raw_date.group()
+            if "." in d:
+                parts = d.split(".")
+                receipt_date = f"{parts[2]}-{parts[1]}-{parts[0]}"
+            else:
+                receipt_date = d
+        else:
+            fn_date = re.search(r'(20\d{2})(\d{2})(\d{2})', os.path.basename(file_path))
+            if fn_date:
+                receipt_date = f"{fn_date.group(1)}-{fn_date.group(2)}-{fn_date.group(3)}"
+        data = {
+            "sender": receipt_sender,
+            "date": receipt_date,
+            "document_type": "Rechnung",
+            "category": "Einkauf & Bestellungen",
+            "summary": f"Kassenbon{' von ' + receipt_sender if receipt_sender else ''}.",
+            "keywords": "Kassenbon, Einkauf, Quittung",
+        }
+        log(f"Kassenbon erkannt – LLM uebersprungen. Absender: {receipt_sender}")
+        user_hint = None
+        features = extract_features(text, filename=os.path.basename(file_path), file_path=file_path)
+    else:
+        # Read optional .hint sidecar file
+        hint_path = os.path.splitext(file_path)[0] + ".hint"
+        user_hint = None
+        if os.path.exists(hint_path):
+            try:
+                with open(hint_path, "r", encoding="utf-8") as f:
+                    user_hint = f.read().strip()
+                os.remove(hint_path)
+                log(f"Benutzerhinweis geladen: {user_hint[:80]}")
+            except Exception:
+                pass
 
-    data = classify_document(safe_text, filename=os.path.basename(file_path), user_hint=user_hint,
-                               feature_prompt=feature_prompt, similar_docs=similar_docs)
+        data = classify_document(safe_text, filename=os.path.basename(file_path), user_hint=user_hint,
+                                 feature_prompt=feature_prompt, similar_docs=similar_docs)
 
     if data is None:
         os.makedirs(FAILED_DIR, exist_ok=True)

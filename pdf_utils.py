@@ -207,6 +207,34 @@ def build_feature_prompt(features):
     return "\n".join(lines)
 
 
+RECEIPT_SIGNALS = [
+    "kassenbon", "bon-nr", "bonnummer", "kassenzettel",
+    "vielen dank fuer deinen einkauf", "vielen dank für deinen einkauf",
+    "ebon", "e-bon", "danke fuer ihren einkauf", "danke für ihren einkauf",
+    "ihre quittung", "quittungsnummer",
+]
+
+
+def detect_receipt(text, filename=None):
+    """Return (is_receipt, sender) if document looks like a Kassenbon/receipt.
+    sender is extracted from filename or header zone."""
+    t_norm = text.lower().replace("ä","ae").replace("ö","oe").replace("ü","ue").replace("ß","ss")
+    signal_count = sum(1 for s in RECEIPT_SIGNALS if s in t_norm)
+    if signal_count == 0:
+        return False, None
+    # Extract sender from filename pattern: YYYYMMDD_<Sender>_Kassenbon_...
+    sender = None
+    if filename:
+        stem = os.path.splitext(filename)[0]
+        parts = stem.split("_")
+        # Skip leading date part
+        candidates = [p for p in parts if not re.match(r'^\d{6,}$', p) and len(p) > 2]
+        if candidates:
+            # First non-date, non-numeric part is likely the store name
+            sender = candidates[0].replace("-", " ").strip()
+    return True, sender
+
+
 def is_cryptic_filename(name):
     stem = os.path.splitext(name)[0]
     return bool(re.match(r'^[\d_\-]{10,}$', stem))

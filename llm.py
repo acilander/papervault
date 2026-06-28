@@ -319,7 +319,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             log(f"Plausibilitaetsfehler (Versuch {attempt}): {feedback}")
 
         except json.JSONDecodeError:
-            log(f"LLM antwortete kein valides JSON (Versuch {attempt}), wiederhole...")
+            log(f"LLM antwortete kein valides JSON (Versuch {attempt}): {raw[:200]!r}")
             feedback = None
         except Exception as e:
             log(f"LLM Fehler nach {time.time()-t0:.1f}s (Versuch {attempt}): {e}")
