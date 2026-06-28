@@ -1,9 +1,8 @@
 import io
 import os
-import queue
+import shutil
 import subprocess
 import sys
-import threading
 import zipfile
 from typing import Optional
 
@@ -162,16 +161,17 @@ def reprocess_document(doc_id: int):
     path = doc["file_path"]
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
-    # Reset status to trigger reprocessing
-    db.update_document(doc_id, status="pending")
-    # Try to trigger via the archiver's queue if it is running in-process
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from config import SOURCE_DIR
+    inbox_path = os.path.join(SOURCE_DIR, os.path.basename(path))
+    # Move file back to Inbox so the archiver watcher picks it up
     try:
-        import archive
-        t = threading.Thread(target=archive.process_pdf, args=(path,), daemon=True)
-        t.start()
-    except Exception:
-        pass
-    return {"detail": "Neu-Klassifizierung gestartet", "file_path": path}
+        shutil.copy2(path, inbox_path)
+        os.remove(path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Konnte Datei nicht in Inbox verschieben: {e}")
+    db.update_document(doc_id, status="pending", file_path=inbox_path)
+    return {"detail": "Datei zurück in Inbox verschoben – Archiver klassifiziert neu.", "file_path": inbox_path}
 
 
 @router.delete("/{doc_id}/delete-file", status_code=204)
