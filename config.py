@@ -91,6 +91,10 @@ Einkauf & Bestellungen, Geraete & Garantie, Behoerde & Urkunden, Ausbildung & Ve
 Wichtige Regeln:
 - Der Archivinhaber ist Alexander Staiger oder Sonja Staiger. Diese sind EMPFAENGER, niemals Absender.
 - 'sender' muss eine Firma, Behoerde oder Organisation sein, nicht eine Privatperson.
+- Bei Kontoauszuegen, Kreditkartenabrechnungen und Bankdokumenten ist der Absender die BANK (z.B. "Advanzia Bank", "Sparkasse", "DKB"), nicht der Kontoinhaber.
+- Bei Rechnungen ist der Absender das UNTERNEHMEN das die Rechnung ausgestellt hat, nicht der Kaeufer.
+- Bei Bescheiden ist der Absender die BEHOERDE (z.B. "Finanzamt", "Krankenkasse"), nicht der Empfaenger.
+- Suche den Absender im Briefkopf, Logo-Bereich oder in der Zeile "Von:", "Aussteller:", "Ihre Bank:" – nicht in der Adresszeile des Empfaengers.
 - 'date' muss ein reales Datum sein. Das aktuelle Jahr ist {current_year}. Zukuenftige Jahre sind ungueltig.
 - 'summary' muss mindestens einen vollstaendigen Satz enthalten.
 - 'keywords' sollen spezifische, durchsuchbare Begriffe sein (keine allgemeinen Woerter wie 'Dokument' oder 'Brief')."""
