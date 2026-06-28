@@ -81,7 +81,7 @@ export default function App() {
           expiring: Array.isArray(expiringData) ? expiringData.length : 0,
           inbox: inboxData.files?.length ?? 0,
           duplicates: byStatus.find(s => s.status === 'duplicate')?.count ?? 0,
-          failed: byStatus.filter(s => !['ok','encrypted','duplicate','missing'].includes(s.status)).reduce((a, b) => a + b.count, 0),
+          failed: byStatus.find(s => s.status === 'classification_failed')?.count ?? 0,
           tax: 0,
           missing: byStatus.find(s => s.status === 'missing')?.count ?? 0,
         })
