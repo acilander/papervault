@@ -192,8 +192,11 @@ def scan_orphans():
 
     orphans = []
     for root, dirs, files in os.walk(TARGET_BASE):
-        # Skip excluded top-level dirs
+        # Skip root dir – only process subdirectories
         rel = os.path.relpath(root, TARGET_BASE)
+        if rel == ".":
+            continue
+        # Skip excluded top-level dirs
         top = rel.split(os.sep)[0]
         if top in EXCLUDE_DIRS:
             dirs.clear()
