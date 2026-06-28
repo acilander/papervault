@@ -19,7 +19,7 @@ def _reload():
     storage.load_sender_registry()
 
 
-@router.post("/reload")
+@router.post("/~reload")
 def reload_senders():
     """Reload sender registry from senders.json into memory."""
     storage.load_sender_registry()
