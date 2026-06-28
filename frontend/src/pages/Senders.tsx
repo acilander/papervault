@@ -194,8 +194,14 @@ export default function Senders() {
                         <button
                           onClick={() => {
                             setRemoveDlg({ name, category: c })
-                            setRemoveAction('keep')
-                            setRemoveMoveTarget('Sonstiges')
+                            const pinned = entry.pinned_category
+                            if (pinned && pinned !== c) {
+                              setRemoveAction('move')
+                              setRemoveMoveTarget(pinned)
+                            } else {
+                              setRemoveAction('keep')
+                              setRemoveMoveTarget('Sonstiges')
+                            }
                           }}
                           disabled={entry.categories.length === 1 && !entry.pinned_category}
                           className="ml-0.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity leading-none disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:text-gray-400"
@@ -306,6 +312,11 @@ export default function Senders() {
               Die Kategorie wird dauerhaft gesperrt – der LLM wählt sie für diesen Absender nicht mehr.
               Was soll mit den betroffenen Dokumenten passieren?
             </p>
+            {removeAction === 'move' && removeMoveTarget && (
+              <p className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded px-3 py-1.5">
+                Vorbelegt: Dokumente werden in gepinnte Kategorie <strong>„{removeMoveTarget}"</strong> verschoben.
+              </p>
+            )}
 
             <div className="space-y-2">
               {([
