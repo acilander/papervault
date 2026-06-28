@@ -28,7 +28,6 @@ if %errorlevel%==0 (
 echo.
 echo API:      http://localhost:8000
 echo Frontend: http://localhost:5173
-echo Docs:     http://localhost:8000/docs
 echo.
-timeout /t 3 /nobreak >nul
 start http://localhost:5173
+exit
