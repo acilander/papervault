@@ -149,11 +149,11 @@ def inbox_preview():
 @router.post("/scan-missing")
 def scan_missing():
     """
-    Check all 'ok' DB entries against the filesystem.
+    Check ALL DB entries against the filesystem (regardless of current status).
     Entries whose file_path no longer exists are marked status='missing'.
     Returns list of affected documents.
     """
-    docs = db.search_documents(status="ok", limit=99999)
+    docs = db.search_documents(limit=99999)
     missing = []
     for doc in docs:
         if doc.get("file_path") and not os.path.exists(doc["file_path"]):
