@@ -234,8 +234,9 @@ document_processor/
 ├── storage.py           senders.json, hashes.json, Processing-Log
 ├── feedback.py          Few-Shot: sammeln, priorisieren, in Prompt injizieren
 ├── pdf_utils.py         Text-Extraktion (PyMuPDF), OCR (Tesseract), Dateinamen
-├── extract_keywords.py  Batch-Nachextraktion für bestehende Dokumente
-├── migrate_to_db.py     Einmalige Migration: Filesystem → SQLite
+├── scripts/
+│   ├── extract_keywords.py  Batch-Nachextraktion für bestehende Dokumente
+│   └── migrate_to_db.py     Einmalige Migration: Filesystem → SQLite
 │
 ├── api/
 │   ├── main.py          FastAPI-App, Router-Registrierung, CORS
@@ -389,11 +390,11 @@ python -m pytest tests/ -v
 
 ```bash
 # Keywords nachträglich für bestehende Dokumente extrahieren
-python extract_keywords.py              # alle ohne Keywords
-python extract_keywords.py --limit 10  # nur 10 (zum Testen)
-python extract_keywords.py --force     # auch vorhandene überschreiben
-python extract_keywords.py --dry-run   # zeigt was gemacht würde
+python scripts/extract_keywords.py              # alle ohne Keywords
+python scripts/extract_keywords.py --limit 10  # nur 10 (zum Testen)
+python scripts/extract_keywords.py --force     # auch vorhandene überschreiben
+python scripts/extract_keywords.py --dry-run   # zeigt was gemacht würde
 
 # Einmalige Migration: Filesystem-Struktur → SQLite
-python migrate_to_db.py
+python scripts/migrate_to_db.py
 ```

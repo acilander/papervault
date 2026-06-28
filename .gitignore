@@ -17,9 +17,6 @@ hashes.json.bak*
 # Backups from cleanup scripts
 senders.json.bak*
 
-# Cleanup helper (optional, not core app)
-cleanup_senders.py
-reorganize_archive.py
 
 # Frontend build
 frontend/node_modules/
