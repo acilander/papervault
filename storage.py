@@ -15,7 +15,7 @@ def log(msg):
 
 # ── Processing log ───────────────────────────────────────────────────────────
 
-def processing_log(filename, status, data=None, error=None):
+def processing_log(filename, status, data=None, error=None, features=None, user_hint=None):
     entry = {
         "ts": datetime.now().isoformat(timespec="seconds"),
         "file": filename,
@@ -25,6 +25,18 @@ def processing_log(filename, status, data=None, error=None):
         entry["classification"] = data
     if error:
         entry["error"] = error
+    if features:
+        entry["features"] = {
+            "category_candidates": features.get("category_candidates", []),
+            "type_candidate": features.get("type_candidate"),
+            "has_amount": features.get("has_amount"),
+            "has_iban": features.get("has_iban"),
+            "has_tax_id": features.get("has_tax_id"),
+            "page_count": features.get("page_count"),
+            "type_from_filename": features.get("type_from_filename"),
+        }
+    if user_hint:
+        entry["user_hint"] = user_hint
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")

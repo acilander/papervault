@@ -170,7 +170,7 @@ def process_pdf(file_path):
     shutil.move(file_path, dest_pdf)
 
     record_sender(category, data.get("sender"))
-    processing_log(os.path.basename(dest_pdf), "ok", data=data)
+    processing_log(os.path.basename(dest_pdf), "ok", data=data, features=features, user_hint=user_hint)
     doc_id = db.upsert_document(
         file_path=dest_pdf,
         filename=os.path.basename(dest_pdf),
