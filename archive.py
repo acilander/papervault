@@ -156,7 +156,7 @@ def process_pdf(file_path):
 
     if SENDER_SUBFOLDERS and sender:
         safe_sender = re.sub(r'[\\/:*?"<>|]', '_', sender)[:50].strip()
-        target_dir = os.path.join(TARGET_BASE, folder_name, year, safe_sender)
+        target_dir = os.path.join(TARGET_BASE, folder_name, safe_sender, year)
     else:
         target_dir = os.path.join(TARGET_BASE, folder_name, year)
     os.makedirs(target_dir, exist_ok=True)
