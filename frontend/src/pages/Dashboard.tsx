@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { FileText, CheckCircle, AlertCircle, Lock, Copy, Download, Clock } from 'lucide-react'
+import { FileText, CheckCircle, AlertCircle, Lock, Copy, Download, Clock, FileX } from 'lucide-react'
 import { getStats, getExpiring, taxExportUrl, type Stats, type Document } from '../api'
 
 const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#14b8a6','#e11d48','#6366f1','#84cc16','#ec4899']
@@ -26,8 +26,9 @@ export default function Dashboard() {
   const okCount = stats.by_status.find(s => s.status === 'ok')?.count ?? 0
   const encCount = stats.by_status.find(s => s.status === 'encrypted')?.count ?? 0
   const dupCount = stats.by_status.find(s => s.status === 'duplicate')?.count ?? 0
+  const missingCount = stats.by_status.find(s => s.status === 'missing')?.count ?? 0
   const failCount = stats.by_status
-    .filter(s => s.status !== 'ok' && s.status !== 'encrypted' && s.status !== 'duplicate')
+    .filter(s => !['ok', 'encrypted', 'duplicate', 'missing'].includes(s.status))
     .reduce((a, b) => a + b.count, 0)
 
   return (
@@ -35,13 +36,14 @@ export default function Dashboard() {
       <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Dashboard</h2>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-6 gap-4">
         {[
           { label: 'Dokumente gesamt', value: totalAll, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Erfolgreich', value: okCount, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
           { label: 'Fehlgeschlagen', value: failCount, icon: AlertCircle, color: 'text-orange-600', bg: 'bg-orange-50' },
           { label: 'Verschlüsselt', value: encCount, icon: Lock, color: 'text-red-600', bg: 'bg-red-50' },
           { label: 'Duplikate', value: dupCount, icon: Copy, color: 'text-purple-600', bg: 'bg-purple-50' },
+          { label: 'Datei fehlt', value: missingCount, icon: FileX, color: 'text-red-700', bg: 'bg-red-50' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-3">
             <div className={`${bg} ${color} p-2.5 rounded-lg`}>
