@@ -19,6 +19,13 @@ def _reload():
     storage.load_sender_registry()
 
 
+@router.post("/reload")
+def reload_senders():
+    """Reload sender registry from senders.json into memory."""
+    storage.load_sender_registry()
+    return {"reloaded": True, "count": len(storage.sender_registry)}
+
+
 @router.get("/", response_model=dict[str, SenderEntry])
 def list_senders():
     return storage.sender_registry
