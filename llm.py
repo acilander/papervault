@@ -223,7 +223,7 @@ def build_similar_docs_hint(text_snippet: str) -> str:
         return ""
 
 
-def classify_document(safe_text, filename=None, user_hint=None):
+def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=None, similar_docs=None):
     load_model()
     safe_text = safe_text[:3000]  # hard cap to stay within context window
     system_prompt = SYSTEM_PROMPT.replace("{current_year}", str(datetime.now().year))
@@ -247,13 +247,26 @@ def classify_document(safe_text, filename=None, user_hint=None):
         filename_hint = ""
 
     few_shot_hint = fb.build_few_shot_prompt(n=15)
-    similar_hint = build_similar_docs_hint(safe_text)
 
     hint_block = f"\n\nBenutzerhinweis (hohe Prioritaet): {user_hint}" if user_hint else ""
 
+    feature_block = f"\n\n{feature_prompt}" if feature_prompt else ""
+
+    if similar_docs:
+        lines = ["\n\nStrukturell aehnliche Dokumente aus dem Archiv (als Referenz):"]
+        for d in similar_docs:
+            lines.append(
+                f"  - Absender: {d.get('sender','?')} | Kategorie: {d.get('category','?')} "
+                f"| Typ: {d.get('document_type','?')} | Datum: {d.get('date','?')}"
+                + (f" | {d['summary'][:60]}" if d.get('summary') else "")
+            )
+        similar_block = "\n".join(lines)
+    else:
+        similar_block = build_similar_docs_hint(safe_text)
+
     base_messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Klassifiziere dieses Dokument:{hint_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_hint}\n\n{safe_text}"},
+        {"role": "user", "content": f"Klassifiziere dieses Dokument:{hint_block}{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}\n\n{safe_text}"},
     ]
     feedback = None
 

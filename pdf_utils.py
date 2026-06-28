@@ -66,6 +66,147 @@ def prepare_text_for_llm(text):
     return " ".join(tokens)
 
 
+CATEGORY_KEYWORDS = {
+    "Bank & Finanzen":        ["iban", "kontonummer", "kontoauszug", "buchung", "saldo", "ueberweisung",
+                               "kreditkarte", "zinsen", "depot", "wertpapier", "lastschrift", "girokonto"],
+    "Versicherung":           ["versicherung", "police", "versicherungsschein", "beitrag", "schaden",
+                               "praemie", "deckung", "haftpflicht", "kasko", "lebensversicherung"],
+    "Gesundheit":             ["diagnose", "rezept", "krankenhaus", "arzt", "apotheke", "krankenkasse",
+                               "behandlung", "medikament", "befund", "einweisung", "erstattung"],
+    "Energie & Versorgung":   ["stromverbrauch", "gasverbrauch", "abrechnung", "zaehlerstand", "kwh",
+                               "abschlag", "jahresverbrauch", "wasserverbrauch", "heizkosten"],
+    "Kommunikation":          ["vertragsnummer", "mobilfunk", "internet", "telefon", "dsl", "breitband",
+                               "router", "sim", "tarif", "grundgebuehr", "minutenpreis"],
+    "Wohnen & Eigentum":      ["miete", "nebenkosten", "betriebskosten", "grundstueck", "hausgeld",
+                               "eigentuemer", "wohnflaeche", "mietvertrag", "kaution"],
+    "KFZ":                    ["fahrzeug", "kraftfahrzeug", "kfz", "kennzeichen", "fahrzeugbrief",
+                               "hauptuntersuchung", "hu", "reparatur", "werkstatt", "motor", "reifen"],
+    "Behoerde & Urkunden":    ["finanzamt", "bescheid", "steuerbescheid", "buergeramt", "behoerde",
+                               "aktenzeichen", "sozialversicherung", "rentenversicherung", "standesamt"],
+    "Arbeit & Rente":         ["arbeitgeber", "gehalt", "lohn", "lohnabrechnung", "entgelt",
+                               "sozialabgaben", "rentenversicherung", "arbeitsvertrag", "kuendigung"],
+    "Einkauf & Bestellungen": ["bestellung", "lieferung", "tracking", "paket", "amazon", "shop",
+                               "artikel", "retour", "rueckgabe", "warenkorb"],
+    "Geraete & Garantie":     ["garantie", "gewaehrleistung", "seriennummer", "modell", "geraet",
+                               "reparatur", "elektronik", "kaufbeleg"],
+}
+
+DOCTYPE_SIGNALS = {
+    "Kontoauszug":   ["kontoauszug", "kontostand", "buchung", "saldo", "iban"],
+    "Rechnung":      ["rechnung", "rechnungsnummer", "rechnungsdatum", "zahlbar", "mwst",
+                      "nettobetrag", "bruttobetrag", "steuerbetrag"],
+    "Vertrag":       ["vertrag", "vereinbarung", "laufzeit", "vertragspartner", "unterschrift"],
+    "Versicherungsschein": ["versicherungsschein", "police", "versicherungsnummer"],
+    "Bescheid":      ["bescheid", "festsetzung", "rechtsmittel", "widerspruch", "finanzamt"],
+    "Mahnung":       ["mahnung", "zahlungserinnerung", "rueckstand", "faellig"],
+    "Kuendigung":    ["kuendigung", "kuendigungsfrist", "vertragsende"],
+}
+
+
+def extract_header_zone(file_path, max_chars=400):
+    """Extract text from the top portion of the first page using PyMuPDF block positions."""
+    try:
+        doc = fitz.open(file_path)
+        if doc.is_encrypted or len(doc) == 0:
+            doc.close()
+            return ""
+        page = doc[0]
+        page_height = page.rect.height
+        # Top 30% of the page
+        clip = fitz.Rect(0, 0, page.rect.width, page_height * 0.30)
+        header_text = page.get_text("text", clip=clip)
+        doc.close()
+        return header_text.strip()[:max_chars]
+    except Exception:
+        return ""
+
+
+def extract_features(text, filename=None, file_path=None):
+    """Analyse document text and return a structured feature dict for LLM prompting."""
+    t = text.lower()
+    # Normalize umlauts for matching
+    t_norm = (t.replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
+               .replace("ß", "ss").replace("é", "e").replace("è", "e"))
+
+    features = {}
+
+    # --- Structural signals ---
+    features["has_amount"]   = bool(re.search(r'\d+[.,]\d{2}\s*€|EUR\s*\d', text))
+    features["has_iban"]     = bool(re.search(r'\bDE\d{2}[\s\d]{15,}', text))
+    features["has_tax_id"]   = bool(re.search(r'steuernummer|ust[-.\s]?id|steuer[-.\s]?nr', t))
+    features["has_date"]     = bool(re.search(r'\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b', text))
+    features["has_table"]    = text.count('\n') > 15 and bool(re.search(r'\t|\s{4,}', text))
+    features["page_count"]   = None  # filled below if file_path given
+
+    # --- Header zone (top 30% of first page) ---
+    header = extract_header_zone(file_path) if file_path else text[:400]
+    features["header_zone"] = header
+
+    # --- Category keyword scoring ---
+    cat_scores = {}
+    for cat, kws in CATEGORY_KEYWORDS.items():
+        score = sum(1 for kw in kws if kw in t_norm)
+        if score:
+            cat_scores[cat] = score
+    if cat_scores:
+        features["category_candidates"] = sorted(cat_scores, key=cat_scores.get, reverse=True)[:3]
+    else:
+        features["category_candidates"] = []
+
+    # --- Document type scoring ---
+    type_scores = {}
+    for dtype, kws in DOCTYPE_SIGNALS.items():
+        score = sum(1 for kw in kws if kw in t_norm)
+        if score:
+            type_scores[dtype] = score
+    features["type_candidate"] = max(type_scores, key=type_scores.get) if type_scores else None
+
+    # --- Page count ---
+    if file_path:
+        try:
+            doc = fitz.open(file_path)
+            features["page_count"] = len(doc)
+            doc.close()
+        except Exception:
+            pass
+
+    # --- Filename signals ---
+    if filename:
+        stem = os.path.splitext(filename)[0].lower()
+        for dtype, kws in DOCTYPE_SIGNALS.items():
+            if any(kw in stem for kw in kws):
+                features["type_from_filename"] = dtype
+                break
+        else:
+            features["type_from_filename"] = None
+    else:
+        features["type_from_filename"] = None
+
+    return features
+
+
+def build_feature_prompt(features):
+    """Convert feature dict to a compact prompt block."""
+    lines = ["Automatisch erkannte Merkmale (regelbasiert, kein LLM):"]
+    flags = []
+    if features.get("has_amount"):   flags.append("Geldbetrag (€/EUR)")
+    if features.get("has_iban"):     flags.append("IBAN")
+    if features.get("has_tax_id"):   flags.append("Steuernummer/USt-ID")
+    if features.get("has_date"):     flags.append("Datum")
+    if features.get("has_table"):    flags.append("Tabellenstruktur")
+    if features.get("page_count"):   flags.append(f"{features['page_count']} Seite(n)")
+    if flags:
+        lines.append("  Struktursignale: " + ", ".join(flags))
+    if features.get("category_candidates"):
+        lines.append("  Wahrscheinliche Kategorien (Keyword-Match): " + ", ".join(features["category_candidates"]))
+    tc = features.get("type_from_filename") or features.get("type_candidate")
+    if tc:
+        lines.append(f"  Wahrscheinlicher Dokumenttyp: {tc}")
+    if features.get("header_zone"):
+        lines.append(f"  Briefkopf (erste 30% der Seite): {features['header_zone'][:200]}")
+    return "\n".join(lines)
+
+
 def is_cryptic_filename(name):
     stem = os.path.splitext(name)[0]
     return bool(re.match(r'^[\d_\-]{10,}$', stem))

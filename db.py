@@ -239,3 +239,39 @@ def get_tax_documents(year=None):
                 "SELECT * FROM documents WHERE tax_relevant = 1 ORDER BY tax_year DESC, date"
             ).fetchall()
         return [dict(r) for r in rows]
+
+
+def find_similar_by_features(category_candidates, type_candidate, limit=3):
+    """Find successfully classified documents that match the given structural features.
+    Returns up to `limit` docs ordered by relevance (category match first)."""
+    if not category_candidates and not type_candidate:
+        return []
+    with get_conn() as conn:
+        results = []
+        seen_ids = set()
+        # 1. Exact category + type match
+        for cat in category_candidates:
+            if type_candidate:
+                rows = conn.execute(
+                    "SELECT id, sender, category, document_type, summary, date FROM documents "
+                    "WHERE status='ok' AND category=? AND document_type=? ORDER BY archived_at DESC LIMIT ?",
+                    (cat, type_candidate, limit)
+                ).fetchall()
+                for r in rows:
+                    if r["id"] not in seen_ids:
+                        results.append(dict(r))
+                        seen_ids.add(r["id"])
+        # 2. Category match only
+        for cat in category_candidates:
+            if len(results) >= limit:
+                break
+            rows = conn.execute(
+                "SELECT id, sender, category, document_type, summary, date FROM documents "
+                "WHERE status='ok' AND category=? ORDER BY archived_at DESC LIMIT ?",
+                (cat, limit)
+            ).fetchall()
+            for r in rows:
+                if r["id"] not in seen_ids and len(results) < limit:
+                    results.append(dict(r))
+                    seen_ids.add(r["id"])
+        return results[:limit]

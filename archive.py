@@ -10,7 +10,7 @@ from config import (
     TARGET_BASE, DUPLICATES_DIR, FAILED_DIR, ENCRYPTED_DIR,
     CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, CATEGORIES,
 )
-from pdf_utils import extract_text, ocr_pdf, prepare_text_for_llm, is_cryptic_filename, build_filename, unique_path
+from pdf_utils import extract_text, ocr_pdf, prepare_text_for_llm, is_cryptic_filename, build_filename, unique_path, extract_features, build_feature_prompt
 from llm import classify_document, filter_keywords_against_text
 from storage import content_hashes, save_hashes, record_sender, apply_sender_overrides, processing_log
 import db
@@ -108,6 +108,15 @@ def process_pdf(file_path):
 
     safe_text = prepare_text_for_llm(text)
 
+    # Structural pre-analysis
+    features = extract_features(text, filename=os.path.basename(file_path), file_path=file_path)
+    feature_prompt = build_feature_prompt(features)
+    similar_docs = db.find_similar_by_features(
+        features.get("category_candidates", []),
+        features.get("type_candidate"),
+    )
+    log(f"Merkmale: {', '.join(features.get('category_candidates', [])) or '–'} | Typ: {features.get('type_candidate') or '–'}")
+
     # Read optional .hint sidecar file
     hint_path = os.path.splitext(file_path)[0] + ".hint"
     user_hint = None
@@ -120,7 +129,8 @@ def process_pdf(file_path):
         except Exception:
             pass
 
-    data = classify_document(safe_text, filename=os.path.basename(file_path), user_hint=user_hint)
+    data = classify_document(safe_text, filename=os.path.basename(file_path), user_hint=user_hint,
+                               feature_prompt=feature_prompt, similar_docs=similar_docs)
 
     if data is None:
         os.makedirs(FAILED_DIR, exist_ok=True)
