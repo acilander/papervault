@@ -223,7 +223,7 @@ def build_similar_docs_hint(text_snippet: str) -> str:
         return ""
 
 
-def classify_document(safe_text, filename=None):
+def classify_document(safe_text, filename=None, user_hint=None):
     load_model()
     safe_text = safe_text[:3000]  # hard cap to stay within context window
     system_prompt = SYSTEM_PROMPT.replace("{current_year}", str(datetime.now().year))
@@ -249,9 +249,11 @@ def classify_document(safe_text, filename=None):
     few_shot_hint = fb.build_few_shot_prompt(n=15)
     similar_hint = build_similar_docs_hint(safe_text)
 
+    hint_block = f"\n\nBenutzerhinweis (hohe Prioritaet): {user_hint}" if user_hint else ""
+
     base_messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}{few_shot_hint}{similar_hint}\n\n{safe_text}"},
+        {"role": "user", "content": f"Klassifiziere dieses Dokument:{hint_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_hint}\n\n{safe_text}"},
     ]
     feedback = None
 

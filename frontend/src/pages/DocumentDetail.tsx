@@ -19,6 +19,9 @@ export default function DocumentDetail() {
   const [saved, setSaved] = useState(false)
   const [newFilename, setNewFilename] = useState('')
   const [renaming, setRenaming] = useState(false)
+  const [reprocessDlg, setReprocessDlg] = useState(false)
+  const [reprocessHint, setReprocessHint] = useState('')
+  const [reprocessBusy, setReprocessBusy] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -70,6 +73,7 @@ export default function DocumentDetail() {
   }
 
   return (
+    <>
     <div className="flex h-full">
       {/* Left: PDF preview */}
       <div className="flex-1 bg-gray-100 border-r border-gray-200">
@@ -229,11 +233,7 @@ export default function DocumentDetail() {
               Problemdokument – Status: <code className="font-mono">{doc.status}</code>
             </p>
             <button
-              onClick={async () => {
-                if (!confirm('PDF erneut klassifizieren? Das überschreibt die aktuellen Metadaten.')) return
-                await reprocessDocument(doc.id)
-                alert('Neu-Klassifizierung gestartet – öffne den Monitor-Tab für Live-Log.')
-              }}
+              onClick={() => { setReprocessHint(''); setReprocessDlg(true) }}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-sm rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
               <RefreshCw size={14} />
               Nochmal klassifizieren
@@ -252,5 +252,46 @@ export default function DocumentDetail() {
         )}
       </div>
     </div>
+
+    {/* Reprocess dialog */}
+    {reprocessDlg && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Neu klassifizieren</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Optionaler Hinweis an das LLM (z.B. „Absender ist Deutsche GigaNetz, Kategorie Kommunikation"):
+          </p>
+          <textarea
+            value={reprocessHint}
+            onChange={e => setReprocessHint(e.target.value)}
+            rows={3}
+            placeholder="Hinweis leer lassen für normale Klassifizierung…"
+            className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+          />
+          <div className="flex gap-2 justify-end pt-1">
+            <button onClick={() => setReprocessDlg(false)}
+              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+              Abbrechen
+            </button>
+            <button
+              disabled={reprocessBusy}
+              onClick={async () => {
+                setReprocessBusy(true)
+                try {
+                  await reprocessDocument(doc.id, reprocessHint || undefined)
+                  setReprocessDlg(false)
+                  alert('Neu-Klassifizierung gestartet – öffne den Monitor-Tab für Live-Log.')
+                } catch (e: any) {
+                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                } finally { setReprocessBusy(false) }
+              }}
+              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition-colors">
+              {reprocessBusy ? 'Wird gestartet…' : 'Klassifizieren'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

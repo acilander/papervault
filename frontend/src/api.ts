@@ -85,8 +85,8 @@ export const openInExplorer = (id: number) =>
 export const renameDocument = (id: number, filename: string) =>
   api.post<Document>(`/documents/${id}/rename`, { filename }).then(r => r.data)
 
-export const reprocessDocument = (id: number) =>
-  api.post(`/documents/${id}/reprocess`)
+export const reprocessDocument = (id: number, hint?: string) =>
+  api.post(`/documents/${id}/reprocess`, hint ? { hint } : {})
 
 export const deleteDocumentWithFile = (id: number) =>
   api.delete(`/documents/${id}/delete-file`)

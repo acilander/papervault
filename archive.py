@@ -107,7 +107,20 @@ def process_pdf(file_path):
     doc_content_hash = getattr(check_duplicate, 'last_hash', None)
 
     safe_text = prepare_text_for_llm(text)
-    data = classify_document(safe_text, filename=os.path.basename(file_path))
+
+    # Read optional .hint sidecar file
+    hint_path = os.path.splitext(file_path)[0] + ".hint"
+    user_hint = None
+    if os.path.exists(hint_path):
+        try:
+            with open(hint_path, "r", encoding="utf-8") as f:
+                user_hint = f.read().strip()
+            os.remove(hint_path)
+            log(f"Benutzerhinweis geladen: {user_hint[:80]}")
+        except Exception:
+            pass
+
+    data = classify_document(safe_text, filename=os.path.basename(file_path), user_hint=user_hint)
 
     if data is None:
         os.makedirs(FAILED_DIR, exist_ok=True)

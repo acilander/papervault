@@ -153,8 +153,8 @@ def rename_document(doc_id: int, body: dict):
 
 
 @router.post("/{doc_id}/reprocess", status_code=202)
-def reprocess_document(doc_id: int):
-    """Queue the PDF for re-classification by the archiver worker."""
+def reprocess_document(doc_id: int, body: dict = {}):
+    """Queue the PDF for re-classification by the archiver worker. Optional body: {hint: str}"""
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
@@ -171,6 +171,14 @@ def reprocess_document(doc_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Konnte Datei nicht in Inbox verschieben: {e}")
     db.update_document(doc_id, status="pending", file_path=inbox_path)
+    hint = (body or {}).get("hint", "").strip()
+    if hint:
+        hint_path = os.path.splitext(inbox_path)[0] + ".hint"
+        try:
+            with open(hint_path, "w", encoding="utf-8") as f:
+                f.write(hint)
+        except Exception:
+            pass
     return {"detail": "Datei zurück in Inbox verschoben – Archiver klassifiziert neu.", "file_path": inbox_path}
 
 
