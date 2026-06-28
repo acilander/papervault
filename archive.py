@@ -135,10 +135,7 @@ def process_pdf(file_path):
     if data is None:
         os.makedirs(FAILED_DIR, exist_ok=True)
         dest_pdf = unique_path(os.path.join(FAILED_DIR, os.path.basename(file_path)))
-        dest_json = os.path.splitext(dest_pdf)[0] + ".json"
         shutil.move(file_path, dest_pdf)
-        with open(dest_json, "w", encoding="utf-8") as f:
-            json.dump({"error": "Klassifizierung fehlgeschlagen", "file": os.path.basename(file_path)}, f, ensure_ascii=False, indent=2)
         log(f"Alle Versuche fehlgeschlagen. Verschoben nach: {dest_pdf}")
         log("--- Abgeschlossen (fehlgeschlagen) ---")
         processing_log(os.path.basename(file_path), "classification_failed")
@@ -169,11 +166,8 @@ def process_pdf(file_path):
         new_name = original_name
 
     dest_pdf = unique_path(os.path.join(target_dir, new_name))
-    dest_json = os.path.splitext(dest_pdf)[0] + ".json"
 
     shutil.move(file_path, dest_pdf)
-    with open(dest_json, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
 
     record_sender(category, data.get("sender"))
     processing_log(os.path.basename(dest_pdf), "ok", data=data)
