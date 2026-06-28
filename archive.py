@@ -148,7 +148,12 @@ def process_pdf(file_path):
     folder_name = CATEGORY_FOLDER_MAP.get(category, category)
     raw_date = str(data.get("date") or "")
     year_match = re.search(r'\b(\d{4})\b', raw_date)
-    year = year_match.group() if year_match else "Unbekannt"
+    if year_match:
+        year = year_match.group()
+    else:
+        # Fallback 1: extract year from filename
+        fn_year = re.search(r'\b(20\d{2})\b', os.path.basename(file_path))
+        year = fn_year.group() if fn_year else str(datetime.now().year)
     sender = data.get("sender")
 
     if SENDER_SUBFOLDERS and sender:
