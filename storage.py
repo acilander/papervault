@@ -36,11 +36,24 @@ def processing_log(filename, status, data=None, error=None):
 
 def load_hashes():
     global content_hashes
+    # Primary: load from DB (survives restarts)
+    try:
+        import db as _db
+        with _db.get_conn() as conn:
+            rows = conn.execute(
+                "SELECT content_hash, file_path FROM documents WHERE content_hash IS NOT NULL AND status='ok'"
+            ).fetchall()
+        content_hashes = {r["content_hash"]: r["file_path"] for r in rows}
+        log(f"Hash-Register geladen: {len(content_hashes)} Eintraege (aus DB).")
+        return
+    except Exception as e:
+        log(f"Hash-Register konnte nicht aus DB geladen werden: {e}")
+    # Fallback: load from file
     if os.path.exists(HASHES_FILE):
         try:
             with open(HASHES_FILE, "r", encoding="utf-8") as f:
                 content_hashes = json.load(f)
-            log(f"Hash-Register geladen: {len(content_hashes)} Eintraege.")
+            log(f"Hash-Register geladen: {len(content_hashes)} Eintraege (aus Datei).")
         except Exception as e:
             log(f"Hash-Register konnte nicht geladen werden: {e}")
             content_hashes = {}

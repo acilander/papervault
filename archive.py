@@ -35,6 +35,7 @@ def create_shortcut(target_path, shortcut_path):
 
 def check_duplicate(file_path, text):
     content_hash = hashlib.sha256(text.strip().encode("utf-8")).hexdigest()[:16]
+    check_duplicate.last_hash = content_hash  # expose hash to caller
     if content_hash in content_hashes:
         existing_path = content_hashes[content_hash]
         dup_dir = os.path.join(DUPLICATES_DIR, content_hash)
@@ -103,6 +104,7 @@ def process_pdf(file_path):
 
     if check_duplicate(file_path, text):
         return
+    doc_content_hash = getattr(check_duplicate, 'last_hash', None)
 
     safe_text = prepare_text_for_llm(text)
     data = classify_document(safe_text, filename=os.path.basename(file_path))
@@ -160,7 +162,7 @@ def process_pdf(file_path):
         document_type=data.get("document_type"),
         category=category,
         summary=data.get("summary"),
-        content_hash=None,
+        content_hash=doc_content_hash,
         status="ok",
     )
     if doc_id and data.get("keywords"):
