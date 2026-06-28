@@ -55,7 +55,7 @@ start_all.bat          # Backend + Frontend gleichzeitig (Port-Guard enthalten)
 oder manuell:
 
 ```bash
-python -m uvicorn api.main:app --reload --port 8000   # Backend
+python -m uvicorn api.main:app --port 8000            # Backend
 cd frontend && npm run dev                             # Frontend (Port 5173)
 ```
 
