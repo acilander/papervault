@@ -4,10 +4,10 @@ import { Search, Filter } from 'lucide-react'
 import { getDocuments, getExpiring, type Document } from '../api'
 
 const CATEGORIES = [
-  'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'KFZ',
+  'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'Fahrzeug & Werkstatt',
   'Wohnen & Eigentum', 'Vermieter', 'Energie & Versorgung', 'Kommunikation',
   'Einkauf & Bestellungen', 'Geraete & Garantie', 'Behoerde & Urkunden',
-  'Ausbildung & Verein', 'Sonstiges',
+  'Ausbildung & Verein', 'Sonstiges'
 ]
 
 const STATUS_COLORS: Record<string, string> = {

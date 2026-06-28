@@ -4,7 +4,7 @@ import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil } from 'l
 import { getDocument, updateDocument, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, type Document, type DocumentUpdate } from '../api'
 
 const CATEGORIES = [
-  'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'KFZ',
+  'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'Fahrzeug & Werkstatt',
   'Wohnen & Eigentum', 'Vermieter', 'Energie & Versorgung', 'Kommunikation',
   'Einkauf & Bestellungen', 'Geraete & Garantie', 'Behoerde & Urkunden',
   'Ausbildung & Verein', 'Sonstiges',

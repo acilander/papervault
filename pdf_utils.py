@@ -79,7 +79,7 @@ CATEGORY_KEYWORDS = {
                                "router", "sim", "tarif", "grundgebuehr", "minutenpreis"],
     "Wohnen & Eigentum":      ["miete", "nebenkosten", "betriebskosten", "grundstueck", "hausgeld",
                                "eigentuemer", "wohnflaeche", "mietvertrag", "kaution"],
-    "KFZ":                    ["fahrzeug", "kraftfahrzeug", "kfz", "kennzeichen", "fahrzeugbrief",
+    "Fahrzeug & Werkstatt":   ["fahrzeug", "kraftfahrzeug", "kfz", "kennzeichen", "fahrzeugbrief",
                                "hauptuntersuchung", "hu", "reparatur", "werkstatt", "motor", "reifen"],
     "Behoerde & Urkunden":    ["finanzamt", "bescheid", "steuerbescheid", "buergeramt", "behoerde",
                                "aktenzeichen", "sozialversicherung", "rentenversicherung", "standesamt"],

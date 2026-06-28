@@ -32,7 +32,7 @@ LOG_FILE       = os.path.join(TARGET_BASE, "processing_log.jsonl")
 DB_PATH        = os.getenv("DB_PATH", os.path.join(TARGET_BASE, "archive.db"))
 
 CATEGORIES = [
-    "Arbeit & Rente", "Bank & Finanzen", "Gesundheit", "Versicherung", "KFZ",
+    "Arbeit & Rente", "Bank & Finanzen", "Gesundheit", "Versicherung", "Fahrzeug & Werkstatt",
     "Wohnen & Eigentum", "Vermieter", "Energie & Versorgung", "Kommunikation",
     "Einkauf & Bestellungen", "Geraete & Garantie", "Behoerde & Urkunden",
     "Ausbildung & Verein", "Sonstiges",
@@ -43,7 +43,7 @@ CATEGORY_FOLDER_MAP = {
     "Bank & Finanzen":        "02 - Bank & Finanzen",
     "Gesundheit":             "03 - Gesundheit",
     "Versicherung":           "04 - Versicherung",
-    "KFZ":                    "05 - KFZ",
+    "Fahrzeug & Werkstatt":   "05 - Fahrzeug & Werkstatt",
     "Wohnen & Eigentum":      "06 - Wohnen & Eigentum",
     "Vermieter":              "07 - Vermieter",
     "Energie & Versorgung":   "08 - Energie & Versorgung",
@@ -84,7 +84,7 @@ Erlaubte Werte fuer document_type:
 Rechnung, Vertrag, Versicherungsschein, Mahnung, Kuendigung, Bescheid, Lieferschein, Kontoauszug, Angebot, Sonstiges
 
 Erlaubte Werte fuer category:
-Arbeit & Rente, Bank & Finanzen, Gesundheit, Versicherung, KFZ,
+Arbeit & Rente, Bank & Finanzen, Gesundheit, Versicherung, Fahrzeug & Werkstatt,
 Wohnen & Eigentum, Vermieter, Energie & Versorgung, Kommunikation,
 Einkauf & Bestellungen, Geraete & Garantie, Behoerde & Urkunden, Ausbildung & Verein, Sonstiges
 
