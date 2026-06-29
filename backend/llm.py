@@ -214,7 +214,7 @@ def build_similar_docs_hint(text_snippet: str) -> str:
         return ""
 
 
-def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=None, similar_docs=None):
+def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=None, similar_docs=None, header_zone=None):
     from config import MOCK_LLM
     if MOCK_LLM:
         log("[MOCK] Generiere simulierte Klassifizierung...")
@@ -290,9 +290,15 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
     else:
         similar_block = build_similar_docs_hint(safe_text)
 
+    # [Königsweg: Structural Context Isolation]
+    # Pass the top portion of the first page (briefkopf) as a distinct, isolated block.
+    # The system prompt instructs the LLM to strictly resolve 'sender' from this block.
+    header_block = f"\n\n--- DOKUMENT-BRIEFKOPF (Ausschließliche Absender-Quelle) ---\n{header_zone}\n----------------------------------" if header_zone else ""
+    user_content = f"Klassifiziere dieses Dokument:{hint_block}{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text}"
+
     base_messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Klassifiziere dieses Dokument:{hint_block}{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}\n\n{safe_text}"},
+        {"role": "user", "content": user_content},
     ]
     feedback = None
 
@@ -326,17 +332,6 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
 
             if data.get("sender"):
                 data["sender"] = normalize_sender(data["sender"])
-                # [Fix Netto-Tax Confusion]
-                # Smaller LLMs get confused by the word 'Netto' (net tax value) on receipts 
-                # and think the supermarket is 'Netto' even if it is Edeka, Rewe, Lidl, etc.
-                sender_lower = data["sender"].lower()
-                if "netto" in sender_lower:
-                    text_lower = safe_text.lower()
-                    for shop in ["edeka", "rewe", "aldi", "lidl", "dm-drogerie", "kaufland", "rossmann", "real"]:
-                        if shop in text_lower:
-                            log(f"[Fix Netto-Confusion] Korrigiere Absender von '{data['sender']}' zu '{shop.upper()}' aufgrund von Texttreffer.")
-                            data["sender"] = shop.upper()
-                            break
 
             # Auto-fix invalid category via fuzzy match
             if data.get("category") not in CATEGORIES:

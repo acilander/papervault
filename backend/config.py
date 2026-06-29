@@ -93,12 +93,14 @@ Wohnen & Eigentum, Vermieter, Energie & Versorgung, Kommunikation,
 Einkauf & Bestellungen, Kassenbon & Quittung, Geraete & Garantie, Behoerde & Urkunden, Ausbildung & Verein, Sonstiges
 
 Wichtige Regeln:
+- Nutze den bereitgestellten "DOKUMENT-BRIEFKOPF" als primäre und ausschließliche Quelle für den Absender ("sender"). Der "DOKUMENT-VOLLTEXT" dient nur zur Bestimmung des Datums, des Typs und der Zusammenfassung.
 - Der Archivinhaber ist Alexander Staiger oder Sonja Staiger. Diese sind EMPFAENGER, niemals Absender.
 - 'sender' muss eine Firma, Behoerde oder Organisation sein, nicht eine Privatperson.
-- Bei Kontoauszuegen, Kreditkartenabrechnungen und Bankdokumenten ist der Absender die BANK (z.B. "Advanzia Bank", "Sparkasse", "DKB"), nicht der Kontoinhaber.
+- Bei Kontoauszuegen, Kreditkartenabrechnungen und Bankdokumenten is der Absender die BANK (z.B. "Advanzia Bank", "Sparkasse", "DKB"), nicht der Kontoinhaber.
 - Bei Rechnungen ist der Absender das UNTERNEHMEN das die Rechnung ausgestellt hat, nicht der Kaeufer.
 - Bei Bescheiden ist der Absender die BEHOERDE (z.B. "Finanzamt", "Krankenkasse"), nicht der Empfaenger.
 - Suche den Absender im Briefkopf, Logo-Bereich oder in der Zeile "Von:", "Aussteller:", "Ihre Bank:" – nicht in der Adresszeile des Empfaengers.
+- ACHTUNG BEI KASSENBONS/RECHNUNGEN: Das Wort "Netto" im Text bezieht sich fast immer auf den steuerlichen Netto-Betrag (MwSt-Netto) und NICHT auf den Absender (Händler). Der Absender ist die ausstellende Kette (z.B. EDEKA, REWE, etc.) im Briefkopf. Klassifiziere den Absender nur dann als "Netto Marken-Discount", wenn der Markenname explizit im Briefkopf/Logo-Bereich steht.
 - 'date' muss ein reales Datum sein. Das aktuelle Jahr ist {current_year}. Zukuenftige Jahre sind ungueltig.
 - 'summary' muss mindestens einen vollstaendigen Satz enthalten.
 - 'keywords' sollen spezifische, durchsuchbare Begriffe sein (keine allgemeinen Woerter wie 'Dokument' oder 'Brief')."""
