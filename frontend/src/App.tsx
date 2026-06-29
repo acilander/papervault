@@ -69,11 +69,12 @@ export default function App() {
   useEffect(() => {
     const load = async () => {
       try {
+        const cb = Date.now()
         const [senders, expiring, inbox, stats] = await Promise.allSettled([
-          axios.get('/senders/'),
-          axios.get('/documents/expiring?days=60'),
-          axios.get('/monitor/inbox'),
-          axios.get('/stats/'),
+          axios.get(`/senders/?_=${cb}`),
+          axios.get(`/documents/expiring?days=60&_=${cb}`),
+          axios.get(`/monitor/inbox?_=${cb}`),
+          axios.get(`/stats/?_=${cb}`),
         ])
         const sendersData = senders.status === 'fulfilled' ? senders.value.data : {}
         const expiringData = expiring.status === 'fulfilled' ? expiring.value.data : []
