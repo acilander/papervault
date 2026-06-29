@@ -105,9 +105,9 @@ def load_sender_registry():
                             migrated[s] = {"categories": [], "pinned_category": None}
                         if cat not in migrated[s]["categories"]:
                             migrated[s]["categories"].append(cat)
-            data = migrated
-            with open(SENDERS_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+                data = migrated
+                with open(SENDERS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
             sender_registry = data
             pinned = sum(1 for v in sender_registry.values() if v.get("pinned_category"))
             log(f"Absender-Register geladen: {len(sender_registry)} Absender, {pinned} mit fester Kategorie.")
