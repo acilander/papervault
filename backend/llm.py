@@ -252,14 +252,18 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
         return mock_data
 
     load_model()
-    safe_text = safe_text[:3000]  # hard cap to stay within context window
+    safe_text = safe_text[:2000]  # hard cap (prepare_text_for_llm already compresses to 2000)
     system_prompt = SYSTEM_PROMPT.replace("{current_year}", str(datetime.now().year))
 
     if storage.sender_registry:
-        text_norm = normalize_umlauts(safe_text)
-        matching = [k for k in storage.sender_registry if normalize_umlauts(k) in text_norm]
+        # Match only against header zone to avoid generic terms (e.g. "Netto", "Gas") matching mid-document
+        header_text = normalize_umlauts(header_zone or safe_text[:400])
+        matching = [
+            k for k in storage.sender_registry
+            if len(k) > 5 and re.search(r'\b' + re.escape(normalize_umlauts(k)) + r'\b', header_text, re.IGNORECASE)
+        ]
         if matching:
-            sender_hint = f"\n\nHinweis: Folgender bekannter Absender wurde im Text gefunden – verwende genau diese Schreibweise: {', '.join(matching)}"
+            sender_hint = f"\n\nHinweis: Folgender bekannter Absender wurde im Briefkopf gefunden – verwende genau diese Schreibweise: {', '.join(matching)}"
         else:
             sender_hint = ""
     else:
@@ -294,7 +298,8 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
     # Pass the top portion of the first page (briefkopf) as a distinct, isolated block.
     # The system prompt instructs the LLM to strictly resolve 'sender' from this block.
     header_block = f"\n\n--- DOKUMENT-BRIEFKOPF (Ausschließliche Absender-Quelle) ---\n{header_zone}\n----------------------------------" if header_zone else ""
-    user_content = f"Klassifiziere dieses Dokument:{hint_block}{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text}"
+    hint_instruction = f"\n\n!!! WICHTIGE ANWEISUNG DES BENUTZERS (hat hoechste Prioritaet, ignoriere nichts davon): {user_hint} !!!" if user_hint else ""
+    user_content = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text}{hint_instruction}"
 
     base_messages = [
         {"role": "system", "content": system_prompt},
@@ -308,7 +313,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": (
                     f"Fehler in vorheriger Antwort: {feedback}\n\n"
-                    f"Bitte korrigiere und klassifiziere dieses Dokument erneut:\n\n{safe_text}"
+                    f"Bitte korrigiere und klassifiziere dieses Dokument erneut:{feature_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text}{hint_instruction}"
                 )},
             ]
         else:
@@ -333,12 +338,25 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             if data.get("sender"):
                 data["sender"] = normalize_sender(data["sender"])
 
-            # Auto-fix invalid category via fuzzy match
+            # Auto-fix invalid category: fuzzy match, then fallback to 'Sonstiges'
             if data.get("category") not in CATEGORIES:
                 close = get_close_matches(data["category"] or "", CATEGORIES, n=1, cutoff=0.4)
                 if close:
                     log(f"Kategorie '{data['category']}' auto-korrigiert zu '{close[0]}'")
                     data["category"] = close[0]
+                else:
+                    log(f"Kategorie '{data['category']}' unbekannt – setze 'Sonstiges'")
+                    data["category"] = "Sonstiges"
+
+            # Auto-fix invalid document_type: fuzzy match, then fallback to 'Sonstiges'
+            if data.get("document_type") not in DOCUMENT_TYPES:
+                close = get_close_matches(data["document_type"] or "", DOCUMENT_TYPES, n=1, cutoff=0.6)
+                if close:
+                    log(f"Dokumenttyp '{data['document_type']}' auto-korrigiert zu '{close[0]}'")
+                    data["document_type"] = close[0]
+                else:
+                    log(f"Dokumenttyp '{data['document_type']}' unbekannt – setze 'Sonstiges'")
+                    data["document_type"] = "Sonstiges"
 
             errors = validate_classification(data)
             if not errors:

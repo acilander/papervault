@@ -2,29 +2,21 @@
 title PaperVault
 cd /d "%~dp0"
 
-:: Start frontend first in background
-netstat -ano | findstr ":5173 " | findstr "LISTENING" >nul 2>&1
-if %errorlevel%==0 (
-    echo [Frontend] Port 5173 bereits belegt.
-) else (
-    echo [Frontend] Starte Frontend auf Port 5173...
-    start "PaperVault Frontend" /B cmd /c "cd frontend && npm run dev"
-)
+:: Kill any leftover process on port 5173
+echo [Frontend] Beende ggf. alten Prozess auf Port 5173...
+powershell -NoProfile -Command "$p = (Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue }"
 
-:: Check if backend already running
-netstat -ano | findstr ":8000 " | findstr "LISTENING" >nul 2>&1
-if %errorlevel%==0 (
-    echo [API]      Port 8000 bereits belegt.
-    echo.
-    start http://localhost:5173
-    echo Druecke eine Taste zum Beenden.
-    pause >nul
-    goto :eof
-)
+:: Start frontend in background
+echo [Frontend] Starte Frontend auf Port 5173...
+start "PaperVault Frontend" /B cmd /c "cd /d "%~dp0frontend" && npm run dev"
+
+:: Kill any leftover process on port 8000
+echo [API]      Beende ggf. alten Prozess auf Port 8000...
+powershell -NoProfile -Command "$p = (Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue).OwningProcess; if ($p) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue }"
 
 :: Start backend and wait until ready
 echo [API]      Starte API auf Port 8000...
-start "PaperVault API" /B cmd /c "cd backend && ..\.venv\Scripts\python.exe -m uvicorn api.main:app --host 0.0.0.0 --port 8000"
+start "PaperVault API" /B cmd /c "cd /d "%~dp0backend" && "%~dp0.venv\Scripts\python.exe" -m uvicorn api.main:app --host 0.0.0.0 --port 8000"
 
 set /a tries=0
 :wait_api

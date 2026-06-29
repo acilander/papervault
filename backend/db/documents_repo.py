@@ -1,8 +1,10 @@
+import os
 from datetime import datetime
 from db.connection import get_conn
 
 def upsert_document(file_path, filename, sender, date, document_type,
                     category, summary, content_hash=None, status="ok", archived_at=None):
+    file_path = os.path.normpath(file_path) if file_path else file_path
     archived_at = archived_at or datetime.now().isoformat(timespec="seconds")
     with get_conn() as conn:
         conn.execute("""
@@ -29,7 +31,16 @@ def get_document(doc_id):
         return dict(row) if row else None
 
 
+def get_document_by_path(file_path):
+    path = os.path.normpath(file_path) if file_path else file_path
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM documents WHERE file_path = ?", (path,)).fetchone()
+        return dict(row) if row else None
+
+
 def update_document(doc_id, **fields):
+    if "file_path" in fields and fields["file_path"]:
+        fields["file_path"] = os.path.normpath(fields["file_path"])
     allowed = {"sender", "date", "document_type", "category", "summary", "status",
                "file_path", "filename", "tags", "tax_relevant", "tax_year", "expires_at", "notes",
                "keywords"}

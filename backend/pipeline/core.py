@@ -76,14 +76,13 @@ def process_pdf(file_path):
     )
     log(f"Merkmale: {', '.join(features.get('category_candidates', [])) or '–'} | Typ: {features.get('type_candidate') or '–'}")
 
-    # Read optional .hint sidecar file
+    # Read optional .hint sidecar file (delete only after successful classification)
     hint_path = os.path.splitext(file_path)[0] + ".hint"
     user_hint = None
     if os.path.exists(hint_path):
         try:
             with open(hint_path, "r", encoding="utf-8") as f:
                 user_hint = f.read().strip()
-            os.remove(hint_path)
             log(f"Benutzerhinweis geladen: {user_hint[:80]}")
         except Exception:
             pass
@@ -135,6 +134,11 @@ def process_pdf(file_path):
 
     dest_pdf = unique_path(os.path.join(REVIEW_DIR, new_name))
     shutil.move(file_path, dest_pdf)
+    if user_hint and os.path.exists(hint_path):
+        try:
+            os.remove(hint_path)
+        except Exception:
+            pass
 
     processing_log(os.path.basename(dest_pdf), "review", data=data, features=features, user_hint=user_hint)
     doc_id = db.upsert_document(

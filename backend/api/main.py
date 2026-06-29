@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 import db
 import storage
@@ -22,6 +23,7 @@ app = FastAPI(
     description="REST API fuer das private Dokumentenarchiv",
     version="1.0.0",
     lifespan=lifespan,
+    redirect_slashes=False,
 )
 
 app.add_middleware(
@@ -42,3 +44,8 @@ app.include_router(monitor.router)
 @app.get("/health")
 def health():
     return {"status": "ok", "db": DB_PATH}
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)

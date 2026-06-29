@@ -81,13 +81,34 @@ def ocr_pdf(file_path):
         return ""
 
 
-def prepare_text_for_llm(text):
-    """Normalize and trim text: first 400 + last 200 tokens."""
-    normalized = unicodedata.normalize("NFKD", text).encode("ascii", errors="ignore").decode("ascii")
-    tokens = normalized.split()
-    if len(tokens) > 600:
-        return " ".join(tokens[:400] + tokens[-200:])
-    return " ".join(tokens)
+def prepare_text_for_llm(text, max_chars=2000):
+    """Compress text for LLM: remove duplicate lines, collapse whitespace, strip noise lines."""
+    # Collapse excessive whitespace within lines
+    lines = [re.sub(r'[ \t]{2,}', ' ', line).strip() for line in text.splitlines()]
+
+    seen = set()
+    result = []
+    for line in lines:
+        if not line:
+            continue
+        # Skip lines that are purely numbers, separators, or single chars
+        if re.fullmatch(r'[\d\s.,;:\-–/|\\%€$]{0,40}', line):
+            continue
+        # Deduplicate: skip lines already seen (case-insensitive, stripped)
+        key = line.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(line)
+
+    compressed = "\n".join(result)
+    # Hard cap
+    if len(compressed) > max_chars:
+        # Keep first 2/3 + last 1/3 to preserve header and footer
+        cut = int(max_chars * 2 / 3)
+        tail = max_chars - cut
+        compressed = compressed[:cut] + "\n[...]\n" + compressed[-tail:]
+    return compressed
 
 
 CATEGORY_KEYWORDS = {
@@ -108,7 +129,9 @@ CATEGORY_KEYWORDS = {
     "Behoerde & Urkunden":    ["finanzamt", "bescheid", "steuerbescheid", "buergeramt", "behoerde",
                                "aktenzeichen", "sozialversicherung", "rentenversicherung", "standesamt"],
     "Arbeit & Rente":         ["arbeitgeber", "gehalt", "lohn", "lohnabrechnung", "entgelt",
-                               "sozialabgaben", "rentenversicherung", "arbeitsvertrag", "kuendigung"],
+                               "sozialabgaben", "rentenversicherung", "arbeitsvertrag", "kuendigung",
+                               "entgeltabrechnung", "gehaltsabrechnung", "entgeltnachweis", "verdienstabrechnung",
+                               "bruttolohn", "nettolohn", "steuerklasse", "krankenversicherung", "pflegeversicherung"],
     "Einkauf & Bestellungen": ["bestellung", "lieferung", "tracking", "paket", "amazon", "shop",
                                "artikel", "retour", "rueckgabe", "warenkorb"],
     "Kassenbon & Quittung":   ["kassenbon", "bon-nr", "bonnummer", "kassenzettel", "quittung",
@@ -118,7 +141,8 @@ CATEGORY_KEYWORDS = {
 }
 
 DOCTYPE_SIGNALS = {
-    "Kontoauszug":   ["kontoauszug", "kontostand", "buchung", "saldo", "iban"],
+    "Kontoauszug":   ["kontoauszug", "kontostand", "buchung", "saldo"],
+    "Sonstiges":     ["entgeltabrechnung", "lohnabrechnung", "gehaltsabrechnung", "entgeltnachweis", "verdienstabrechnung", "verdienstnachweis"],
     "Rechnung":      ["rechnung", "rechnungsnummer", "rechnungsdatum", "zahlbar", "mwst",
                       "nettobetrag", "bruttobetrag", "steuerbetrag"],
     "Vertrag":       ["vertrag", "vereinbarung", "laufzeit", "vertragspartner", "unterschrift"],
@@ -241,12 +265,24 @@ RECEIPT_SIGNALS = [
 ]
 
 
+NON_RECEIPT_SIGNALS = [
+    "entgeltabrechnung", "lohnabrechnung", "gehaltsabrechnung", "entgeltnachweis",
+    "verdienstabrechnung", "bruttolohn", "nettolohn", "sozialversicherung",
+    "rentenversicherung", "krankenversicherung", "steuerklasse", "lohnsteuer",
+    "arbeitsvertrag", "tarifvertrag", "kontoauszug", "kontostand", "depot",
+    "versicherungsschein", "steuerbescheid",
+]
+
+
 def detect_receipt(text, filename=None):
     """Return (is_receipt, sender) if document looks like a Kassenbon/receipt.
     sender is extracted from filename or header zone."""
     t_norm = text.lower().replace("ä","ae").replace("ö","oe").replace("ü","ue").replace("ß","ss")
+    # Hard exclusion: if the document contains strong non-receipt signals, never treat as receipt
+    if any(s in t_norm for s in NON_RECEIPT_SIGNALS):
+        return False, None
     signal_count = sum(1 for s in RECEIPT_SIGNALS if s in t_norm)
-    if signal_count == 0:
+    if signal_count < 2:
         return False, None
     # Extract sender from filename pattern: YYYYMMDD_<Sender>_Kassenbon_...
     sender = None

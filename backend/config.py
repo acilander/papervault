@@ -60,7 +60,7 @@ CATEGORY_FOLDER_MAP = {
 }
 
 DOCUMENT_TYPES = [
-    "Rechnung", "Vertrag", "Versicherungsschein", "Mahnung", "Kuendigung",
+    "Rechnung", "Abrechnung", "Vertrag", "Versicherungsschein", "Mahnung", "Kuendigung",
     "Bescheid", "Lieferschein", "Kontoauszug", "Angebot", "Sonstiges",
 ]
 
@@ -84,13 +84,36 @@ JSON-Schema (alle Felder sind Pflicht):
   "keywords": "5-15 relevante Suchbegriffe aus dem Dokument, kommagetrennt (z.B. Betraege, Vertragsnummern, Produktnamen, Orte, spezifische Begriffe)"
 }
 
-Erlaubte Werte fuer document_type:
-Rechnung, Vertrag, Versicherungsschein, Mahnung, Kuendigung, Bescheid, Lieferschein, Kontoauszug, Angebot, Sonstiges
+Erlaubte Werte fuer document_type (NUR diese 11, keine anderen erfinden):
+- Rechnung       – Zahlungsaufforderung fuer Waren oder Dienstleistungen (du schuldest Geld)
+- Abrechnung     – Periodische Aufstellung ohne direkte Zahlungsaufforderung: Lohnabrechnung, Entgeltabrechnung, Gehaltsnachweis, Nebenkostenabrechnung, Jahresabrechnung, Kreditkartenabrechnung
+- Vertrag        – Vereinbarungen, Vertraege, AGB, Mietvertraege, Arbeitsvertraege
+- Versicherungsschein – Police, Versicherungsbestaetigung, Deckungsbestaetigung
+- Mahnung        – Zahlungserinnerung, Mahnschreiben, Inkasso
+- Kuendigung     – Kuendigungsschreiben, Vertragsende-Bestaetigung
+- Bescheid       – Behoerdliche Entscheidungen, Steuerbescheid, Beitragsbescheid, Rentenbescheid (NICHT Lohnabrechnung)
+- Lieferschein   – Lieferbestaetigung, Versandbestaetigung, Paketschein
+- Kontoauszug    – Kontoauszug einer Bank, Depotauszug
+- Angebot        – Kostenvoranschlag, Angebot, Preisanfrage
+- Sonstiges      – Alles was in keine der obigen Kategorien passt
+WICHTIG: Entgeltabrechnung/Lohnabrechnung = document_type=Abrechnung, category=Arbeit & Rente.
 
-Erlaubte Werte fuer category:
-Arbeit & Rente, Bank & Finanzen, Gesundheit, Versicherung, Fahrzeug & Werkstatt,
-Wohnen & Eigentum, Vermieter, Energie & Versorgung, Kommunikation,
-Einkauf & Bestellungen, Kassenbon & Quittung, Geraete & Garantie, Behoerde & Urkunden, Ausbildung & Verein, Sonstiges
+Erlaubte Werte fuer category (NUR diese 15, keine anderen erfinden):
+- Arbeit & Rente       – Lohnabrechnung, Entgeltabrechnung, Gehaltsnachweis, Arbeitsvertrag, Rentenauskunft, Sozialversicherung
+- Bank & Finanzen      – Kontoauszug, Depot, Kreditkarte, Zinsen, Bankdokumente (nicht Lohnabrechnung)
+- Gesundheit           – Arztrechnung, Krankenhaus, Rezept, Krankenkasse, Heil- und Hilfsmittel
+- Versicherung         – Haftpflicht, Kasko, Lebensversicherung, Hausrat, Unfallversicherung
+- Fahrzeug & Werkstatt – KFZ-Steuer, Hauptuntersuchung, Werkstattrechnung, Tankquittung, Fahrzeugbrief
+- Wohnen & Eigentum   – Miete, Nebenkosten, Hausgeld, Grundsteuer, Handwerkerrechnung fuer die Wohnung
+- Vermieter            – Dokumente die Alexander/Sonja als Vermieter betreffen (Mieteinnahmen, Nebenkostenabrechnung fuer Mieter)
+- Energie & Versorgung – Strom, Gas, Wasser, Fernwaerme, Jahresabrechnung Energieversorger
+- Kommunikation        – Mobilfunk, Internet, Festnetz, Streaming-Dienste, TV
+- Einkauf & Bestellungen – Online-Bestellungen, Lieferscheine, Retouren (kein Kassenbon)
+- Kassenbon & Quittung – Kassenzettel vom Supermarkt, Drogerie, Baumarkt, Tankstelle (Papierbon oder E-Bon)
+- Geraete & Garantie   – Garantieurkunde, Kaufbeleg fuer Elektrogeraete, Seriennummer-Dokumente
+- Behoerde & Urkunden  – Finanzamt, Einwohnermeldeamt, Personalausweis, Geburtsurkunde, Baugenehmigung
+- Ausbildung & Verein  – Schulbescheinigung, Studium, Vereinsbeitrag, Kursgebühr, Zeugnisse
+- Sonstiges            – Alles was in keine der obigen Kategorien passt
 
 Wichtige Regeln:
 - Nutze den bereitgestellten "DOKUMENT-BRIEFKOPF" als primäre und ausschließliche Quelle für den Absender ("sender"). Der "DOKUMENT-VOLLTEXT" dient nur zur Bestimmung des Datums, des Typs und der Zusammenfassung.

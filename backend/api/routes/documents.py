@@ -180,16 +180,20 @@ def reprocess_document(doc_id: int, body: dict = {}):
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
-    path = doc["file_path"]
+    path = os.path.normpath(doc["file_path"])
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
-    inbox_path = os.path.join(SOURCE_DIR, os.path.basename(path))
+    os.makedirs(SOURCE_DIR, exist_ok=True)
+    inbox_path = unique_path(os.path.join(SOURCE_DIR, os.path.basename(path)))
     # Move file back to Inbox so the archiver watcher picks it up
     try:
-        shutil.copy2(path, inbox_path)
-        os.remove(path)
+        shutil.move(path, inbox_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Konnte Datei nicht in Inbox verschieben: {e}")
+    # Remove any stale DB entry with the same inbox_path to avoid UNIQUE constraint violation
+    existing = db.get_document_by_path(inbox_path)
+    if existing and existing["id"] != doc_id:
+        db.delete_document(existing["id"])
     db.update_document(doc_id, status="pending", file_path=inbox_path)
     hint = (body or {}).get("hint", "").strip()
     if hint:
