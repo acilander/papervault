@@ -8,6 +8,7 @@ import Senders from './pages/Senders'
 import Monitor from './pages/Monitor'
 import Inbox from './pages/Inbox'
 import axios from 'axios'
+import { ConfigProvider } from './ConfigContext'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -97,8 +98,9 @@ export default function App() {
   }, [])
 
   return (
-    <BrowserRouter>
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-950 text-gray-800 dark:text-gray-100">
+    <ConfigProvider>
+      <BrowserRouter>
+        <div className="flex h-screen bg-gray-50 dark:bg-gray-950 text-gray-800 dark:text-gray-100">
         <aside className="w-56 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col shrink-0">
           <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
             <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight">

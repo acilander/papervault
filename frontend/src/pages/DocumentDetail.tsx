@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil } from 'lucide-react'
 import { getDocument, updateDocument, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, getSenders, pdfUrl, type Document, type DocumentUpdate } from '../api'
-import { CATEGORIES } from '../constants'
+import { useConfig } from '../ConfigContext'
 
 export default function DocumentDetail() {
+  const { categories: CATEGORIES } = useConfig()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [doc, setDoc] = useState<Document | null>(null)

@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, RefreshCw } from 'lucide-react'
 import { getSenders, getSenderCounts, reloadSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, type SenderEntry } from '../api'
-import { CATEGORIES } from '../constants'
+import { useConfig } from '../ConfigContext'
 
 export default function Senders() {
+  const { categories: CATEGORIES } = useConfig()
   const navigate = useNavigate()
   const [senders, setSenders] = useState<Record<string, SenderEntry>>({})
   const [counts, setCounts] = useState<Record<string, number>>({})

@@ -285,7 +285,11 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
         log(f"LLM Klassifizierung, Versuch {attempt}/{MAX_RETRIES}...")
         t0 = time.time()
         try:
-            result = _llm.create_chat_completion(messages=current_messages, max_tokens=300)
+            result = _llm.create_chat_completion(
+                messages=current_messages, 
+                max_tokens=1000,
+                temperature=0.0
+            )
             raw = result["choices"][0]["message"]["content"]
 
             cleaned = raw.replace("```json", "").replace("```", "").strip()

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Search, Filter } from 'lucide-react'
 import { getDocuments, getExpiring, type Document } from '../api'
-import { CATEGORIES } from '../constants'
+import { useConfig } from '../ConfigContext'
 
 const STATUS_COLORS: Record<string, string> = {
   ok: 'bg-green-50 text-green-700',
@@ -16,6 +16,7 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function Documents() {
+  const { categories: CATEGORIES } = useConfig()
   const [searchParams, setSearchParams] = useSearchParams()
   const [docs, setDocs] = useState<Document[]>([])
   const [q, setQ] = useState('')

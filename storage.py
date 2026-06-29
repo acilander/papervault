@@ -1,10 +1,12 @@
 import json
 import os
+import threading
 from datetime import datetime
 
 from config import SENDERS_FILE, HASHES_FILE, LOG_FILE, CATEGORIES
 
-# ── In-memory state ──────────────────────────────────────────────────────────
+# ── Locks & In-memory state ───────────────────────────────────────────────────
+_registry_lock = threading.RLock()
 sender_registry: dict = {}
 content_hashes: dict = {}
 
@@ -37,67 +39,71 @@ def processing_log(filename, status, data=None, error=None, features=None, user_
         }
     if user_hint:
         entry["user_hint"] = user_hint
-    try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    except Exception:
-        pass
+    with _registry_lock:
+        try:
+            with open(LOG_FILE, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
 
 
 # ── Hash registry ─────────────────────────────────────────────────────────────
 
 def load_hashes():
     global content_hashes
-    # Primary: load from DB (survives restarts)
-    try:
-        import db as _db
-        with _db.get_conn() as conn:
-            rows = conn.execute(
-                "SELECT content_hash, file_path FROM documents WHERE content_hash IS NOT NULL AND status='ok'"
-            ).fetchall()
-        content_hashes = {r["content_hash"]: r["file_path"] for r in rows}
-        log(f"Hash-Register geladen: {len(content_hashes)} Eintraege (aus DB).")
-        return
-    except Exception as e:
-        log(f"Hash-Register konnte nicht aus DB geladen werden: {e}")
-    # Fallback: load from file
-    if os.path.exists(HASHES_FILE):
+    with _registry_lock:
+        # Primary: load from DB (survives restarts)
         try:
-            with open(HASHES_FILE, "r", encoding="utf-8") as f:
-                content_hashes = json.load(f)
-            log(f"Hash-Register geladen: {len(content_hashes)} Eintraege (aus Datei).")
+            import db as _db
+            with _db.get_conn() as conn:
+                rows = conn.execute(
+                    "SELECT content_hash, file_path FROM documents WHERE content_hash IS NOT NULL AND status='ok'"
+                ).fetchall()
+            content_hashes = {r["content_hash"]: r["file_path"] for r in rows}
+            log(f"Hash-Register geladen: {len(content_hashes)} Eintraege (aus DB).")
+            return
         except Exception as e:
-            log(f"Hash-Register konnte nicht geladen werden: {e}")
+            log(f"Hash-Register konnte nicht aus DB geladen werden: {e}")
+        # Fallback: load from file
+        if os.path.exists(HASHES_FILE):
+            try:
+                with open(HASHES_FILE, "r", encoding="utf-8") as f:
+                    content_hashes = json.load(f)
+                log(f"Hash-Register geladen: {len(content_hashes)} Eintraege (aus Datei).")
+            except Exception as e:
+                log(f"Hash-Register konnte nicht geladen werden: {e}")
+                content_hashes = {}
+        else:
             content_hashes = {}
-    else:
-        content_hashes = {}
 
 
 def save_hashes():
-    try:
-        with open(HASHES_FILE, "w", encoding="utf-8") as f:
-            json.dump(content_hashes, f, ensure_ascii=False)
-    except Exception as e:
-        log(f"Hash-Register konnte nicht gespeichert werden: {e}")
+    with _registry_lock:
+        try:
+            with open(HASHES_FILE, "w", encoding="utf-8") as f:
+                json.dump(content_hashes, f, ensure_ascii=False)
+        except Exception as e:
+            log(f"Hash-Register konnte nicht gespeichert werden: {e}")
 
 
 # ── Sender registry ───────────────────────────────────────────────────────────
 
 def load_sender_registry():
     global sender_registry
-    if not os.path.exists(SENDERS_FILE):
-        sender_registry = {}
-        return
-    try:
-        with open(SENDERS_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        # Migrate old format {category: [sender, ...]} -> {sender: {categories, pinned_category}}
-        if data and isinstance(next(iter(data.values())), list):
-            log("Absender-Register: migriere altes Format...")
-            migrated = {}
-            for cat, senders in data.items():
-                for s in senders:
-                    if s not in migrated:
+    with _registry_lock:
+        if not os.path.exists(SENDERS_FILE):
+            sender_registry = {}
+            return
+        try:
+            with open(SENDERS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            # Migrate old format {category: [sender, ...]} -> {sender: {categories, pinned_category}}
+            if data and isinstance(next(iter(data.values())), list):
+                log("Absender-Register: migriere altes Format...")
+                migrated = {}
+                for cat, senders in data.items():
+                    for s in senders:
+                        if s not in migrated:
                         migrated[s] = {"categories": [], "pinned_category": None}
                     if cat not in migrated[s]["categories"]:
                         migrated[s]["categories"].append(cat)

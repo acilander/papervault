@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, RefreshCw, Trash2, Eye, ChevronDown, ChevronUp } from 'lucide-react'
 import { getDocuments, confirmDocument, reprocessDocument, deleteDocumentWithFile, updateDocument, getSenders, pdfUrl, type Document } from '../api'
-import { CATEGORIES, DOCUMENT_TYPES } from '../constants'
+import { useConfig } from '../ConfigContext'
 
 interface EditState {
   sender: string
@@ -13,6 +13,7 @@ interface EditState {
 }
 
 export default function Inbox() {
+  const { categories: CATEGORIES, documentTypes: DOCUMENT_TYPES } = useConfig()
   const navigate = useNavigate()
   const [docs, setDocs] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)

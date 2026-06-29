@@ -108,8 +108,13 @@ def serve_pdf(doc_id: int):
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
     path = doc["file_path"]
+    
+    # [Fix 4: Lazy Auto-Healing] Check if file exists on disk
     if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
+        if doc["status"] != "missing":
+            db.update_document(doc_id, status="missing")
+        raise HTTPException(status_code=404, detail=f"Datei wurde auf dem Datenträger nicht gefunden (Status in DB auf 'missing' gesetzt): {path}")
+        
     return FileResponse(
         path,
         media_type="application/pdf",
@@ -123,9 +128,25 @@ def open_in_explorer(doc_id: int):
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
     path = doc["file_path"]
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
-    subprocess.Popen(["explorer", "/select,", os.path.normpath(path)])
+    
+    # [Fix 5: Secure OS Command] 
+    # Check if path is absolute and actually exists to prevent path traversal/command injection
+    abs_path = os.path.abspath(path)
+    if not os.path.exists(abs_path):
+        if doc["status"] != "missing":
+            db.update_document(doc_id, status="missing")
+        raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {abs_path}")
+        
+    try:
+        if os.name == "nt":
+            # Safely request Windows Explorer to select the file using a list of arguments
+            subprocess.Popen(["explorer.exe", "/select,", abs_path])
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", "-R", abs_path])
+        else:
+            subprocess.Popen(["xdg-open", os.path.dirname(abs_path)])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Fehler beim Öffnen: {e}")
 
 
 @router.post("/{doc_id}/rename")
