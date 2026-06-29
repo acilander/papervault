@@ -10,9 +10,10 @@ from watchdog.events import FileSystemEventHandler
 
 from config import SOURCE_DIR, TARGET_BASE, MODEL_PATH, FAILED_DIR
 from storage import load_sender_registry, load_hashes
-from archive import process_pdf, reindex_from_archive
+from pipeline import process_pdf, reindex_from_archive
 from pdf_utils import wait_for_file, OCR_AVAILABLE
 import db
+from utils import log as _log
 
 _pdf_queue = queue.Queue()
 
@@ -21,13 +22,8 @@ _LOG_FILE = os.path.join(TARGET_BASE, "archiver.log")
 
 
 def log(msg):
-    line = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
-    print(line, flush=True)
-    try:
-        with open(_LOG_FILE, "a", encoding="utf-8") as _f:
-            _f.write(line + "\n")
-    except Exception:
-        pass
+    _log(msg, log_file=_LOG_FILE)
+
 
 
 def _worker():

@@ -15,10 +15,8 @@ except ImportError:
     OCR_AVAILABLE = False
 
 from config import FILE_READY_TIMEOUT
+from utils import log
 
-
-def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
 def extract_text(file_path):

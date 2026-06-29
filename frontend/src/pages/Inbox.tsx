@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, RefreshCw, Trash2, Eye, ChevronDown, ChevronUp } from 'lucide-react'
-import { getDocuments, confirmDocument, reprocessDocument, deleteDocumentWithFile, updateDocument, getSenders, pdfUrl, type Document } from '../api'
+import { getDocuments, confirmDocument, reprocessDocument, deleteDocumentWithFile, updateDocument, pdfUrl, type Document } from '../api'
 import { useConfig } from '../ConfigContext'
+import SenderDatalist from '../components/SenderDatalist'
 
 interface EditState {
   sender: string
@@ -22,11 +23,6 @@ export default function Inbox() {
   const [busy, setBusy] = useState<Record<number, string>>({})
   const [reprocessHint, setReprocessHint] = useState('')
   const [reprocessDlg, setReprocessDlg] = useState<number | null>(null)
-  const [senderList, setSenderList] = useState<string[]>([])
-
-  useEffect(() => {
-    getSenders().then(s => setSenderList(Object.keys(s).sort()))
-  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -39,6 +35,7 @@ export default function Inbox() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
 
   const initEdit = (doc: Document): EditState => ({
     sender: doc.sender ?? '',
@@ -189,9 +186,7 @@ export default function Inbox() {
                       onChange={e => setEdits(prev => ({ ...prev, [doc.id]: { ...edit, sender: e.target.value } }))}
                       className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
-                    <datalist id="sender-list-inbox">
-                      {senderList.map(s => <option key={s} value={s} />)}
-                    </datalist>
+                    <SenderDatalist id="sender-list-inbox" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Datum</label>
