@@ -1,7 +1,7 @@
 ﻿
 aiofiles==25.1.0
 fastapi==0.138.1
-llama_cpp_python==0.3.31
+llama_cpp_python>=0.3.30
 ollama==0.6.2
 pdf2image==1.17.0
 pydantic==2.13.4

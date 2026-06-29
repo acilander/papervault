@@ -21,6 +21,7 @@ MODEL_PATH         = os.getenv("MODEL_PATH",          r"C:\Users\Alexander\.olla
 MAX_RETRIES        = int(os.getenv("MAX_RETRIES",     "3"))
 FILE_READY_TIMEOUT = int(os.getenv("FILE_READY_TIMEOUT", "30"))
 SENDER_SUBFOLDERS  = os.getenv("SENDER_SUBFOLDERS", "true").lower() == "true"
+MOCK_LLM           = os.getenv("MOCK_LLM", "false").lower() == "true"
 
 DUPLICATES_DIR = os.path.join(TARGET_BASE, "duplicates")
 FAILED_DIR     = os.path.join(TARGET_BASE, "failed")

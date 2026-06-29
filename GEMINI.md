@@ -58,6 +58,11 @@ SENDER_SUBFOLDERS="true"            # Use TARGET_BASE/{Category}/{Year}/{Sender}
 
 ### Build & Run Commands
 
+*   **Automated Model & Env Setup (Any PC):**
+    ```bash
+    python scripts/download_model.py
+    ```
+
 *   **Unified Startup:**
     ```bash
     start_all.bat

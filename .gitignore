@@ -27,6 +27,9 @@ frontend/dist/
 *.db-shm
 *.db-wal
 
+# Models folder (contains large GGUF files)
+models/
+
 # Runtime state files (personal data)
 feedback.json
 senders.json

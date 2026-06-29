@@ -13,16 +13,16 @@ from config import (
 )
 import storage
 import feedback as fb
+from utils import log, normalize_umlauts, extract_year
 
 _llm = None
 
 
-def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
-
-
 def load_model():
     global _llm
+    from config import MOCK_LLM
+    if MOCK_LLM:
+        return
     if _llm is None:
         log("Lade LLM-Modell (einmalig)...")
         t0 = time.time()
@@ -69,9 +69,9 @@ def validate_classification(data):
     # Check 1 & 8: date plausibility
     raw_date = str(data.get("date") or "")
     if raw_date and raw_date.lower() != "null":
-        year_match = re.search(r'\b(\d{4})\b', raw_date)
-        if year_match:
-            year = int(year_match.group())
+        year_str = extract_year(raw_date)
+        if year_str:
+            year = int(year_str)
             if year < 1950 or year > current_year:
                 errors.append(f"'date' enthaelt Jahr {year}, erwartet 1950–{current_year}. Das aktuelle Jahr ist {current_year}.")
         else:
@@ -129,18 +129,13 @@ def filter_keywords_against_text(keywords_str: str, source_text: str) -> str:
         "absender", "empfaenger", "rechnung", "sonstiges",
     }
 
-    def _norm(s: str) -> str:
-        return (s.lower()
-                .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
-                .replace("ß", "ss"))
-
-    text_norm = _norm(source_text)
+    text_norm = normalize_umlauts(source_text)
     kept = []
     for kw in keywords_str.split(","):
         kw = kw.strip()
         if not kw or len(kw) < 3:
             continue
-        kw_norm = _norm(kw)
+        kw_norm = normalize_umlauts(kw)
         if kw_norm in BLOCKLIST:
             continue
         # Accept if the keyword (or its first meaningful word ≥4 chars) is in text
@@ -163,15 +158,11 @@ def build_similar_docs_hint(text_snippet: str) -> str:
         import db as _db
         known_senders = list(storage.sender_registry.keys())
         matched_sender = None
-        def _normalize(s: str) -> str:
-            return (s.lower()
-                    .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
-                    .replace("ß", "ss"))
 
-        text_lower = _normalize(text_snippet[:2000])
+        text_lower = normalize_umlauts(text_snippet[:2000])
         # Longest match wins (avoids "ING" matching inside "ING-DiBa")
         for s in sorted(known_senders, key=len, reverse=True):
-            if _normalize(s) in text_lower:
+            if normalize_umlauts(s) in text_lower:
                 matched_sender = s
                 break
 
@@ -224,14 +215,49 @@ def build_similar_docs_hint(text_snippet: str) -> str:
 
 
 def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=None, similar_docs=None):
+    from config import MOCK_LLM
+    if MOCK_LLM:
+        log("[MOCK] Generiere simulierte Klassifizierung...")
+        from pdf_utils import extract_features
+        features = extract_features(safe_text, filename=filename)
+        
+        # Match category and type based on rule-based feature candidates
+        cat = features.get("category_candidates", ["Sonstiges"])[0] if features.get("category_candidates") else "Sonstiges"
+        doc_type = features.get("type_from_filename") or features.get("type_candidate") or "Sonstiges"
+        
+        # Sender extraction from filename or fallback
+        sender = "Unbekannter Absender"
+        if filename:
+            clean_name = os.path.splitext(filename)[0]
+            clean_name = re.sub(r'^\d{8}_', '', clean_name)
+            parts = clean_name.split("_")
+            if parts and len(parts[0]) > 2:
+                sender = parts[0].replace("-", " ")
+        
+        year_str = extract_year(safe_text) or str(datetime.now().year)
+        date = f"{year_str}-01-15"
+        
+        first_words = " ".join(safe_text.split()[:12])
+        summary = f"Simuliertes Dokument von {sender} bezüglich {doc_type} ({first_words}...)"
+        
+        mock_data = {
+            "sender": sender,
+            "date": date,
+            "document_type": doc_type,
+            "category": cat,
+            "summary": summary,
+            "keywords": f"mock, test, {cat.lower().replace(' & ', '_')}"
+        }
+        log(f"[MOCK] Resultat generiert: {mock_data}")
+        return mock_data
+
     load_model()
     safe_text = safe_text[:3000]  # hard cap to stay within context window
     system_prompt = SYSTEM_PROMPT.replace("{current_year}", str(datetime.now().year))
 
     if storage.sender_registry:
-        def _norm(s): return s.lower().replace("ä","ae").replace("ö","oe").replace("ü","ue").replace("ß","ss")
-        text_norm = _norm(safe_text)
-        matching = [k for k in storage.sender_registry if _norm(k) in text_norm]
+        text_norm = normalize_umlauts(safe_text)
+        matching = [k for k in storage.sender_registry if normalize_umlauts(k) in text_norm]
         if matching:
             sender_hint = f"\n\nHinweis: Folgender bekannter Absender wurde im Text gefunden – verwende genau diese Schreibweise: {', '.join(matching)}"
         else:
