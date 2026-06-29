@@ -294,8 +294,10 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
         return mock_data
 
     # [Weg 1: Hard-Rules Pre-Matching]
-    # Scan text for known senders/aliases and guide the LLM using a custom hint
-    rule_sender, rule_category = detect_known_sender(safe_text)
+    # Scan text for known senders/aliases and guide the LLM using a custom hint.
+    # CRITICAL: We restrict this strictly to the header_zone or first 400 characters of the page
+    # to prevent generic/tax words (like "Netto" on a paycheck) from triggering false-positives!
+    rule_sender, rule_category = detect_known_sender(header_zone or safe_text[:400])
     if rule_sender:
         sender_hint_prefix = f"\n\nHinweis: Der Absender dieses Dokuments ist bereits verifiziert als '{rule_sender}'."
         if user_hint:
@@ -412,7 +414,9 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
                     data["document_type"] = "Sonstiges"
 
             # Apply Stufe-0 Rule overrides
-            rule_sender, rule_category = detect_known_sender(safe_text)
+            # CRITICAL: We restrict this strictly to the header_zone or first 400 characters of the page
+            # to prevent generic/tax words (like "Netto" on a paycheck) from triggering false-positives!
+            rule_sender, rule_category = detect_known_sender(header_zone or safe_text[:400])
             if rule_sender:
                 data["sender"] = rule_sender
                 if rule_category:
