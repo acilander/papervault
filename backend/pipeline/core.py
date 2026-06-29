@@ -143,27 +143,15 @@ def process_pdf(file_path):
     # [Fix 1: Transactional Safety]
     # Wrap file movement and DB upsert in a try-except block to perform automatic file system rollbacks if DB transactions fail.
     try:
-        # Check if we can Auto-Archive (Weg 3: Confidence is HIGH and the date is valid)
-        if confidence == "high" and data.get("date") and data.get("date") != "null":
-            # Bypass review/ inbox staging, archive directly!
-            log(f"[AUTO-ARCHIV] Hohes Vertrauen verifiziert. Archiviere Dokument direkt...")
-            from pipeline.steps import archive_file_on_disk
-            dest_pdf = archive_file_on_disk(file_path, category, sender, data.get("date"))
-            
-            status = "ok"
-            log_status = "auto_archived"
-            log_msg = f"[AUTO-ARCHIV] Erfolgreich einsortiert nach: {dest_pdf}"
-            log_fin = "--- Abgeschlossen (automatisch archiviert) ---"
-        else:
-            # Standard staging: Move to review/ staging area – confirmed via UI later
-            os.makedirs(REVIEW_DIR, exist_ok=True)
-            dest_pdf = unique_path(os.path.join(REVIEW_DIR, new_name))
-            shutil.move(file_path, dest_pdf)
-            
-            status = "review"
-            log_status = "review"
-            log_msg = f"Bereit zur Pruefung – verschoben nach: {dest_pdf}"
-            log_fin = "--- Abgeschlossen (wartet auf Bestaetigung) ---"
+        # Always route through review/ – confidence is informational only, never bypasses user confirmation
+        os.makedirs(REVIEW_DIR, exist_ok=True)
+        dest_pdf = unique_path(os.path.join(REVIEW_DIR, new_name))
+        shutil.move(file_path, dest_pdf)
+
+        status = "review"
+        log_status = "review"
+        log_msg = f"Bereit zur Pruefung – verschoben nach: {dest_pdf}"
+        log_fin = "--- Abgeschlossen (wartet auf Bestaetigung) ---"
 
         processing_log(os.path.basename(dest_pdf), log_status, data=data, features=features, user_hint=user_hint)
         
