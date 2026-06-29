@@ -77,6 +77,7 @@ SENDER_SUBFOLDERS="true"            # Use TARGET_BASE/{Category}/{Year}/{Sender}
     ```
 *   **Backend Startup (Manual):**
     ```bash
+    cd backend
     python -m uvicorn api.main:app --port 8000
     ```
 *   **Frontend Startup (Manual):**
@@ -98,25 +99,36 @@ SENDER_SUBFOLDERS="true"            # Use TARGET_BASE/{Category}/{Year}/{Sender}
 *   **Rule:** Even if the selected GGUF model resides inside the `.ollama` cache directory, **Ollama must NOT be run as a server.**
 *   **Rationale:** Ollama 0.30.x on Windows is known to crash with HTTP 500 / "exit status 1" on AMD Ryzen Zen-2 CPUs (e.g., Ryzen 5 3600) due to incompatible instruction sets.
 *   **Implementation:** Always load GGUF models directly from the filesystem using `llama-cpp-python` via `llm.py`.
+*   **CUDA GPU Acceleration:** To prevent CUDA memory segmentation faults when running on GPUs like the **NVIDIA RTX 3060 12GB**, a global thread synchronization lock (`_llm_lock = threading.Lock()`) must serialize all `_llm.create_chat_completion` calls.
 
 ### B. Database Schema & Migration Pattern
-*   All DB connections must go through `db.get_conn()`, a context manager that enforces WAL (`PRAGMA journal_mode=WAL`) and foreign keys.
+*   All DB connections must go through `db.get_conn()`, a context manager that enforces WAL (`PRAGMA journal_mode=WAL`), foreign keys, and relies on a **Thread-Local Connection Pool** (`threading.local()`) inside `connection.py` to reuse connections and eliminate connection overhead.
 *   **Full-Text Search (FTS5):** A virtual table `documents_fts` tracks `filename, sender, summary, keywords`. Triggers on the main `documents` table (`documents_ai`, `documents_au`, `documents_ad`) automatically maintain the FTS index on INSERT, UPDATE, and DELETE.
-*   **Migrations:** Incremental columns are appended via the `MIGRATIONS` array in `db.py`. To remain safe and idempotent across database initializations, migration SQL strings are executed sequentially within `try-except` blocks to ignore duplicate-column errors.
+*   **Database-Grounded Duplicates:** The file `hashes.json` is deprecated. Duplicate matches are performed directly against SQLite using high-performance indexed queries (`get_document_by_hash`).
+*   **Migrations:** Incremental columns are appended via the `MIGRATIONS` array in `schema.py`. To remain safe and idempotent across database initializations, migration SQL strings are executed sequentially within `try-except` blocks to ignore duplicate-column errors.
 
 ### C. Processing Pipeline & Ingest Sequence
 1.  **Ingestion:** Watchdog spots a new `.pdf` in `SOURCE_DIR`. It polls via `wait_for_file()` until the file lock is released.
-2.  **Duplicate Check:** SHA256 of the document is generated and compared against `hashes.json`. If a duplicate is found, it is moved to `duplicates/` and logged in the DB as `status='duplicate'`.
+    *   **Self-Healing Worker:** An automated monitoring loop in `archiver.py` checks every 2 seconds if the file-processing background worker thread has died (`worker_thread.is_alive() == False`) and automatically restarts it.
+2.  **Duplicate Check:** 
+    *   **Dual-Mode Hashing:** If the extracted text is $\ge$ 100 characters, it uses content-based text hashing. If the text is shorter (e.g. OCR failed or blank PDF), it automatically falls back to binary file-level hashing to prevent false duplicate collisions on generic strings.
+    *   If a duplicate is found, it is moved to `duplicates/` and logged in the DB as `status='duplicate'`.
 3.  **Prompt Builder:**
     *   System Prompt is generated utilizing strict schemas.
     *   **Few-Shot Integration:** Up to 15 manual GUI correction records are extracted from `feedback.json` (preferring category corrections) and formatted as few-shot examples inside the context prompt.
     *   **Similar-Doc Context:** The 3 most recent entries for the matching sender are queried from SQLite and injected to ensure classification consistency.
+    *   **Smart Chunking:** For documents with $\ge$ 3 pages, only Page 1 (sender, date metadata) and the Last Page (totals, signature metadata) are extracted and concatenated to stay within the 2000 character limit without losing context.
+    *   **Königsweg Briefkopf Isolation:** The top 30% of page 1 is isolated and provided to the LLM as a dedicated `--- DOKUMENT-BRIEFKOPF ---` section. Disambiguation rules instruct the model to resolve `sender` strictly from this section, resolving the "Netto" (net tax value) token confusion.
 4.  **LLM Execution:** JSON schema extraction parses `sender`, `date`, `document_type`, `category`, `summary`, and `keywords`.
+    *   **Confidence Score & Ampel-Notizen:** Calculates a confidence rating (`HIGH`, `MEDIUM`, `LOW`) and a logical reason (e.g. Rule Match vs Semantic Text Verification vs Hallucination Alarm) and records it directly in the `notes` column in SQLite, making it instantly visible in the UI detail panel.
 5.  **Validation & Post-Processing:**
     *   Dates in the future or invalid formats are rejected.
     *   **Hallucinations Filtering:** Keywords are cross-verified against the original extracted PDF text. If a keyword does not appear literally, it is stripped.
     *   **Sender Registry Matching:** Fuzzy matching and canonical alias resolution maps the sender name using definitions inside `senders.json`.
-6.  **Archiving:** The PDF is renamed and relocated to `TARGET_BASE/{Category_Folder}/{Year}/{Normalized_Sender}/{Filename}`. DB and FTS5 indexes are updated synchronously.
+6.  **Archiving / Auto-Archiving:**
+    *   **Auto-Archiving (Weg 3):** If confidence is `HIGH` (Stufe 0 Rule Match and valid date), the document automatically bypasses the review inbox, is moved directly to the final archive folder, and marked `status="ok"`.
+    *   Otherwise, the PDF is relocated to the `review/` inbox folder.
+    *   **Transactional Safety & Rollback:** File movements and DB writes are wrapped in `try-except` blocks. If database writes fail, the PDF is automatically moved back to its original path (filesystem rollback), fully protecting against dangling untracked files.
 
 ### D. Frontend Standards
 *   **Tailwind CSS v4:** Vite relies on `@tailwindcss/vite` plugin configuration. Avoid using deprecated `@apply` structures where vanilla utilities or custom CSS files are preferred.
