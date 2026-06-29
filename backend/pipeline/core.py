@@ -100,8 +100,14 @@ def process_pdf(file_path):
         )
         log(f"Kassenbon erkannt – LLM-Hinweis gesetzt. Absender: {receipt_sender}")
 
-    data = classify_document(safe_text, filename=os.path.basename(file_path), user_hint=user_hint,
-                             feature_prompt=feature_prompt, similar_docs=similar_docs)
+    data = classify_document(
+        safe_text, 
+        filename=os.path.basename(file_path), 
+        user_hint=user_hint,
+        feature_prompt=feature_prompt, 
+        similar_docs=similar_docs,
+        header_zone=features.get("header_zone")
+    )
 
     if data is None:
         os.makedirs(FAILED_DIR, exist_ok=True)
