@@ -1,9 +1,5 @@
-import os
-import sys
-
 from fastapi import APIRouter
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import db
 from config import CATEGORIES, DOCUMENT_TYPES
 from api.models import StatsOut

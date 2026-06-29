@@ -15,7 +15,13 @@ CREATE TABLE IF NOT EXISTS documents (
     summary       TEXT,
     content_hash  TEXT,
     status        TEXT DEFAULT 'ok',
-    archived_at   TEXT NOT NULL
+    archived_at   TEXT NOT NULL,
+    tags          TEXT DEFAULT '',
+    tax_relevant  INTEGER DEFAULT 0,
+    tax_year      TEXT,
+    expires_at    TEXT,
+    notes         TEXT,
+    keywords      TEXT DEFAULT ''
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(

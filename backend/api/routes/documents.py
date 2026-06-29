@@ -9,7 +9,6 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import db
 import feedback as fb
 import storage
@@ -182,7 +181,6 @@ def reprocess_document(doc_id: int, body: dict = {}):
     path = doc["file_path"]
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
     from config import SOURCE_DIR
     inbox_path = os.path.join(SOURCE_DIR, os.path.basename(path))
     # Move file back to Inbox so the archiver watcher picks it up
@@ -215,7 +213,6 @@ def confirm_document(doc_id: int):
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
 
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
     from config import TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS
     import re
     from pdf_utils import unique_path

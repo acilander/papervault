@@ -15,7 +15,6 @@ except ImportError:
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import TARGET_BASE, SOURCE_DIR
 import db
 

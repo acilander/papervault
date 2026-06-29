@@ -6,7 +6,6 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import db
 import storage
 from config import TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, SENDERS_FILE

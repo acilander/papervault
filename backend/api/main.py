@@ -1,8 +1,4 @@
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,10 +7,21 @@ import storage
 from config import DB_PATH
 from api.routes import documents, senders, stats, monitor
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup actions
+    db.init_db()
+    storage.load_sender_registry()
+    yield
+    # Shutdown actions (none currently required)
+
+
 app = FastAPI(
     title="Document Archiver API",
     description="REST API fuer das private Dokumentenarchiv",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -24,12 +31,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def startup():
-    db.init_db()
-    storage.load_sender_registry()
 
 
 app.include_router(documents.router)
