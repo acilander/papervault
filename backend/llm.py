@@ -217,15 +217,17 @@ def build_similar_docs_hint(text_snippet: str) -> str:
 
 
 def detect_known_sender(text):
-    """Scan raw text for exact matches of registered senders or their aliases.
+    """Scan raw text for exact word-boundary matches of registered senders or their aliases.
     Returns (sender_name, pinned_category) if matched, else (None, None)."""
     text_norm = normalize_umlauts(text)
     # Sort senders by length descending to match longest first
     for sender, entry in sorted(storage.sender_registry.items(), key=lambda x: len(x[0]), reverse=True):
-        if normalize_umlauts(sender) in text_norm:
+        sender_esc = re.escape(normalize_umlauts(sender))
+        if re.search(r'\b' + sender_esc + r'\b', text_norm, re.IGNORECASE):
             return sender, entry.get("pinned_category")
         for alias in entry.get("aliases") or []:
-            if normalize_umlauts(alias) in text_norm:
+            alias_esc = re.escape(normalize_umlauts(alias))
+            if re.search(r'\b' + alias_esc + r'\b', text_norm, re.IGNORECASE):
                 return sender, entry.get("pinned_category")
     return None, None
 
