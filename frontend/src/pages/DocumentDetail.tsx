@@ -2,13 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil } from 'lucide-react'
 import { getDocument, updateDocument, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, getSenders, pdfUrl, type Document, type DocumentUpdate } from '../api'
-
-const CATEGORIES = [
-  'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'Fahrzeug & Werkstatt',
-  'Wohnen & Eigentum', 'Vermieter', 'Energie & Versorgung', 'Kommunikation',
-  'Einkauf & Bestellungen', 'Kassenbon & Quittung', 'Geraete & Garantie', 'Behoerde & Urkunden',
-  'Ausbildung & Verein', 'Sonstiges',
-]
+import { CATEGORIES } from '../constants'
 
 export default function DocumentDetail() {
   const { id } = useParams<{ id: string }>()

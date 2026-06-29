@@ -2,13 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Search, Filter } from 'lucide-react'
 import { getDocuments, getExpiring, type Document } from '../api'
-
-const CATEGORIES = [
-  'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'Fahrzeug & Werkstatt',
-  'Wohnen & Eigentum', 'Vermieter', 'Energie & Versorgung', 'Kommunikation',
-  'Einkauf & Bestellungen', 'Kassenbon & Quittung', 'Geraete & Garantie', 'Behoerde & Urkunden',
-  'Ausbildung & Verein', 'Sonstiges'
-]
+import { CATEGORIES } from '../constants'
 
 const STATUS_COLORS: Record<string, string> = {
   ok: 'bg-green-50 text-green-700',

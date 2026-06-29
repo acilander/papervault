@@ -2,13 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, RefreshCw } from 'lucide-react'
 import { getSenders, getSenderCounts, reloadSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, type SenderEntry } from '../api'
-
-const CATEGORIES = [
-  'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'Fahrzeug & Werkstatt',
-  'Wohnen & Eigentum', 'Vermieter', 'Energie & Versorgung', 'Kommunikation',
-  'Einkauf & Bestellungen', 'Kassenbon & Quittung', 'Geraete & Garantie', 'Behoerde & Urkunden',
-  'Ausbildung & Verein', 'Sonstiges',
-]
+import { CATEGORIES } from '../constants'
 
 export default function Senders() {
   const navigate = useNavigate()

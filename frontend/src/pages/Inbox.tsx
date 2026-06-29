@@ -2,18 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, RefreshCw, Trash2, Eye, ChevronDown, ChevronUp } from 'lucide-react'
 import { getDocuments, confirmDocument, reprocessDocument, deleteDocumentWithFile, updateDocument, getSenders, pdfUrl, type Document } from '../api'
-
-const CATEGORIES = [
-  'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'Fahrzeug & Werkstatt',
-  'Wohnen & Eigentum', 'Vermieter', 'Energie & Versorgung', 'Kommunikation',
-  'Einkauf & Bestellungen', 'Kassenbon & Quittung', 'Geraete & Garantie', 'Behoerde & Urkunden',
-  'Ausbildung & Verein', 'Sonstiges',
-]
-
-const DOCUMENT_TYPES = [
-  'Rechnung', 'Vertrag', 'Versicherungsschein', 'Mahnung', 'Kuendigung',
-  'Bescheid', 'Lieferschein', 'Kontoauszug', 'Angebot', 'Sonstiges',
-]
+import { CATEGORIES, DOCUMENT_TYPES } from '../constants'
 
 interface EditState {
   sender: string
