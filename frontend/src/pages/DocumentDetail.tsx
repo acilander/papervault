@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil } from 'lucide-react'
-import { getDocument, updateDocument, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, type Document, type DocumentUpdate } from '../api'
+import { getDocument, updateDocument, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, getSenders, pdfUrl, type Document, type DocumentUpdate } from '../api'
 
 const CATEGORIES = [
   'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'Fahrzeug & Werkstatt',
@@ -22,6 +22,11 @@ export default function DocumentDetail() {
   const [reprocessDlg, setReprocessDlg] = useState(false)
   const [reprocessHint, setReprocessHint] = useState('')
   const [reprocessBusy, setReprocessBusy] = useState(false)
+  const [senderList, setSenderList] = useState<string[]>([])
+
+  useEffect(() => {
+    getSenders().then(s => setSenderList(Object.keys(s).sort()))
+  }, [])
 
   useEffect(() => {
     if (!id) return
@@ -50,6 +55,15 @@ export default function DocumentDetail() {
       ) : type === 'textarea' ? (
         <textarea rows={3} value={edit[key] ?? ''} onChange={e => setEdit(prev => ({ ...prev, [key]: e.target.value }))}
           className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none" />
+      ) : key === 'sender' ? (
+        <>
+          <input type="text" list="sender-list" value={edit[key] ?? ''}
+            onChange={e => setEdit(prev => ({ ...prev, [key]: e.target.value }))}
+            className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+          <datalist id="sender-list">
+            {senderList.map(s => <option key={s} value={s} />)}
+          </datalist>
+        </>
       ) : (
         <input type="text" value={edit[key] ?? ''} onChange={e => setEdit(prev => ({ ...prev, [key]: e.target.value }))}
           className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400" />
