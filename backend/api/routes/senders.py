@@ -1,7 +1,6 @@
 import json
 import os
 import shutil
-import sys
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException

@@ -1,8 +1,8 @@
 import io
 import os
+import re
 import shutil
 import subprocess
-import sys
 import zipfile
 from typing import Optional
 
@@ -13,6 +13,8 @@ import db
 import feedback as fb
 import storage
 from api.models import DocumentOut, DocumentUpdate
+from config import SOURCE_DIR, TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS
+from pdf_utils import unique_path
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -181,7 +183,6 @@ def reprocess_document(doc_id: int, body: dict = {}):
     path = doc["file_path"]
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
-    from config import SOURCE_DIR
     inbox_path = os.path.join(SOURCE_DIR, os.path.basename(path))
     # Move file back to Inbox so the archiver watcher picks it up
     try:
@@ -212,10 +213,6 @@ def confirm_document(doc_id: int):
     path = doc["file_path"]
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
-
-    from config import TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS
-    import re
-    from pdf_utils import unique_path
 
     category = doc.get("category") or "Sonstiges"
     folder_name = CATEGORY_FOLDER_MAP.get(category, category)
