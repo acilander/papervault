@@ -326,6 +326,17 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
 
             if data.get("sender"):
                 data["sender"] = normalize_sender(data["sender"])
+                # [Fix Netto-Tax Confusion]
+                # Smaller LLMs get confused by the word 'Netto' (net tax value) on receipts 
+                # and think the supermarket is 'Netto' even if it is Edeka, Rewe, Lidl, etc.
+                sender_lower = data["sender"].lower()
+                if "netto" in sender_lower:
+                    text_lower = safe_text.lower()
+                    for shop in ["edeka", "rewe", "aldi", "lidl", "dm-drogerie", "kaufland", "rossmann", "real"]:
+                        if shop in text_lower:
+                            log(f"[Fix Netto-Confusion] Korrigiere Absender von '{data['sender']}' zu '{shop.upper()}' aufgrund von Texttreffer.")
+                            data["sender"] = shop.upper()
+                            break
 
             # Auto-fix invalid category via fuzzy match
             if data.get("category") not in CATEGORIES:
