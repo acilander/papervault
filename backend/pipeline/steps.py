@@ -19,7 +19,7 @@ def create_shortcut(target_path, shortcut_path):
         log(f"Shortcut konnte nicht erstellt werden: {e}")
 
 
-def check_duplicate(file_path, text):
+def check_duplicate(file_path, text, doc_id):
     cleaned_text = text.strip()
     if len(cleaned_text) >= 100:
         content_hash = hashlib.sha256(cleaned_text.encode("utf-8")).hexdigest()[:16]
@@ -40,7 +40,7 @@ def check_duplicate(file_path, text):
     
     import db as _db
     existing_doc = _db.get_document_by_hash(content_hash)
-    if existing_doc:
+    if existing_doc and existing_doc["id"] != doc_id:
         existing_path = existing_doc["file_path"]
         dup_dir = os.path.join(DUPLICATES_DIR, content_hash)
         os.makedirs(dup_dir, exist_ok=True)
@@ -59,8 +59,14 @@ def check_duplicate(file_path, text):
 
         log("--- Abgeschlossen (als Duplikat) ---")
         
-        # Record duplicate in the SQLite database so it is visible in the UI and counted in the badges
-        _db.upsert_document(dest, os.path.basename(dest), None, None, None, None, f"DUPLIKAT: Identisch mit '{os.path.basename(existing_path)}' (Hash: {content_hash})", status="duplicate")
+        # Record duplicate in the SQLite database by updating the exact tracking ID
+        _db.update_document(
+            doc_id, 
+            file_path=dest, 
+            filename=os.path.basename(dest), 
+            summary=f"DUPLIKAT: Identisch mit '{os.path.basename(existing_path)}' (Hash: {content_hash})", 
+            status="duplicate"
+        )
 
         return True
 

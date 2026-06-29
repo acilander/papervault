@@ -20,8 +20,29 @@ import db
 from utils import log
 from pipeline.steps import check_duplicate
 
-def process_pdf(file_path):
+def process_pdf(file_path, doc_id=None):
     log(f"--- Neue Datei: {os.path.basename(file_path)} ---")
+
+    # [Fix: ID-Tracking Paradigm]
+    # Bind the file to a fixed identity at the very beginning of the pipeline.
+    # Any future path movements or renamings will only UPDATE this specific database row.
+    if doc_id is None:
+        existing = db.get_document_by_path(file_path)
+        if existing:
+            doc_id = existing["id"]
+        else:
+            doc_id = db.upsert_document(
+                file_path=file_path,
+                filename=os.path.basename(file_path),
+                sender=None,
+                date=None,
+                document_type=None,
+                category=None,
+                summary=None,
+                status="processing"
+            )
+            
+    db.update_document(doc_id, status="processing")
 
     log("Extrahiere Text via PyMuPDF...")
     text, status = extract_text(file_path)
@@ -33,7 +54,13 @@ def process_pdf(file_path):
         log(f"VERSCHLUESSELT: PDF ist passwortgeschuetzt. Verschoben nach: {dest}")
         log("--- Abgeschlossen (verschluesselt) ---")
         processing_log(os.path.basename(file_path), "encrypted")
-        db.upsert_document(dest, os.path.basename(dest), None, None, None, None, "VERSCHLUESSELT: Das PDF-Dokument ist passwortgeschützt.", status="encrypted")
+        db.update_document(
+            doc_id, 
+            file_path=dest, 
+            filename=os.path.basename(dest), 
+            summary="VERSCHLUESSELT: Das PDF-Dokument ist passwortgeschützt.", 
+            status="encrypted"
+        )
         return
 
     if status == "corrupt":
@@ -43,7 +70,13 @@ def process_pdf(file_path):
         log(f"FEHLER: PDF nicht lesbar (korrupt). Verschoben nach: {dest}")
         log("--- Abgeschlossen (fehlgeschlagen) ---")
         processing_log(os.path.basename(file_path), "corrupt")
-        db.upsert_document(dest, os.path.basename(dest), None, None, None, None, "FEHLER: PDF-Datei ist nicht lesbar (Datei beschädigt oder ungültig).", status="corrupt")
+        db.update_document(
+            doc_id, 
+            file_path=dest, 
+            filename=os.path.basename(dest), 
+            summary="FEHLER: PDF-Datei ist nicht lesbar (Datei beschädigt oder ungültig).", 
+            status="corrupt"
+        )
         return
 
     log(f"PyMuPDF: {len(text.strip())} Zeichen gefunden.")
@@ -58,10 +91,16 @@ def process_pdf(file_path):
         log(f"WARNUNG: Kein verwertbarer Text gefunden (auch nach OCR). Verschoben nach: {dest}")
         log("--- Abgeschlossen (fehlgeschlagen) ---")
         processing_log(os.path.basename(file_path), "no_text")
-        db.upsert_document(dest, os.path.basename(dest), None, None, None, None, "FEHLER: Kein verwertbarer Text im Dokument gefunden (auch nach OCR-Texterkennung).", status="no_text")
+        db.update_document(
+            doc_id, 
+            file_path=dest, 
+            filename=os.path.basename(dest), 
+            summary="FEHLER: Kein verwertbarer Text im Dokument gefunden (auch nach OCR-Texterkennung).", 
+            status="no_text"
+        )
         return
 
-    if check_duplicate(file_path, text):
+    if check_duplicate(file_path, text, doc_id):
         return
     doc_content_hash = getattr(check_duplicate, 'last_hash', None)
 
@@ -115,7 +154,13 @@ def process_pdf(file_path):
         log(f"Alle Versuche fehlgeschlagen. Verschoben nach: {dest_pdf}")
         log("--- Abgeschlossen (fehlgeschlagen) ---")
         processing_log(os.path.basename(file_path), "classification_failed")
-        db.upsert_document(dest_pdf, os.path.basename(dest_pdf), None, None, None, None, "FEHLER: LLM-Klassifizierung nach allen Versuchen fehlgeschlagen.", status="classification_failed")
+        db.update_document(
+            doc_id, 
+            file_path=dest_pdf, 
+            filename=os.path.basename(dest_pdf), 
+            summary="FEHLER: LLM-Klassifizierung nach allen Versuchen fehlgeschlagen.", 
+            status="classification_failed"
+        )
         return
 
     data = apply_sender_overrides(data)
@@ -143,19 +188,34 @@ def process_pdf(file_path):
     # [Fix 1: Transactional Safety]
     # Wrap file movement and DB upsert in a try-except block to perform automatic file system rollbacks if DB transactions fail.
     try:
-        # Always route through review/ – confidence is informational only, never bypasses user confirmation
-        os.makedirs(REVIEW_DIR, exist_ok=True)
-        dest_pdf = unique_path(os.path.join(REVIEW_DIR, new_name))
-        shutil.move(file_path, dest_pdf)
-
-        status = "review"
-        log_status = "review"
-        log_msg = f"Bereit zur Pruefung – verschoben nach: {dest_pdf}"
-        log_fin = "--- Abgeschlossen (wartet auf Bestaetigung) ---"
+        # Check if we can Auto-Archive (Weg 3: Confidence is HIGH and the date is valid)
+        if confidence == "high" and data.get("date") and data.get("date") != "null":
+            # Bypass review/ inbox staging, archive directly!
+            log(f"[AUTO-ARCHIV] Hohes Vertrauen verifiziert. Archiviere Dokument direkt...")
+            from pipeline.steps import archive_file_on_disk
+            dest_pdf = archive_file_on_disk(file_path, category, sender, data.get("date"))
+            
+            status = "ok"
+            log_status = "auto_archived"
+            log_msg = f"[AUTO-ARCHIV] Erfolgreich einsortiert nach: {dest_pdf}"
+            log_fin = "--- Abgeschlossen (automatisch archiviert) ---"
+        else:
+            # Standard staging: Move to review/ staging area – confirmed via UI later
+            os.makedirs(REVIEW_DIR, exist_ok=True)
+            dest_pdf = unique_path(os.path.join(REVIEW_DIR, new_name))
+            shutil.move(file_path, dest_pdf)
+            
+            status = "review"
+            log_status = "review"
+            log_msg = f"Bereit zur Pruefung – verschoben nach: {dest_pdf}"
+            log_fin = "--- Abgeschlossen (wartet auf Bestaetigung) ---"
 
         processing_log(os.path.basename(dest_pdf), log_status, data=data, features=features, user_hint=user_hint)
         
-        doc_id = db.upsert_document(
+        # [Fix: ID-Tracking Paradigm]
+        # We perform an UPDATE on the exact tracking ID instead of a new path-based UPSERT!
+        db.update_document(
+            doc_id,
             file_path=dest_pdf,
             filename=os.path.basename(dest_pdf),
             sender=sender,
