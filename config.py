@@ -25,6 +25,7 @@ SENDER_SUBFOLDERS  = os.getenv("SENDER_SUBFOLDERS", "true").lower() == "true"
 DUPLICATES_DIR = os.path.join(TARGET_BASE, "duplicates")
 FAILED_DIR     = os.path.join(TARGET_BASE, "failed")
 ENCRYPTED_DIR  = os.path.join(TARGET_BASE, "encrypted")
+REVIEW_DIR     = os.path.join(TARGET_BASE, "review")
 SENDERS_FILE   = os.path.join(_HERE, "senders.json")
 HASHES_FILE    = os.path.join(_HERE, "hashes.json")
 FEEDBACK_FILE  = os.path.join(_HERE, "feedback.json")

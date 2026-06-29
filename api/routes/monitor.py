@@ -184,7 +184,7 @@ def scan_orphans():
     Scan TARGET_BASE for PDFs that have no matching DB entry (by file_path).
     Excludes SOURCE_DIR, duplicates/, failed/, encrypted/ folders.
     """
-    EXCLUDE_DIRS = {"duplicates", "failed", "encrypted"}
+    EXCLUDE_DIRS = {"duplicates", "failed", "encrypted", "review"}
 
     # Get all known file paths from DB
     all_docs = db.search_documents(limit=99999)

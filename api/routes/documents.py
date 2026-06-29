@@ -182,6 +182,45 @@ def reprocess_document(doc_id: int, body: dict = {}):
     return {"detail": "Datei zurück in Inbox verschoben – Archiver klassifiziert neu.", "file_path": inbox_path}
 
 
+@router.post("/{doc_id}/confirm", status_code=200)
+def confirm_document(doc_id: int):
+    """Move document from review/ to final archive folder and set status=ok."""
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if doc["status"] != "review":
+        raise HTTPException(status_code=400, detail=f"Dokument hat Status '{doc['status']}', erwartet 'review'")
+    path = doc["file_path"]
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
+
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from config import TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS
+    import re
+    from pdf_utils import unique_path
+
+    category = doc.get("category") or "Sonstiges"
+    folder_name = CATEGORY_FOLDER_MAP.get(category, category)
+    raw_date = str(doc.get("date") or "")
+    year_match = re.search(r'\b(\d{4})\b', raw_date)
+    year = year_match.group() if year_match else "Unbekannt"
+    sender = doc.get("sender")
+
+    if SENDER_SUBFOLDERS and sender:
+        safe_sender = re.sub(r'[\\/:*?"<>|]', '_', sender)[:50].strip()
+        target_dir = os.path.join(TARGET_BASE, folder_name, safe_sender, year)
+    else:
+        target_dir = os.path.join(TARGET_BASE, folder_name, year)
+    os.makedirs(target_dir, exist_ok=True)
+
+    dest_pdf = unique_path(os.path.join(target_dir, os.path.basename(path)))
+    shutil.move(path, dest_pdf)
+
+    db.update_document(doc_id, status="ok", file_path=dest_pdf)
+    storage.record_sender(category, sender)
+    return {"detail": "Dokument bestaetigt und archiviert.", "file_path": dest_pdf}
+
+
 @router.delete("/{doc_id}/delete-file", status_code=204)
 def delete_document_with_file(doc_id: int):
     """Delete the PDF from disk AND remove the DB entry."""

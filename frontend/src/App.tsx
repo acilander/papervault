@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, Copy, AlertTriangle, Receipt, Clock, FileX } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, Copy, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import DocumentDetail from './pages/DocumentDetail'
 import Senders from './pages/Senders'
 import Monitor from './pages/Monitor'
+import Inbox from './pages/Inbox'
 import axios from 'axios'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/inbox', label: 'Inbox', icon: InboxIcon },
   { to: '/documents', label: 'Dokumente', icon: FileText },
   { to: '/senders', label: 'Absender', icon: Users },
   { to: '/monitor', label: 'Monitor', icon: Activity },
@@ -23,6 +25,7 @@ interface SidebarBadges {
   failed: number
   tax: number
   missing: number
+  review: number
 }
 
 function SidebarQuickLinks({ badges }: { badges: SidebarBadges }) {
@@ -56,7 +59,7 @@ export default function App() {
   const [dark, setDark] = useState(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches
   )
-  const [badges, setBadges] = useState<SidebarBadges>({ unreviewed: 0, expiring: 0, inbox: 0, duplicates: 0, failed: 0, tax: 0, missing: 0 })
+  const [badges, setBadges] = useState<SidebarBadges>({ unreviewed: 0, expiring: 0, inbox: 0, duplicates: 0, failed: 0, tax: 0, missing: 0, review: 0 })
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -84,6 +87,7 @@ export default function App() {
           failed: byStatus.find(s => s.status === 'classification_failed')?.count ?? 0,
           tax: 0,
           missing: byStatus.find(s => s.status === 'missing')?.count ?? 0,
+          review: byStatus.find(s => s.status === 'review')?.count ?? 0,
         })
       } catch {}
     }
@@ -127,6 +131,9 @@ export default function App() {
                 {label === 'Absender' && badges.unreviewed > 0 && (
                   <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">{badges.unreviewed}</span>
                 )}
+                {label === 'Inbox' && badges.review > 0 && (
+                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400">{badges.review}</span>
+                )}
                 {label === 'Monitor' && badges.inbox > 0 && (
                   <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">{badges.inbox}</span>
                 )}
@@ -144,6 +151,7 @@ export default function App() {
             <Route path="/documents" element={<Documents />} />
             <Route path="/documents/:id" element={<DocumentDetail />} />
             <Route path="/senders" element={<Senders />} />
+            <Route path="/inbox" element={<Inbox />} />
             <Route path="/monitor" element={<Monitor />} />
           </Routes>
         </main>

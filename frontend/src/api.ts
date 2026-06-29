@@ -150,4 +150,7 @@ export const importOrphans = (paths: string[]) =>
     '/monitor/orphans/import', { paths }
   ).then(r => r.data)
 
+export const confirmDocument = (id: number) =>
+  api.post<{ detail: string; file_path: string }>(`/documents/${id}/confirm`).then(r => r.data)
+
 export const pdfUrl = (id: number) => `/documents/${id}/file`

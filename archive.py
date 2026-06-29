@@ -7,7 +7,7 @@ import subprocess
 from datetime import datetime
 
 from config import (
-    TARGET_BASE, DUPLICATES_DIR, FAILED_DIR, ENCRYPTED_DIR,
+    TARGET_BASE, DUPLICATES_DIR, FAILED_DIR, ENCRYPTED_DIR, REVIEW_DIR,
     CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, CATEGORIES,
 )
 from pdf_utils import extract_text, ocr_pdf, prepare_text_for_llm, is_cryptic_filename, build_filename, unique_path, extract_features, build_feature_prompt, detect_receipt
@@ -157,19 +157,10 @@ def process_pdf(file_path):
     data = apply_sender_overrides(data)
 
     category = data.get("category") or "Sonstiges"
-    folder_name = CATEGORY_FOLDER_MAP.get(category, category)
-    raw_date = str(data.get("date") or "")
-    year_match = re.search(r'\b(\d{4})\b', raw_date)
-    year = year_match.group() if year_match else "Unbekannt"
     sender = data.get("sender")
 
-    if SENDER_SUBFOLDERS and sender:
-        safe_sender = re.sub(r'[\\/:*?"<>|]', '_', sender)[:50].strip()
-        target_dir = os.path.join(TARGET_BASE, folder_name, safe_sender, year)
-    else:
-        target_dir = os.path.join(TARGET_BASE, folder_name, year)
-    os.makedirs(target_dir, exist_ok=True)
-
+    # Move to review/ staging area – confirmed via UI before final archiving
+    os.makedirs(REVIEW_DIR, exist_ok=True)
     original_name = os.path.basename(file_path)
     if is_cryptic_filename(original_name):
         new_name = build_filename(data, original_name)
@@ -177,30 +168,28 @@ def process_pdf(file_path):
     else:
         new_name = original_name
 
-    dest_pdf = unique_path(os.path.join(target_dir, new_name))
-
+    dest_pdf = unique_path(os.path.join(REVIEW_DIR, new_name))
     shutil.move(file_path, dest_pdf)
 
-    record_sender(category, data.get("sender"))
-    processing_log(os.path.basename(dest_pdf), "ok", data=data, features=features, user_hint=user_hint)
+    processing_log(os.path.basename(dest_pdf), "review", data=data, features=features, user_hint=user_hint)
     doc_id = db.upsert_document(
         file_path=dest_pdf,
         filename=os.path.basename(dest_pdf),
-        sender=data.get("sender"),
+        sender=sender,
         date=data.get("date"),
         document_type=data.get("document_type"),
         category=category,
         summary=data.get("summary"),
         content_hash=doc_content_hash,
-        status="ok",
+        status="review",
     )
     if doc_id and data.get("keywords"):
         validated_kw = filter_keywords_against_text(data["keywords"], text)
         if validated_kw:
             db.update_document(doc_id, keywords=validated_kw)
 
-    log(f"Fertig – verschoben nach: {dest_pdf}")
-    log("--- Abgeschlossen ---")
+    log(f"Bereit zur Pruefung – verschoben nach: {dest_pdf}")
+    log("--- Abgeschlossen (wartet auf Bestaetigung) ---")
 
 
 def reindex_from_archive():
