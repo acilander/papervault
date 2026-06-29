@@ -17,6 +17,7 @@ export default function Senders() {
   const [removeAction, setRemoveAction] = useState<'keep' | 'sonstiges' | 'move' | 'reclassify'>('keep')
   const [removeMoveTarget, setRemoveMoveTarget] = useState('Sonstiges')
   const [removeBusy, setRemoveBusy] = useState(false)
+  const [shouldBan, setShouldBan] = useState(true)
   const [renameDlg, setRenameDlg] = useState<{ name: string } | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [renameBusy, setRenameBusy] = useState(false)
@@ -183,12 +184,14 @@ export default function Senders() {
                 </td>
                 <td className="px-4 py-2">
                   <div className="flex flex-wrap gap-1">
+                    {/* Active Categories */}
                     {entry.categories.map(c => (
                       <span key={c} className="flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 rounded text-xs group">
                         {c}
                         <button
                           onClick={() => {
                             setRemoveDlg({ name, category: c })
+                            setShouldBan(true) // Default to banning on removal
                             const pinned = entry.pinned_category
                             if (pinned && pinned !== c) {
                               setRemoveAction('move')
@@ -203,6 +206,37 @@ export default function Senders() {
                           title={entry.categories.length === 1 && !entry.pinned_category ? 'Letzte Kategorie – erst pinned_category setzen' : `"${c}" entfernen`}
                         >
                           ✕
+                        </button>
+                      </span>
+                    ))}
+                    {/* Banned/Excluded Categories */}
+                    {entry.excluded_categories?.map(c => (
+                      <span key={c} className="flex items-center gap-1.5 px-1.5 py-0.5 bg-red-50 dark:bg-red-950/20 text-red-500 dark:text-red-400 border border-red-200/50 dark:border-red-900/30 line-through rounded text-xs group" title="Sperrliste: Diese Kategorie ist für diesen Absender blockiert.">
+                        {c}
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Sperrung für Kategorie "${c}" bei Absender "${name}" wieder aufheben?`)) {
+                              try {
+                                const nextExcluded = (entry.excluded_categories || []).filter(x => x !== c)
+                                const nextCategories = [...entry.categories]
+                                if (!nextCategories.includes(c)) {
+                                  nextCategories.push(c)
+                                  nextCategories.sort()
+                                }
+                                await updateSender(name, { 
+                                  categories: nextCategories,
+                                  excluded_categories: nextExcluded
+                                })
+                                await load()
+                              } catch (e: any) {
+                                alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                              }
+                            }
+                          }}
+                          className="text-green-500 hover:text-green-700 font-bold leading-none"
+                          title="Sperre aufheben & Kategorie reaktivieren"
+                        >
+                          +
                         </button>
                       </span>
                     ))}
@@ -303,9 +337,23 @@ export default function Senders() {
               Kategorie <strong className="text-gray-800 dark:text-gray-200">„{removeDlg.category}"</strong> von{' '}
               <strong className="text-gray-800 dark:text-gray-200">„{removeDlg.name}"</strong> entfernen.
             </p>
+
+            {/* Checkbox for Selective Banning */}
+            <label className="flex items-center gap-2.5 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-950/10 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={shouldBan} 
+                onChange={e => setShouldBan(e.target.checked)}
+                className="w-4 h-4 accent-red-500 shrink-0" 
+              />
+              <div className="text-left">
+                <p className="text-xs font-semibold text-red-800 dark:text-red-300">Dauerhaft für diesen Absender sperren</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Verhindert, dass das LLM diese Kategorie in Zukunft für diesen Absender vorschlägt.</p>
+              </div>
+            </label>
+
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Die Kategorie wird dauerhaft gesperrt – der LLM wählt sie für diesen Absender nicht mehr.
-              Was soll mit den betroffenen Dokumenten passieren?
+              Was soll mit den bestehenden, betroffenen Dokumenten passieren?
             </p>
             {removeAction === 'move' && removeMoveTarget && (
               <p className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded px-3 py-1.5">
@@ -361,11 +409,14 @@ export default function Senders() {
                   try {
                     const res = await removeSenderCategory(
                       removeDlg.name, removeDlg.category, removeAction,
-                      removeAction === 'move' ? removeMoveTarget : undefined
+                      removeAction === 'move' ? removeMoveTarget : undefined,
+                      shouldBan
                     )
-                    const msg = `✓ Kategorie entfernt und gesperrt.\n${res.affected} Dokumente betroffen, ${res.moved} verschoben.`
-                      + (res.errors.length ? `\n\nFehler:\n${res.errors.join('\n')}` : '')
-                    alert(msg)
+                    const msg = shouldBan
+                      ? `✓ Kategorie entfernt und gesperrt.\n${res.affected} Dokumente betroffen, ${res.moved} verschoben.`
+                      : `✓ Kategorie entfernt (nicht gesperrt).\n${res.affected} Dokumente betroffen, ${res.moved} verschoben.`
+                    const fullMsg = msg + (res.errors.length ? `\n\nFehler:\n${res.errors.join('\n')}` : '')
+                    alert(fullMsg)
                     setRemoveDlg(null)
                     await load()
                   } catch (e: any) {

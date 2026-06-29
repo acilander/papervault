@@ -228,11 +228,18 @@ def remove_category(name: str, body: dict):
     # Remove from categories list
     entry["categories"] = [c for c in entry["categories"] if c != category]
 
-    # Add to excluded so LLM won't pick it again
-    excluded = entry.get("excluded_categories", [])
-    if category not in excluded:
-        excluded.append(category)
-    entry["excluded_categories"] = excluded
+    # [Selective Banning]
+    # If ban is True, add to excluded so LLM won't pick it again.
+    # Otherwise, just remove from categories list and ensure it is not banned.
+    should_ban = body.get("ban", True)
+    if should_ban:
+        excluded = entry.get("excluded_categories", [])
+        if category not in excluded:
+            excluded.append(category)
+        entry["excluded_categories"] = excluded
+    else:
+        if "excluded_categories" in entry:
+            entry["excluded_categories"] = [c for c in entry["excluded_categories"] if c != category]
 
     # Clear pinned if it was this category
     if entry.get("pinned_category") == category:

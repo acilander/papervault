@@ -104,7 +104,7 @@ export const getSenders = () =>
 export const getSenderCounts = () =>
   api.get<Record<string, number>>('/senders/counts').then(r => r.data)
 
-export const updateSender = (name: string, body: { pinned_category?: string | null; categories?: string[]; reviewed?: boolean }) =>
+export const updateSender = (name: string, body: { pinned_category?: string | null; categories?: string[]; reviewed?: boolean; excluded_categories?: string[] }) =>
   api.patch<SenderEntry>(`/senders/${encodeURIComponent(name)}`, body).then(r => r.data)
 
 export const renameSender = (name: string, newName: string) =>
@@ -124,11 +124,12 @@ export const removeSenderCategory = (
   name: string,
   category: string,
   action: 'keep' | 'sonstiges' | 'move' | 'reclassify',
-  target_category?: string
+  target_category?: string,
+  ban?: boolean
 ) =>
   api.post<{ affected: number; action: string; moved: number; errors: string[] }>(
     `/senders/${encodeURIComponent(name)}/remove-category`,
-    { category, action, target_category }
+    { category, action, target_category, ban }
   ).then(r => r.data)
 
 export const reorganizeSender = (name: string) =>
