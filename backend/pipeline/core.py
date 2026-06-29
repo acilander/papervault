@@ -33,7 +33,7 @@ def process_pdf(file_path):
         log(f"VERSCHLUESSELT: PDF ist passwortgeschuetzt. Verschoben nach: {dest}")
         log("--- Abgeschlossen (verschluesselt) ---")
         processing_log(os.path.basename(file_path), "encrypted")
-        db.upsert_document(dest, os.path.basename(dest), None, None, None, None, None, status="encrypted")
+        db.upsert_document(dest, os.path.basename(dest), None, None, None, None, "VERSCHLUESSELT: Das PDF-Dokument ist passwortgeschützt.", status="encrypted")
         return
 
     if status == "corrupt":
@@ -43,7 +43,7 @@ def process_pdf(file_path):
         log(f"FEHLER: PDF nicht lesbar (korrupt). Verschoben nach: {dest}")
         log("--- Abgeschlossen (fehlgeschlagen) ---")
         processing_log(os.path.basename(file_path), "corrupt")
-        db.upsert_document(dest, os.path.basename(dest), None, None, None, None, None, status="corrupt")
+        db.upsert_document(dest, os.path.basename(dest), None, None, None, None, "FEHLER: PDF-Datei ist nicht lesbar (Datei beschädigt oder ungültig).", status="corrupt")
         return
 
     log(f"PyMuPDF: {len(text.strip())} Zeichen gefunden.")
@@ -58,7 +58,7 @@ def process_pdf(file_path):
         log(f"WARNUNG: Kein verwertbarer Text gefunden (auch nach OCR). Verschoben nach: {dest}")
         log("--- Abgeschlossen (fehlgeschlagen) ---")
         processing_log(os.path.basename(file_path), "no_text")
-        db.upsert_document(dest, os.path.basename(dest), None, None, None, None, None, status="no_text")
+        db.upsert_document(dest, os.path.basename(dest), None, None, None, None, "FEHLER: Kein verwertbarer Text im Dokument gefunden (auch nach OCR-Texterkennung).", status="no_text")
         return
 
     if check_duplicate(file_path, text):
@@ -116,7 +116,7 @@ def process_pdf(file_path):
         log(f"Alle Versuche fehlgeschlagen. Verschoben nach: {dest_pdf}")
         log("--- Abgeschlossen (fehlgeschlagen) ---")
         processing_log(os.path.basename(file_path), "classification_failed")
-        db.upsert_document(dest_pdf, os.path.basename(dest_pdf), None, None, None, None, None, status="classification_failed")
+        db.upsert_document(dest_pdf, os.path.basename(dest_pdf), None, None, None, None, "FEHLER: LLM-Klassifizierung nach allen Versuchen fehlgeschlagen.", status="classification_failed")
         return
 
     data = apply_sender_overrides(data)

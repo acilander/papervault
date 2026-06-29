@@ -41,6 +41,11 @@ def check_duplicate(file_path, text):
                 log(f"Shortcut zum Original erstellt: {shortcut_name}")
 
         log("--- Abgeschlossen (als Duplikat) ---")
+        
+        # Record duplicate in the SQLite database so it is visible in the UI and counted in the badges
+        import db as _db
+        _db.upsert_document(dest, os.path.basename(dest), None, None, None, None, f"DUPLIKAT: Identisch mit '{os.path.basename(existing_path)}' (Hash: {content_hash})", status="duplicate")
+
         return True
 
     content_hashes[content_hash] = file_path
