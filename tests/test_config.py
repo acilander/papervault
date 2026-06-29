@@ -1,5 +1,5 @@
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 from config import CATEGORIES, CATEGORY_FOLDER_MAP, DOCUMENT_TYPES, TYPE_CATEGORY_MAP
 

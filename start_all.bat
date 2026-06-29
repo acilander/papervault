@@ -24,7 +24,7 @@ if %errorlevel%==0 (
 
 :: Start backend and wait until ready
 echo [API]      Starte API auf Port 8000...
-start "PaperVault API" /B .venv\Scripts\python.exe -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+start "PaperVault API" /B cmd /c "cd backend && ..\.venv\Scripts\python.exe -m uvicorn api.main:app --host 0.0.0.0 --port 8000"
 
 set /a tries=0
 :wait_api

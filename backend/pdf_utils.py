@@ -19,6 +19,14 @@ from utils import log
 
 
 
+def _extract_page_blocks(page):
+    """Extract and sort text blocks from a page vertically and horizontally."""
+    blocks = page.get_text("blocks")
+    # blocks: (x0, y0, x1, y1, "text", block_no, block_type)
+    # Sort top-to-bottom, then left-to-right
+    blocks.sort(key=lambda b: (b[1], b[0]))
+    return "\n".join([b[4].strip() for b in blocks if b[6] == 0])
+
 def extract_text(file_path):
     """Open PDF and extract embedded text. Returns (text, status) where status is
     'ok', 'encrypted', or 'corrupt'."""
@@ -27,9 +35,27 @@ def extract_text(file_path):
         if doc.is_encrypted:
             doc.close()
             return "", "encrypted"
-        text = "".join([page.get_text() for page in doc])
+            
+        # [Smart Chunking] 
+        # For long docs (>2 pages), extract first and last page only 
+        # to preserve context limits without losing crucial sender/signature/total info.
+        num_pages = len(doc)
+        if num_pages <= 2:
+            pages_to_read = range(num_pages)
+        else:
+            pages_to_read = [0, num_pages - 1]
+            
+        parts = []
+        for i in pages_to_read:
+            page = doc[i]
+            # Use block extraction to maintain multi-column layout structure
+            text = _extract_page_blocks(page)
+            if i > 0 and num_pages > 2:
+                parts.append("\n\n[... WEITERE SEITEN ÜBERSPRUNGEN ...]\n\n")
+            parts.append(text)
+            
         doc.close()
-        return text, "ok"
+        return "\n".join(parts), "ok"
     except Exception as e:
         return "", "corrupt"
 

@@ -13,11 +13,12 @@ from dotenv import load_dotenv
 # ohne den Ollama-Server zu benötigen.
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-load_dotenv(os.path.join(_HERE, ".env"))
+PROJECT_ROOT = os.path.dirname(_HERE)
+load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
 SOURCE_DIR         = os.getenv("SOURCE_DIR",         "C:/Archive/Inbox")
 TARGET_BASE        = os.getenv("TARGET_BASE",         "C:/Archive")
-MODEL_PATH         = os.getenv("MODEL_PATH",          r"C:\Users\Alexander\.ollama\models\blobs\sha256-183715c435899236895da3869489cc30ac241476b4971a20285b1a462818a5b4")
+MODEL_PATH         = os.getenv("MODEL_PATH",          os.path.join(PROJECT_ROOT, "models", "qwen2.5-1.5b-instruct-q4_k_m.gguf"))
 MAX_RETRIES        = int(os.getenv("MAX_RETRIES",     "3"))
 FILE_READY_TIMEOUT = int(os.getenv("FILE_READY_TIMEOUT", "30"))
 SENDER_SUBFOLDERS  = os.getenv("SENDER_SUBFOLDERS", "true").lower() == "true"
@@ -27,9 +28,9 @@ DUPLICATES_DIR = os.path.join(TARGET_BASE, "duplicates")
 FAILED_DIR     = os.path.join(TARGET_BASE, "failed")
 ENCRYPTED_DIR  = os.path.join(TARGET_BASE, "encrypted")
 REVIEW_DIR     = os.path.join(TARGET_BASE, "review")
-SENDERS_FILE   = os.path.join(_HERE, "senders.json")
-HASHES_FILE    = os.path.join(_HERE, "hashes.json")
-FEEDBACK_FILE  = os.path.join(_HERE, "feedback.json")
+SENDERS_FILE   = os.path.join(PROJECT_ROOT, "senders.json")
+HASHES_FILE    = os.path.join(PROJECT_ROOT, "hashes.json")
+FEEDBACK_FILE  = os.path.join(PROJECT_ROOT, "feedback.json")
 LOG_FILE       = os.path.join(TARGET_BASE, "processing_log.jsonl")
 DB_PATH        = os.getenv("DB_PATH", os.path.join(TARGET_BASE, "archive.db"))
 

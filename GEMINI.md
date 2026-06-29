@@ -19,26 +19,34 @@ This file serves as the definitive instructional context and architectural map f
 
 ```text
 papervault/
-├── config.py                 # Central configurations, system prompts, category mappings
-├── db.py                     # SQLite connection manager, schema definitions, and migration handler
-├── archiver.py               # Background Watchdog watcher and thread-safe process queue
-├── archive.py                # Main orchestration pipeline for processing a single PDF
-├── llm.py                    # Local inference loader via llama-cpp-python and prompt constructor
-├── feedback.py               # Accumulates manual edits as few-shot JSON templates
-├── storage.py                # Handles file management, hash registers, and sender metadata
-├── pdf_utils.py              # File-lock detection and PyMuPDF text/OCR extractors
-├── api/                      # FastAPI Backend
-│   ├── main.py               # App entry point, CORS settings, and startup hooks
-│   ├── models.py             # Pydantic schemas for request/response payloads
-│   └── routes/               # API endpoint modules (documents, senders, stats, monitor)
+├── backend/                  # Python Core
+│   ├── config.py             # Central configurations, system prompts, paths
+│   ├── archiver.py           # Background Watchdog watcher and thread-safe process queue
+│   ├── llm.py                # Local inference loader via llama-cpp-python and mock engine
+│   ├── feedback.py           # Accumulates manual edits as few-shot JSON templates
+│   ├── storage.py            # Thread-safe file management (hashes, senders)
+│   ├── pdf_utils.py          # Smart Chunking, OCR and text extraction
+│   ├── utils.py              # Shared string normalization, date parsing, logging
+│   ├── api/                  # FastAPI App
+│   │   ├── main.py           # App entry point, CORS settings
+│   │   ├── models.py         # Pydantic schemas
+│   │   └── routes/           # API endpoint modules
+│   ├── db/                   # SQLite Repository
+│   │   ├── connection.py     # SQLite setup & WAL manager
+│   │   ├── schema.py         # Table structures & migrations
+│   │   ├── documents_repo.py # CRUD & FTS Search
+│   │   └── stats_repo.py     # Analytics & counts
+│   └── pipeline/             # PDF Ingest Pipeline
+│       ├── core.py           # Orchestrator (process_pdf)
+│       └── steps.py          # Standalone processing steps (duplicates, shortcuts)
 ├── frontend/                 # React Web-UI
-│   ├── package.json          # Vite + React 19 dependencies, oxlint for linting
-│   ├── src/                  # React source code (pages, components, api.ts)
+│   ├── package.json          # Vite + React 19 dependencies, oxlint
+│   ├── src/                  # React source code (pages, components, ConfigContext.tsx)
 │   └── vite.config.ts        # Vite build configuration with Tailwind v4
-├── tests/                    # Backend Pytest suite
-│   └── test_*.py             # Database, validation, storage, and feedback unit tests
+├── tests/                    # Backend Pytest suite (requires backend/ in PYTHONPATH)
 ├── requirements.txt          # Python virtual env dependencies
-└── start_all.bat             # Orchestrated startup batch script (Backend + Frontend)
+├── start_all.bat             # Orchestrated startup batch script
+└── stop_all.bat              # PowerShell-based robust process termination
 ```
 
 ---

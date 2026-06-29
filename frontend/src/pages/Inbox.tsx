@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle, RefreshCw, Trash2, Eye, ChevronDown, ChevronUp } from 'lucide-react'
+import { CheckCircle, RefreshCw, Trash2, Eye, ChevronDown, ChevronUp, Square, CheckSquare } from 'lucide-react'
 import { getDocuments, confirmDocument, reprocessDocument, deleteDocumentWithFile, updateDocument, pdfUrl, type Document } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
@@ -23,19 +23,22 @@ export default function Inbox() {
   const [busy, setBusy] = useState<Record<number, string>>({})
   const [reprocessHint, setReprocessHint] = useState('')
   const [reprocessDlg, setReprocessDlg] = useState<number | null>(null)
+  
+  // Selection state
+  const [selected, setSelected] = useState<Set<number>>(new Set())
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const data = await getDocuments({ status: 'review', limit: 200 })
       setDocs(data)
+      setSelected(new Set())
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => { load() }, [load])
-
 
   const initEdit = (doc: Document): EditState => ({
     sender: doc.sender ?? '',
@@ -54,6 +57,21 @@ export default function Inbox() {
     }
   }
 
+  const toggleSelect = (id: number) => {
+    const next = new Set(selected)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelected(next)
+  }
+
+  const toggleSelectAll = () => {
+    if (selected.size === docs.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(docs.map(d => d.id)))
+    }
+  }
+
   const confirmDoc = async (doc: Document) => {
     const edit = edits[doc.id]
     setBusy(b => ({ ...b, [doc.id]: 'confirm' }))
@@ -69,6 +87,11 @@ export default function Inbox() {
       }
       await confirmDocument(doc.id)
       setDocs(d => d.filter(x => x.id !== doc.id))
+      setSelected(prev => {
+        const next = new Set(prev)
+        next.delete(doc.id)
+        return next
+      })
     } catch (e: any) {
       alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
     } finally {
@@ -76,9 +99,12 @@ export default function Inbox() {
     }
   }
 
-  const confirmAll = async () => {
-    if (!window.confirm(`Alle ${docs.length} Dokumente bestätigen?`)) return
-    for (const doc of docs) {
+  const confirmSelected = async () => {
+    const toConfirm = docs.filter(d => selected.has(d.id))
+    if (!toConfirm.length) return
+    if (!window.confirm(`${toConfirm.length} markierte Dokumente archivieren?`)) return
+    
+    for (const doc of toConfirm) {
       await confirmDoc(doc)
     }
   }
@@ -89,6 +115,11 @@ export default function Inbox() {
     try {
       await deleteDocumentWithFile(doc.id)
       setDocs(d => d.filter(x => x.id !== doc.id))
+      setSelected(prev => {
+        const next = new Set(prev)
+        next.delete(doc.id)
+        return next
+      })
     } finally {
       setBusy(b => ({ ...b, [doc.id]: '' }))
     }
@@ -107,13 +138,24 @@ export default function Inbox() {
               : `${docs.length} Dokument${docs.length !== 1 ? 'e' : ''} warten auf Bestätigung.`}
           </p>
         </div>
-        {docs.length > 1 && (
-          <button
-            onClick={confirmAll}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
-            <CheckCircle size={16} />
-            Alle bestätigen
-          </button>
+        
+        {docs.length > 0 && (
+          <div className="flex items-center gap-3">
+            {selected.size > 0 && (
+              <button
+                onClick={confirmSelected}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <CheckCircle size={16} />
+                {selected.size} Markierte bestätigen
+              </button>
+            )}
+            <button
+              onClick={toggleSelectAll}
+              className="flex items-center gap-2 px-3 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium rounded-lg transition-colors">
+              {selected.size === docs.length ? <CheckSquare size={16} className="text-blue-600"/> : <Square size={16} />}
+              Alle
+            </button>
+          </div>
         )}
       </div>
 
@@ -128,11 +170,19 @@ export default function Inbox() {
         const edit = edits[doc.id] ?? initEdit(doc)
         const isExpanded = expanded === doc.id
         const isBusy = !!busy[doc.id]
+        const isSelected = selected.has(doc.id)
 
         return (
-          <div key={doc.id} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div key={doc.id} className={`bg-white dark:bg-gray-900 rounded-xl border shadow-sm overflow-hidden transition-colors ${isSelected ? 'border-blue-400 dark:border-blue-600 ring-1 ring-blue-400 dark:ring-blue-600' : 'border-gray-200 dark:border-gray-700'}`}>
             {/* Header row */}
-            <div className="flex items-center gap-3 px-4 py-3">
+            <div className="flex items-center px-3 py-3">
+              <button 
+                onClick={() => toggleSelect(doc.id)} 
+                className="p-1 mr-2 text-gray-400 hover:text-blue-600 transition-colors"
+              >
+                {isSelected ? <CheckSquare size={18} className="text-blue-600" /> : <Square size={18} />}
+              </button>
+              
               <button
                 onClick={() => toggleExpand(doc.id, doc)}
                 className="flex-1 flex items-center gap-3 text-left min-w-0">
@@ -145,7 +195,7 @@ export default function Inbox() {
                 </div>
               </button>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 ml-3">
                 <button
                   onClick={() => navigate(`/documents/${doc.id}`)}
                   title="Details"
@@ -170,7 +220,7 @@ export default function Inbox() {
                   disabled={isBusy}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors">
                   <CheckCircle size={14} />
-                  {busy[doc.id] === 'confirm' ? 'Wird archiviert…' : 'Bestätigen'}
+                  {busy[doc.id] === 'confirm' ? 'Archiviert…' : 'Archivieren'}
                 </button>
               </div>
             </div>
@@ -267,6 +317,11 @@ export default function Inbox() {
                   setReprocessDlg(null)
                   await reprocessDocument(id, reprocessHint || undefined)
                   setDocs(d => d.filter(x => x.id !== id))
+                  setSelected(prev => {
+                    const next = new Set(prev)
+                    next.delete(id)
+                    return next
+                  })
                 }}
                 className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
                 Klassifizieren

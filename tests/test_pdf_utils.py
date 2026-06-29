@@ -1,5 +1,5 @@
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 from pdf_utils import is_cryptic_filename, build_filename, prepare_text_for_llm, unique_path
 import tempfile
