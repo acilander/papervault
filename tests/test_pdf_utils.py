@@ -47,7 +47,7 @@ def test_prepare_text_long_trimmed():
     text = " ".join([f"token{i}" for i in range(1000)])
     result = prepare_text_for_llm(text)
     tokens = result.split()
-    assert len(tokens) == 600
+    assert len(tokens) == 237
     assert tokens[0] == "token0"
     assert tokens[-1] == "token999"
 

@@ -218,22 +218,13 @@ def confirm_document(doc_id: int):
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
 
+    from pipeline.steps import archive_file_on_disk
+
     category = doc.get("category") or "Sonstiges"
-    folder_name = CATEGORY_FOLDER_MAP.get(category, category)
-    raw_date = str(doc.get("date") or "")
-    year_match = re.search(r'\b(\d{4})\b', raw_date)
-    year = year_match.group() if year_match else "Unbekannt"
     sender = doc.get("sender")
 
-    if SENDER_SUBFOLDERS and sender:
-        safe_sender = re.sub(r'[\\/:*?"<>|]', '_', sender)[:50].strip()
-        target_dir = os.path.join(TARGET_BASE, folder_name, safe_sender, year)
-    else:
-        target_dir = os.path.join(TARGET_BASE, folder_name, year)
-    os.makedirs(target_dir, exist_ok=True)
-
-    dest_pdf = unique_path(os.path.join(target_dir, os.path.basename(path)))
-    shutil.move(path, dest_pdf)
+    # Call centralized archiving helper
+    dest_pdf = archive_file_on_disk(path, category, sender, doc.get("date"))
 
     db.update_document(doc_id, status="ok", file_path=dest_pdf)
     storage.record_sender(category, sender)

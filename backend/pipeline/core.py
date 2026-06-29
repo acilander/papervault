@@ -122,9 +122,17 @@ def process_pdf(file_path):
 
     category = data.get("category") or "Sonstiges"
     sender = data.get("sender")
+    confidence = data.get("confidence", "low")
+    confidence_reason = data.get("confidence_reason", "")
 
-    # Move to review/ staging area – confirmed via UI before final archiving
-    os.makedirs(REVIEW_DIR, exist_ok=True)
+    # Clean up hint sidecar file if exists
+    if user_hint and os.path.exists(hint_path):
+        try:
+            os.remove(hint_path)
+        except Exception:
+            pass
+
+    # Resolve filename
     original_name = os.path.basename(file_path)
     if is_cryptic_filename(original_name):
         new_name = build_filename(data, original_name)
@@ -132,15 +140,30 @@ def process_pdf(file_path):
     else:
         new_name = original_name
 
-    dest_pdf = unique_path(os.path.join(REVIEW_DIR, new_name))
-    shutil.move(file_path, dest_pdf)
-    if user_hint and os.path.exists(hint_path):
-        try:
-            os.remove(hint_path)
-        except Exception:
-            pass
+    # Check if we can Auto-Archive (Weg 3: Confidence is HIGH and the date is valid)
+    if confidence == "high" and data.get("date") and data.get("date") != "null":
+        # Bypass review/ inbox staging, archive directly!
+        log(f"[AUTO-ARCHIV] Hohes Vertrauen verifiziert. Archiviere Dokument direkt...")
+        from pipeline.steps import archive_file_on_disk
+        dest_pdf = archive_file_on_disk(file_path, category, sender, data.get("date"))
+        
+        status = "ok"
+        log_status = "auto_archived"
+        log_msg = f"[AUTO-ARCHIV] Erfolgreich einsortiert nach: {dest_pdf}"
+        log_fin = "--- Abgeschlossen (automatisch archiviert) ---"
+    else:
+        # Standard staging: Move to review/ staging area – confirmed via UI later
+        os.makedirs(REVIEW_DIR, exist_ok=True)
+        dest_pdf = unique_path(os.path.join(REVIEW_DIR, new_name))
+        shutil.move(file_path, dest_pdf)
+        
+        status = "review"
+        log_status = "review"
+        log_msg = f"Bereit zur Pruefung – verschoben nach: {dest_pdf}"
+        log_fin = "--- Abgeschlossen (wartet auf Bestaetigung) ---"
 
-    processing_log(os.path.basename(dest_pdf), "review", data=data, features=features, user_hint=user_hint)
+    processing_log(os.path.basename(dest_pdf), log_status, data=data, features=features, user_hint=user_hint)
+    
     doc_id = db.upsert_document(
         file_path=dest_pdf,
         filename=os.path.basename(dest_pdf),
@@ -150,15 +173,22 @@ def process_pdf(file_path):
         category=category,
         summary=data.get("summary"),
         content_hash=doc_content_hash,
-        status="review",
+        status=status,
     )
-    if doc_id and data.get("keywords"):
-        validated_kw = filter_keywords_against_text(data["keywords"], text)
-        if validated_kw:
-            db.update_document(doc_id, keywords=validated_kw)
+    
+    if doc_id:
+        # Write validation and confidence report to DB notes so it's instantly visible in the UI details panel!
+        notes = f"[Vertrauen: {confidence.upper()}] {confidence_reason}"
+        db.update_document(doc_id, notes=notes)
+        
+        # Keyword validation
+        if data.get("keywords"):
+            validated_kw = filter_keywords_against_text(data["keywords"], text)
+            if validated_kw:
+                db.update_document(doc_id, keywords=validated_kw)
 
-    log(f"Bereit zur Pruefung – verschoben nach: {dest_pdf}")
-    log("--- Abgeschlossen (wartet auf Bestaetigung) ---")
+    log(log_msg)
+    log(log_fin)
 
 
 def reindex_from_archive():

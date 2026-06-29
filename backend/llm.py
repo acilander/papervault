@@ -214,6 +214,44 @@ def build_similar_docs_hint(text_snippet: str) -> str:
         return ""
 
 
+def detect_known_sender(text):
+    """Scan raw text for exact matches of registered senders or their aliases.
+    Returns (sender_name, pinned_category) if matched, else (None, None)."""
+    text_norm = normalize_umlauts(text)
+    # Sort senders by length descending to match longest first
+    for sender, entry in sorted(storage.sender_registry.items(), key=lambda x: len(x[0]), reverse=True):
+        if normalize_umlauts(sender) in text_norm:
+            return sender, entry.get("pinned_category")
+        for alias in entry.get("aliases") or []:
+            if normalize_umlauts(alias) in text_norm:
+                return sender, entry.get("pinned_category")
+    return None, None
+
+
+def check_sender_semantic(predicted_sender, raw_text):
+    """Verify if the predicted sender (or its base word) actually exists inside the raw text.
+    Matching is case-insensitive and umlaut-normalized.
+    Excludes very generic placeholder words."""
+    if not predicted_sender or predicted_sender.lower() in ("null", "unbekannt", "n/a", "???", ""):
+        return False
+    
+    sender_norm = normalize_umlauts(predicted_sender)
+    text_norm = normalize_umlauts(raw_text)
+    
+    # 1. Direct substring match
+    if sender_norm in text_norm:
+        return True
+        
+    # 2. Check if first two meaningful words (>=3 chars) are in the text
+    # (e.g. "CinemaXX Entertainment" -> "cinemaxx" or "entertainment")
+    words = [w for w in re.split(r'\W+', sender_norm) if len(w) >= 3]
+    if words:
+        if any(w in text_norm for w in words[:2]):
+            return True
+            
+    return False
+
+
 def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=None, similar_docs=None, header_zone=None):
     from config import MOCK_LLM
     if MOCK_LLM:
@@ -246,10 +284,22 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             "document_type": doc_type,
             "category": cat,
             "summary": summary,
-            "keywords": f"mock, test, {cat.lower().replace(' & ', '_')}"
+            "keywords": f"mock, test, {cat.lower().replace(' & ', '_')}",
+            "confidence": "high",
+            "confidence_reason": "[MOCK] Simulation erfolgreich."
         }
         log(f"[MOCK] Resultat generiert: {mock_data}")
         return mock_data
+
+    # [Weg 1: Hard-Rules Pre-Matching]
+    # Scan text for known senders/aliases and guide the LLM using a custom hint
+    rule_sender, rule_category = detect_known_sender(safe_text)
+    if rule_sender:
+        sender_hint_prefix = f"\n\nHinweis: Der Absender dieses Dokuments ist bereits verifiziert als '{rule_sender}'."
+        if user_hint:
+            user_hint = sender_hint_prefix + " " + user_hint
+        else:
+            user_hint = sender_hint_prefix
 
     load_model()
     safe_text = safe_text[:2000]  # hard cap (prepare_text_for_llm already compresses to 2000)
@@ -358,15 +408,45 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
                     log(f"Dokumenttyp '{data['document_type']}' unbekannt – setze 'Sonstiges'")
                     data["document_type"] = "Sonstiges"
 
+            # Apply Stufe-0 Rule overrides
+            rule_sender, rule_category = detect_known_sender(safe_text)
+            if rule_sender:
+                data["sender"] = rule_sender
+                if rule_category:
+                    data["category"] = rule_category
+
+            # Check semantic validity
+            passes_semantic = check_sender_semantic(data.get("sender"), safe_text)
+
             errors = validate_classification(data)
             if not errors:
-                log(f"LLM OK in {time.time()-t0:.1f}s: {data}")
+                # Determine confidence score
+                if rule_sender:
+                    confidence = "high"
+                    reason = f"Absender ueber feste Stufe-0 Regel verifiziert ('{rule_sender}')"
+                elif passes_semantic:
+                    confidence = "medium"
+                    reason = "Klassifizierung valide, Absender im Text semantisch verifiziert"
+                else:
+                    confidence = "low"
+                    reason = "Absender existiert nicht im extrahierten PDF-Text (hohes Halluzinationsrisiko!)"
+
+                data["confidence"] = confidence
+                data["confidence_reason"] = reason
+
+                log(f"LLM OK [{confidence.upper()}] in {time.time()-t0:.1f}s: {data}")
                 return data
 
             owner_error = any("Empfaenger" in e for e in errors)
             if owner_error and len(errors) == 1:
                 data["sender"] = None
                 log("Absender ist Archivinhaber – setze sender=null und akzeptiere restliche Klassifizierung.")
+                
+                confidence = "medium" if passes_semantic or not data.get("sender") else "low"
+                reason = "Absender ist Archivinhaber, restliche Felder sind valide"
+                data["confidence"] = confidence
+                data["confidence_reason"] = reason
+                
                 return data
 
             feedback = "; ".join(errors)
