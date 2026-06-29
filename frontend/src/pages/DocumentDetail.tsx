@@ -239,12 +239,6 @@ export default function DocumentDetail() {
               Problemdokument – Status: <code className="font-mono">{doc.status}</code>
             </p>
             <button
-              onClick={() => { setReprocessHint(''); setReprocessDlg(true) }}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-sm rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
-              <RefreshCw size={14} />
-              Nochmal klassifizieren
-            </button>
-            <button
               onClick={async () => {
                 if (!confirm(`"${doc.filename}" unwiderruflich von Disk löschen?`)) return
                 await deleteDocumentWithFile(doc.id)
