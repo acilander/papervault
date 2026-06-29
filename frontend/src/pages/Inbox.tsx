@@ -92,6 +92,7 @@ export default function Inbox() {
         next.delete(doc.id)
         return next
       })
+      window.dispatchEvent(new CustomEvent('documents-changed'))
     } catch (e: any) {
       alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
     } finally {
@@ -120,6 +121,7 @@ export default function Inbox() {
         next.delete(doc.id)
         return next
       })
+      window.dispatchEvent(new CustomEvent('documents-changed'))
     } finally {
       setBusy(b => ({ ...b, [doc.id]: '' }))
     }

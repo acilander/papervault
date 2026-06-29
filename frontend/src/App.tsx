@@ -93,8 +93,15 @@ export default function App() {
       } catch {}
     }
     load()
+    
+    // Listen for instant badge update triggers
+    window.addEventListener('documents-changed', load)
+    
     const t = setInterval(load, 15000)
-    return () => clearInterval(t)
+    return () => {
+      window.removeEventListener('documents-changed', load)
+      clearInterval(t)
+    }
   }, [])
 
   return (
