@@ -49,11 +49,11 @@ CATEGORY_FOLDER_MAP = {
     "Energie & Versorgung":   "08 - Energie & Versorgung",
     "Kommunikation":          "09 - Kommunikation",
     "Einkauf & Bestellungen": "10 - Einkauf & Bestellungen",
-    "Kassenbon & Quittung":   "10a - Kassenbon & Quittung",
-    "Geraete & Garantie":     "11 - Geraete & Garantie",
-    "Behoerde & Urkunden":    "12 - Behoerde & Urkunden",
-    "Ausbildung & Verein":    "13 - Ausbildung & Verein",
-    "Sonstiges":              "14 - Sonstiges",
+    "Kassenbon & Quittung":   "11 - Kassenbon & Quittung",
+    "Geraete & Garantie":     "12 - Geraete & Garantie",
+    "Behoerde & Urkunden":    "13 - Behoerde & Urkunden",
+    "Ausbildung & Verein":    "14 - Ausbildung & Verein",
+    "Sonstiges":              "15 - Sonstiges",
 }
 
 DOCUMENT_TYPES = [
