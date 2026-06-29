@@ -21,13 +21,28 @@ def create_shortcut(target_path, shortcut_path):
 
 
 def check_duplicate(file_path, text):
-    content_hash = hashlib.sha256(text.strip().encode("utf-8")).hexdigest()[:16]
+    cleaned_text = text.strip()
+    if len(cleaned_text) >= 100:
+        content_hash = hashlib.sha256(cleaned_text.encode("utf-8")).hexdigest()[:16]
+        hash_type = "text"
+    else:
+        # [Fix: False-Collision Prevention]
+        # If text is too short or empty (e.g., OCR failed or broken PDF), 
+        # fall back to binary file hashing to prevent false duplicate collisions on generic text like "Page 1".
+        try:
+            with open(file_path, "rb") as f:
+                content_hash = hashlib.sha256(f.read()).hexdigest()[:16]
+            hash_type = "binary"
+        except Exception:
+            content_hash = hashlib.sha256(cleaned_text.encode("utf-8")).hexdigest()[:16]
+            hash_type = "text"
+
     check_duplicate.last_hash = content_hash  # expose hash to caller
     if content_hash in content_hashes:
         existing_path = content_hashes[content_hash]
         dup_dir = os.path.join(DUPLICATES_DIR, content_hash)
         os.makedirs(dup_dir, exist_ok=True)
-        log(f"DUPLIKAT erkannt (Hash: {content_hash}) – identisch mit: {os.path.basename(existing_path)}")
+        log(f"DUPLIKAT erkannt ({hash_type.upper()}-Hash: {content_hash}) – identisch mit: {os.path.basename(existing_path)}")
 
         dest = unique_path(os.path.join(dup_dir, os.path.basename(file_path)))
         shutil.move(file_path, dest)
