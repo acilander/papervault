@@ -9,7 +9,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from config import SOURCE_DIR, TARGET_BASE, MODEL_PATH, FAILED_DIR
-from storage import load_sender_registry, load_hashes
+from storage import load_sender_registry
 from pipeline import process_pdf, reindex_from_archive
 from pdf_utils import wait_for_file, OCR_AVAILABLE
 import db
@@ -56,7 +56,6 @@ if __name__ == "__main__":
 
     if "--retry-failed" in sys.argv:
         load_sender_registry()
-        load_hashes()
         failed_pdfs = []
         if os.path.isdir(FAILED_DIR):
             for f in os.listdir(FAILED_DIR):
@@ -75,7 +74,6 @@ if __name__ == "__main__":
     log(f"Zielverzeichnis: {TARGET_BASE}")
     log(f"Modell: {os.path.basename(MODEL_PATH)[:20]}... | OCR verfuegbar: {OCR_AVAILABLE}")
     load_sender_registry()
-    load_hashes()
     db.init_db()
 
     worker_thread = threading.Thread(target=_worker, daemon=True)
@@ -101,7 +99,13 @@ if __name__ == "__main__":
     observer.start()
     try:
         while True:
-            time.sleep(1)
+            time.sleep(2)
+            # [Fix 5: Self-Healing Worker Monitor]
+            # Check if our processing worker thread has crashed or died. If so, restart it!
+            if not worker_thread.is_alive():
+                log("WARNUNG: Archiver-Worker-Thread unerwartet beendet! Starte automatisch neu...")
+                worker_thread = threading.Thread(target=_worker, daemon=True)
+                worker_thread.start()
     except KeyboardInterrupt:
         log("Beende Archiver...")
         observer.stop()

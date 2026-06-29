@@ -2,6 +2,7 @@ import json
 import os
 import re
 import time
+import threading
 from datetime import datetime
 from difflib import get_close_matches
 
@@ -15,6 +16,7 @@ import storage
 import feedback as fb
 from utils import log, normalize_umlauts, extract_year
 
+_llm_lock = threading.Lock()
 _llm = None
 
 
@@ -372,11 +374,12 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
         log(f"LLM Klassifizierung, Versuch {attempt}/{MAX_RETRIES}...")
         t0 = time.time()
         try:
-            result = _llm.create_chat_completion(
-                messages=current_messages, 
-                max_tokens=1000,
-                temperature=0.0
-            )
+            with _llm_lock:
+                result = _llm.create_chat_completion(
+                    messages=current_messages, 
+                    max_tokens=1000,
+                    temperature=0.0
+                )
             raw = result["choices"][0]["message"]["content"]
 
             cleaned = raw.replace("```json", "").replace("```", "").strip()

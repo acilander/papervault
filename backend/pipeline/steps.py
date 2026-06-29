@@ -4,7 +4,6 @@ import shutil
 import subprocess
 from config import DUPLICATES_DIR
 from pdf_utils import unique_path
-from storage import content_hashes, save_hashes
 from utils import log
 
 def create_shortcut(target_path, shortcut_path):
@@ -38,8 +37,11 @@ def check_duplicate(file_path, text):
             hash_type = "text"
 
     check_duplicate.last_hash = content_hash  # expose hash to caller
-    if content_hash in content_hashes:
-        existing_path = content_hashes[content_hash]
+    
+    import db as _db
+    existing_doc = _db.get_document_by_hash(content_hash)
+    if existing_doc:
+        existing_path = existing_doc["file_path"]
         dup_dir = os.path.join(DUPLICATES_DIR, content_hash)
         os.makedirs(dup_dir, exist_ok=True)
         log(f"DUPLIKAT erkannt ({hash_type.upper()}-Hash: {content_hash}) – identisch mit: {os.path.basename(existing_path)}")
@@ -58,13 +60,10 @@ def check_duplicate(file_path, text):
         log("--- Abgeschlossen (als Duplikat) ---")
         
         # Record duplicate in the SQLite database so it is visible in the UI and counted in the badges
-        import db as _db
         _db.upsert_document(dest, os.path.basename(dest), None, None, None, None, f"DUPLIKAT: Identisch mit '{os.path.basename(existing_path)}' (Hash: {content_hash})", status="duplicate")
 
         return True
 
-    content_hashes[content_hash] = file_path
-    save_hashes()
     return False
 
 

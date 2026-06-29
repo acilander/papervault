@@ -38,6 +38,14 @@ def get_document_by_path(file_path):
         return dict(row) if row else None
 
 
+def get_document_by_hash(content_hash):
+    if not content_hash:
+        return None
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM documents WHERE content_hash = ? AND status = 'ok' LIMIT 1", (content_hash,)).fetchone()
+        return dict(row) if row else None
+
+
 def update_document(doc_id, **fields):
     if "file_path" in fields and fields["file_path"]:
         fields["file_path"] = os.path.normpath(fields["file_path"])

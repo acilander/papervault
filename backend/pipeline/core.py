@@ -140,41 +140,53 @@ def process_pdf(file_path):
     else:
         new_name = original_name
 
-    # Check if we can Auto-Archive (Weg 3: Confidence is HIGH and the date is valid)
-    if confidence == "high" and data.get("date") and data.get("date") != "null":
-        # Bypass review/ inbox staging, archive directly!
-        log(f"[AUTO-ARCHIV] Hohes Vertrauen verifiziert. Archiviere Dokument direkt...")
-        from pipeline.steps import archive_file_on_disk
-        dest_pdf = archive_file_on_disk(file_path, category, sender, data.get("date"))
-        
-        status = "ok"
-        log_status = "auto_archived"
-        log_msg = f"[AUTO-ARCHIV] Erfolgreich einsortiert nach: {dest_pdf}"
-        log_fin = "--- Abgeschlossen (automatisch archiviert) ---"
-    else:
-        # Standard staging: Move to review/ staging area – confirmed via UI later
-        os.makedirs(REVIEW_DIR, exist_ok=True)
-        dest_pdf = unique_path(os.path.join(REVIEW_DIR, new_name))
-        shutil.move(file_path, dest_pdf)
-        
-        status = "review"
-        log_status = "review"
-        log_msg = f"Bereit zur Pruefung – verschoben nach: {dest_pdf}"
-        log_fin = "--- Abgeschlossen (wartet auf Bestaetigung) ---"
+    # [Fix 1: Transactional Safety]
+    # Wrap file movement and DB upsert in a try-except block to perform automatic file system rollbacks if DB transactions fail.
+    try:
+        # Check if we can Auto-Archive (Weg 3: Confidence is HIGH and the date is valid)
+        if confidence == "high" and data.get("date") and data.get("date") != "null":
+            # Bypass review/ inbox staging, archive directly!
+            log(f"[AUTO-ARCHIV] Hohes Vertrauen verifiziert. Archiviere Dokument direkt...")
+            from pipeline.steps import archive_file_on_disk
+            dest_pdf = archive_file_on_disk(file_path, category, sender, data.get("date"))
+            
+            status = "ok"
+            log_status = "auto_archived"
+            log_msg = f"[AUTO-ARCHIV] Erfolgreich einsortiert nach: {dest_pdf}"
+            log_fin = "--- Abgeschlossen (automatisch archiviert) ---"
+        else:
+            # Standard staging: Move to review/ staging area – confirmed via UI later
+            os.makedirs(REVIEW_DIR, exist_ok=True)
+            dest_pdf = unique_path(os.path.join(REVIEW_DIR, new_name))
+            shutil.move(file_path, dest_pdf)
+            
+            status = "review"
+            log_status = "review"
+            log_msg = f"Bereit zur Pruefung – verschoben nach: {dest_pdf}"
+            log_fin = "--- Abgeschlossen (wartet auf Bestaetigung) ---"
 
-    processing_log(os.path.basename(dest_pdf), log_status, data=data, features=features, user_hint=user_hint)
-    
-    doc_id = db.upsert_document(
-        file_path=dest_pdf,
-        filename=os.path.basename(dest_pdf),
-        sender=sender,
-        date=data.get("date"),
-        document_type=data.get("document_type"),
-        category=category,
-        summary=data.get("summary"),
-        content_hash=doc_content_hash,
-        status=status,
-    )
+        processing_log(os.path.basename(dest_pdf), log_status, data=data, features=features, user_hint=user_hint)
+        
+        doc_id = db.upsert_document(
+            file_path=dest_pdf,
+            filename=os.path.basename(dest_pdf),
+            sender=sender,
+            date=data.get("date"),
+            document_type=data.get("document_type"),
+            category=category,
+            summary=data.get("summary"),
+            content_hash=doc_content_hash,
+            status=status,
+        )
+    except Exception as db_err:
+        log(f"FEHLER: Dateisystem-DB Transaktionsfehler. Starte Rollback... (Fehler: {db_err})")
+        if 'dest_pdf' in locals() and os.path.exists(dest_pdf):
+            try:
+                shutil.move(dest_pdf, file_path)
+                log(f"Rollback erfolgreich: Datei zurückverschoben nach {file_path}")
+            except Exception as rollback_err:
+                log(f"FATAL: Rollback fehlgeschlagen, Datei festgefahren unter {dest_pdf}! (Fehler: {rollback_err})")
+        raise
     
     if doc_id:
         # Write validation and confidence report to DB notes so it's instantly visible in the UI details panel!
