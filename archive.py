@@ -135,9 +135,9 @@ def process_pdf(file_path):
         user_hint = (
             f"Dieses Dokument ist ein Kassenbon/Quittung"
             + (f" von {receipt_sender}" if receipt_sender else "")
-            + ". Klassifiziere als document_type=Rechnung. "
-            "Waehle die passende Kategorie (z.B. Einkauf & Bestellungen, Wohnen & Eigentum, "
-            "Fahrzeug & Werkstatt) basierend auf den gekauften Artikeln."
+            + ". Klassifiziere als document_type=Rechnung und category=Kassenbon & Quittung, "
+            "es sei denn die gekauften Artikel sind eindeutig einer anderen Kategorie zuzuordnen "
+            "(z.B. Wohnen & Eigentum fuer Baumaterial, Fahrzeug & Werkstatt fuer Autoteile)."
         )
         log(f"Kassenbon erkannt – LLM-Hinweis gesetzt. Absender: {receipt_sender}")
 

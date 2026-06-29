@@ -6,7 +6,7 @@ import { getDocument, updateDocument, deleteDocument, openInExplorer, reprocessD
 const CATEGORIES = [
   'Arbeit & Rente', 'Bank & Finanzen', 'Gesundheit', 'Versicherung', 'Fahrzeug & Werkstatt',
   'Wohnen & Eigentum', 'Vermieter', 'Energie & Versorgung', 'Kommunikation',
-  'Einkauf & Bestellungen', 'Geraete & Garantie', 'Behoerde & Urkunden',
+  'Einkauf & Bestellungen', 'Kassenbon & Quittung', 'Geraete & Garantie', 'Behoerde & Urkunden',
   'Ausbildung & Verein', 'Sonstiges',
 ]
 

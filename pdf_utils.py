@@ -87,6 +87,8 @@ CATEGORY_KEYWORDS = {
                                "sozialabgaben", "rentenversicherung", "arbeitsvertrag", "kuendigung"],
     "Einkauf & Bestellungen": ["bestellung", "lieferung", "tracking", "paket", "amazon", "shop",
                                "artikel", "retour", "rueckgabe", "warenkorb"],
+    "Kassenbon & Quittung":   ["kassenbon", "bon-nr", "bonnummer", "kassenzettel", "quittung",
+                               "ebon", "e-bon", "vielen dank", "kassennummer", "kasse", "markt"],
     "Geraete & Garantie":     ["garantie", "gewaehrleistung", "seriennummer", "modell", "geraet",
                                "reparatur", "elektronik", "kaufbeleg"],
 }

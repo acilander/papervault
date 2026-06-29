@@ -34,7 +34,7 @@ DB_PATH        = os.getenv("DB_PATH", os.path.join(TARGET_BASE, "archive.db"))
 CATEGORIES = [
     "Arbeit & Rente", "Bank & Finanzen", "Gesundheit", "Versicherung", "Fahrzeug & Werkstatt",
     "Wohnen & Eigentum", "Vermieter", "Energie & Versorgung", "Kommunikation",
-    "Einkauf & Bestellungen", "Geraete & Garantie", "Behoerde & Urkunden",
+    "Einkauf & Bestellungen", "Kassenbon & Quittung", "Geraete & Garantie", "Behoerde & Urkunden",
     "Ausbildung & Verein", "Sonstiges",
 ]
 
@@ -49,6 +49,7 @@ CATEGORY_FOLDER_MAP = {
     "Energie & Versorgung":   "08 - Energie & Versorgung",
     "Kommunikation":          "09 - Kommunikation",
     "Einkauf & Bestellungen": "10 - Einkauf & Bestellungen",
+    "Kassenbon & Quittung":   "10a - Kassenbon & Quittung",
     "Geraete & Garantie":     "11 - Geraete & Garantie",
     "Behoerde & Urkunden":    "12 - Behoerde & Urkunden",
     "Ausbildung & Verein":    "13 - Ausbildung & Verein",
@@ -86,7 +87,7 @@ Rechnung, Vertrag, Versicherungsschein, Mahnung, Kuendigung, Bescheid, Liefersch
 Erlaubte Werte fuer category:
 Arbeit & Rente, Bank & Finanzen, Gesundheit, Versicherung, Fahrzeug & Werkstatt,
 Wohnen & Eigentum, Vermieter, Energie & Versorgung, Kommunikation,
-Einkauf & Bestellungen, Geraete & Garantie, Behoerde & Urkunden, Ausbildung & Verein, Sonstiges
+Einkauf & Bestellungen, Kassenbon & Quittung, Geraete & Garantie, Behoerde & Urkunden, Ausbildung & Verein, Sonstiges
 
 Wichtige Regeln:
 - Der Archivinhaber ist Alexander Staiger oder Sonja Staiger. Diese sind EMPFAENGER, niemals Absender.
