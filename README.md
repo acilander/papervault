@@ -18,13 +18,79 @@ Metadaten in SQLite, vollständig verwaltbar über FastAPI + React.
 
 ## Installation
 
+### 1. Voraussetzungen installieren (Windows)
+
+#### Tesseract OCR (für gescannte PDFs)
+1. Installer herunterladen: https://github.com/UB-Mannheim/tesseract/wiki
+2. Bei Installation **"German"** Sprache auswählen
+3. Installationspfad zum PATH hinzufügen (z.B. `C:\Program Files\Tesseract-OCR`)
+4. Prüfen: `tesseract --version`
+
+#### Poppler (für pdf2image / OCR)
+1. Download: https://github.com/oschwartz10612/poppler-windows/releases/
+2. Entpacken, z.B. nach `C:\poppler`
+3. `C:\poppler\Library\bin` zum PATH hinzufügen
+4. Prüfen: `pdftoppm -v`
+
+### 2. Python-Umgebung
+
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
-pip install -r requirements.txt
+```
 
+### 3. PyTorch mit CUDA installieren (GPU-Empfehlung)
+
+> **Wichtig:** PyTorch muss **vor** `requirements.txt` installiert werden, da pip sonst die CPU-Version zieht.
+
+```bash
+# CUDA 12.8 (empfohlen, passend zu torch==2.11.0):
+pip install torch==2.11.0 torchvision --index-url https://download.pytorch.org/whl/cu128
+
+# Alternativ CPU-only (langsamer, kein CUDA nötig):
+pip install torch torchvision
+```
+
+CUDA-Version prüfen: `nvidia-smi` → Spalte "CUDA Version"
+
+### 4. llama-cpp-python mit CUDA installieren
+
+> **Wichtig:** Standard `pip install llama-cpp-python` kompiliert ohne CUDA-Support.
+
+```bash
+pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu128
+```
+
+### 5. Restliche Abhängigkeiten
+
+```bash
+pip install -r requirements.txt
+```
+
+> **Bekannte Versionsbeschränkungen:**
+> - `transformers==4.51.3` – Version 5.x ist **inkompatibel** mit dem moondream2 Vision-Modell
+> - `Pillow==10.4.0` – Version 11+ ist inkompatibel mit dem moondream-Paket
+> - `pyvips` benötigt zusätzlich `pyvips-binary` für Windows (enthält die native DLL):
+>   ```bash
+>   pip install pyvips pyvips-binary
+>   ```
+
+### 6. Frontend
+
+```bash
 cd frontend
 npm install
+```
+
+### 7. LLM-Modell herunterladen
+
+Empfohlen: **Qwen2.5-14B-Instruct-Q4_K_M.gguf**
+
+Download z.B. über [HuggingFace](https://huggingface.co/Qwen/Qwen2.5-14B-Instruct-GGUF) oder LM Studio.
+
+Pfad in `.env` eintragen:
+```
+MODEL_PATH=C:/Pfad/zum/Modell/Qwen2.5-14B-Instruct-Q4_K_M.gguf
 ```
 
 ---

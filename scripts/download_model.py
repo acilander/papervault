@@ -3,8 +3,8 @@ import sys
 import urllib.request
 import shutil
 
-MODEL_URL = "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
-MODEL_FILENAME = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+MODEL_URL = "https://huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF/resolve/main/Qwen2.5-14B-Instruct-Q4_K_M.gguf"
+MODEL_FILENAME = "Qwen2.5-14B-Instruct-Q4_K_M.gguf"
 
 def download_with_progress(url, dest_path):
     print(f"Lade Modell herunter von:\n{url}\nZielpfad: {dest_path}\n")

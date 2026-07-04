@@ -1,15 +1,42 @@
-﻿
+﻿# === Core Backend ===
 aiofiles==25.1.0
 fastapi==0.138.1
-llama_cpp_python>=0.3.30
-pdf2image==1.17.0
+uvicorn==0.49.0
 pydantic==2.13.4
 pydantic_core==2.46.4
-PyMuPDF==1.27.2.3
-pytesseract==0.3.13
-pytest==9.1.1
 python-dotenv==1.2.2
-uvicorn==0.49.0
 watchdog==6.0.0
+
+# === PDF Processing ===
+PyMuPDF==1.27.2.3
+pdf2image==1.17.0
+pytesseract==0.3.13
+
+# === LLM (local inference) ===
+# Install with CUDA support manually if GPU available:
+#   pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu128
+llama_cpp_python==0.3.32
+
+# === Vision / Logo Detection ===
+# transformers 4.x required – moondream2 is incompatible with transformers 5.x
+transformers==4.51.3
+einops
+# Pillow pinned – moondream requires <11.0
+Pillow==10.4.0
+# pyvips requires native libvips DLL on Windows – install via: pip install pyvips pyvips-binary
+pyvips==3.1.1
+# moondream SDK (cloud API only – local model uses transformers above)
+moondream==1.3.0
+
+# === PyTorch ===
+# Install with CUDA support manually:
+#   pip install torch==2.11.0 torchvision --index-url https://download.pytorch.org/whl/cu128
+# CPU-only fallback:
+#   pip install torch torchvision
+torch==2.11.0
+torchvision
+
+# === Testing ===
+pytest==9.1.1
 
 
