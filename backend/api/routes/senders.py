@@ -8,6 +8,7 @@ import db
 import storage
 import db.sender_repo as sender_repo
 from config import TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS
+from utils import log
 from api.models import SenderEntry, SenderUpdate
 from pdf_utils import build_filename, unique_path
 
@@ -33,6 +34,7 @@ def rebuild_senders():
     documents (e.g. before the fix was applied). Iterates over all documents
     with a non-empty sender and records their category.
     """
+    log(f"[Registry] Baue Absender-Register aus Dokumenten auf (DB: {db.DB_PATH})...")
     with db.get_conn() as conn:
         rows = conn.execute(
             "SELECT sender, category FROM documents WHERE sender IS NOT NULL AND sender != ''"
@@ -42,6 +44,7 @@ def rebuild_senders():
         if storage.record_sender(row["category"], row["sender"]):
             added += 1
     storage._refresh_cache()
+    log(f"[Registry] Aufbau abgeschlossen: {len(storage.sender_registry)} Absender, {added} neu hinzugefügt.")
     return {"rebuilt": True, "count": len(storage.sender_registry), "added": added}
 
 

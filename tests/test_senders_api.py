@@ -84,3 +84,38 @@ def test_rebuild_senders_populates_registry_from_documents(in_memory_db):
     assert "AOK Baden-Württemberg" in registry
     assert "Kommunikation" in registry["Telekom"]["categories"]
     assert "Gesundheit" in registry["AOK Baden-Württemberg"]["categories"]
+
+
+def test_rebuild_senders_persists_after_restart(in_memory_db):
+    """Verify that senders rebuilt via the API are still present after a new TestClient start."""
+    from fastapi.testclient import TestClient
+    from api.main import app
+    import db.sender_repo as sender_repo
+
+    db.upsert_document(
+        file_path="/tmp/telekom.pdf",
+        filename="telekom.pdf",
+        sender="Telekom",
+        date="2026-01-15",
+        document_type="Rechnung",
+        category="Kommunikation",
+        summary="Telekom Rechnung",
+        status="ok",
+    )
+
+    # First client: rebuild and verify in-memory
+    client1 = TestClient(app)
+    response = client1.post("/senders/~rebuild")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == 1
+    assert data["added"] == 1
+    assert sender_repo.count() == 1
+
+    # Second client: simulate backend restart, verify DB senders are loaded
+    client2 = TestClient(app)
+    response = client2.get("/senders/")
+    assert response.status_code == 200
+    registry = response.json()
+    assert "Telekom" in registry
+    assert "Kommunikation" in registry["Telekom"]["categories"]

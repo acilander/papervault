@@ -76,6 +76,8 @@ def load_sender_registry():
     global sender_registry
     with _registry_lock:
         try:
+            import db
+            log(f"[Registry] Lade Absender-Register aus {db.DB_PATH}...")
             if sender_repo.count() == 0:
                 _migrate_from_json()
             _refresh_cache()
