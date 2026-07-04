@@ -231,6 +231,7 @@ def process_pdf(file_path, doc_id=None):
                 log(f"FATAL: Rollback fehlgeschlagen, Datei festgefahren unter {dest_pdf}! (Fehler: {rollback_err})")
         raise
 
+    record_sender(category, sender)
     cleanup_empty_inbox_folders(file_path)
 
     # Phase 7: Post-processing (confidence notes, keyword validation)

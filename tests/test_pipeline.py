@@ -90,6 +90,26 @@ def test_process_pdf_id_tracking_and_reprocess(in_memory_db, monkeypatch):
     assert "test_invoice_reprocess" in final_docs[0]["file_path"]
 
 
+def test_process_pdf_records_sender_in_registry(in_memory_db, monkeypatch):
+    """Verify that process_pdf records the sender/category in the sender registry."""
+    import pipeline.core as _core
+    recorded = []
+    def spy_record(category, sender):
+        recorded.append((category, sender))
+    monkeypatch.setattr(_core, "record_sender", spy_record)
+
+    inbox_file = os.path.join(config.SOURCE_DIR, "telekom_rechnung.pdf")
+    with open(inbox_file, "w") as f:
+        f.write("Dummy PDF Text Content")
+
+    monkeypatch.setattr("pipeline.core.extract_text", lambda path: ("Rechnung von Telekom. Dies ist ein sehr langer Text mit vielen Details, um OCR zu ueberspringen.", "ok"))
+
+    process_pdf(inbox_file)
+
+    assert len(recorded) == 1
+    assert recorded[0][1] == "telekom"
+
+
 def test_cleanup_empty_inbox_folders_after_processing(in_memory_db, monkeypatch):
     """Verify that nested empty inbox folders are removed after a PDF is processed."""
     from pipeline.steps import cleanup_empty_inbox_folders
