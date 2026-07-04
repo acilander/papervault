@@ -3,14 +3,19 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Stop-ProcessOnPort($port) {
-    $proc = (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue).OwningProcess
-    if ($proc) {
-        Stop-Process -Id $proc -Force -ErrorAction SilentlyContinue | Out-Null
+    $conns = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+    foreach ($conn in $conns) {
+        $id = $conn.OwningProcess
+        if ($id) {
+            Stop-Process -Id $id -Force -ErrorAction SilentlyContinue | Out-Null
+        }
     }
 }
 
 function Stop-ProcessTree($id) {
-    taskkill /F /T /PID $id 2>$null | Out-Null
+    if ($id) {
+        taskkill /F /T /PID $id 2>$null | Out-Null
+    }
 }
 
 # Stop any leftover processes
@@ -61,20 +66,32 @@ Write-Host ""
 # Store PIDs for the Ctrl+C handler
 $script:frontendPid = $frontend.Id
 $script:backendPid = $backend.Id
+$script:shuttingDown = $false
 
 # Handle Ctrl+C
-$script:cancelHandler = {
+$cancelHandler = {
     param($sender, $e)
-    Write-Host "`nBeende PaperVault..."
+    if ($script:shuttingDown) { return }
+    $script:shuttingDown = $true
     $e.Cancel = $true
     Stop-ProcessTree $script:frontendPid
     Stop-ProcessTree $script:backendPid
     Stop-ProcessOnPort 5173
     Stop-ProcessOnPort 8000
-    [Environment]::Exit(0)
 }
-[Console]::add_CancelKeyPress($script:cancelHandler)
+[Console]::add_CancelKeyPress($cancelHandler)
 
-# Wait for either process to exit
-$frontend.WaitForExit()
-$backend.WaitForExit()
+try {
+    # Wait for either process to exit
+    $frontend.WaitForExit()
+    $backend.WaitForExit()
+}
+finally {
+    [Console]::remove_CancelKeyPress($cancelHandler)
+    if (-not $script:shuttingDown) {
+        Stop-ProcessTree $script:frontendPid
+        Stop-ProcessTree $script:backendPid
+    }
+    Stop-ProcessOnPort 5173
+    Stop-ProcessOnPort 8000
+}
