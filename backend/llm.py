@@ -10,7 +10,7 @@ from llama_cpp import Llama
 
 from config import (
     MODEL_PATH, MAX_RETRIES, CATEGORIES, DOCUMENT_TYPES,
-    OWNER_NAMES, TYPE_CATEGORY_MAP, SYSTEM_PROMPT,
+    OWNER_NAMES, TYPE_CATEGORY_MAP, SYSTEM_PROMPT, N_GPU_LAYERS,
 )
 import storage
 import feedback as fb
@@ -28,8 +28,10 @@ def load_model():
     if _llm is None:
         log("Lade LLM-Modell (einmalig)...")
         t0 = time.time()
-        _llm = Llama(model_path=MODEL_PATH, n_ctx=4096, n_threads=6, verbose=False, chat_format="chatml")
-        log(f"Modell geladen in {time.time()-t0:.1f}s")
+        _llm = Llama(model_path=MODEL_PATH, n_ctx=4096, n_threads=6, n_gpu_layers=N_GPU_LAYERS, verbose=False, chat_format="chatml")
+        elapsed = time.time() - t0
+        gpu_info = f"GPU-Layer: {N_GPU_LAYERS}" if N_GPU_LAYERS != 0 else "CPU-only"
+        log(f"Modell geladen in {elapsed:.1f}s [{gpu_info}]")
 
 
 def normalize_sender(sender):
@@ -389,8 +391,14 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             cleaned = raw.replace("```json", "").replace("```", "").strip()
             data = json.loads(cleaned)
 
-            known_fields = {"sender", "date", "document_type", "category", "summary", "keywords"}
+            known_fields = {"sender", "date", "document_type", "category", "summary", "keywords", "low_value"}
             data = {k: v for k, v in data.items() if k in known_fields}
+
+            # Normalize low_value to int (LLM may return bool or string)
+            if "low_value" in data:
+                data["low_value"] = 1 if data["low_value"] in (True, "true", 1, "1") else 0
+            else:
+                data["low_value"] = 0
 
             if data.get("sender"):
                 data["sender"] = normalize_sender(data["sender"])
@@ -443,7 +451,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
                 data["confidence"] = confidence
                 data["confidence_reason"] = reason
 
-                log(f"LLM OK [{confidence.upper()}] in {time.time()-t0:.1f}s: {data}")
+                log(f"LLM OK [{confidence.upper()}] in {time.time()-t0:.1f}s: {json.dumps(data, ensure_ascii=False)}")
                 return data
 
             owner_error = any("Empfaenger" in e for e in errors)

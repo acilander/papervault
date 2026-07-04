@@ -51,7 +51,7 @@ def update_document(doc_id, **fields):
         fields["file_path"] = os.path.normpath(fields["file_path"])
     allowed = {"sender", "date", "document_type", "category", "summary", "status",
                "file_path", "filename", "tags", "tax_relevant", "tax_year", "expires_at", "notes",
-               "keywords"}
+               "keywords", "low_value"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
@@ -62,7 +62,7 @@ def update_document(doc_id, **fields):
 
 
 def search_documents(query=None, category=None, year=None, sender=None,
-                     status=None, tax_relevant=None, tag=None, limit=100, offset=0):
+                     status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None, limit=100, offset=0):
     """Full-text search + optional filters. Returns list of dicts."""
     with get_conn() as conn:
         if query:
@@ -94,6 +94,11 @@ def search_documents(query=None, category=None, year=None, sender=None,
         if tag:
             sql += " AND tags LIKE ?"
             params.append(f"%{tag}%")
+        if no_sender:
+            sql += " AND (sender IS NULL OR sender = '')"
+        if low_value is not None:
+            sql += " AND low_value = ?"
+            params.append(int(low_value))
 
         sql += " ORDER BY archived_at DESC LIMIT ? OFFSET ?"
         params += [limit, offset]

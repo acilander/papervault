@@ -44,6 +44,11 @@ def process_pdf(file_path, doc_id=None):
             
     db.update_document(doc_id, status="processing")
 
+    if not os.path.exists(file_path):
+        log(f"WARNUNG: Datei nicht gefunden beim Start der Verarbeitung (bereits verschoben?): {file_path}")
+        db.update_document(doc_id, status="failed", summary="FEHLER: Datei beim Start der Verarbeitung nicht gefunden.")
+        return
+
     log("Extrahiere Text via PyMuPDF...")
     text, status = extract_text(file_path)
 
@@ -203,6 +208,10 @@ def process_pdf(file_path, doc_id=None):
             # Standard staging: Move to review/ staging area – confirmed via UI later
             os.makedirs(REVIEW_DIR, exist_ok=True)
             dest_pdf = unique_path(os.path.join(REVIEW_DIR, new_name))
+            if not os.path.exists(file_path):
+                log(f"WARNUNG: Quelldatei nicht mehr vorhanden (wurde während der Verarbeitung verschoben/gelöscht?): {file_path}")
+                db.update_document(doc_id, status="failed", summary="FEHLER: Quelldatei verschwunden während der LLM-Verarbeitung.")
+                return
             shutil.move(file_path, dest_pdf)
             
             status = "review"
@@ -225,6 +234,7 @@ def process_pdf(file_path, doc_id=None):
             summary=data.get("summary"),
             content_hash=doc_content_hash,
             status=status,
+            low_value=data.get("low_value", 0),
         )
     except Exception as db_err:
         log(f"FEHLER: Dateisystem-DB Transaktionsfehler. Starte Rollback... (Fehler: {db_err})")

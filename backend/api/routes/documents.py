@@ -28,12 +28,16 @@ def list_documents(
     status: Optional[str] = Query(None),
     tax_relevant: Optional[int] = Query(None),
     tag: Optional[str] = Query(None),
+    no_sender: Optional[int] = Query(None),
+    low_value: Optional[int] = Query(None),
     limit: int = Query(100, le=500),
     offset: int = Query(0, ge=0),
 ):
     return db.search_documents(
         query=q, category=category, year=year, sender=sender,
         status=status, tax_relevant=tax_relevant, tag=tag,
+        no_sender=bool(no_sender),
+        low_value=low_value,
         limit=limit, offset=offset,
     )
 
@@ -172,6 +176,23 @@ def rename_document(doc_id: int, body: dict):
             os.rename(src, dest)
     db.update_document(doc_id, file_path=dest, filename=new_name)
     return db.get_document(doc_id)
+
+
+@router.get("/{doc_id}/original")
+def get_original_for_duplicate(doc_id: int):
+    """For a duplicate document, return the original document it was matched against."""
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if doc.get("status") != "duplicate":
+        raise HTTPException(status_code=400, detail="Dokument ist kein Duplikat")
+    content_hash = doc.get("content_hash")
+    if not content_hash:
+        raise HTTPException(status_code=404, detail="Kein Hash gespeichert")
+    original = db.get_document_by_hash(content_hash)
+    if not original:
+        raise HTTPException(status_code=404, detail="Original-Dokument nicht mehr in DB")
+    return original
 
 
 @router.post("/{doc_id}/reprocess", status_code=202)

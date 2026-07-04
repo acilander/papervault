@@ -19,6 +19,7 @@ class DocumentOut(BaseModel):
     tax_year: Optional[str] = None
     expires_at: Optional[str] = None
     notes: Optional[str] = None
+    low_value: Optional[int] = 0
 
 
 class DocumentUpdate(BaseModel):
@@ -33,6 +34,7 @@ class DocumentUpdate(BaseModel):
     tax_year: Optional[str] = None
     expires_at: Optional[str] = None
     notes: Optional[str] = None
+    low_value: Optional[int] = None
 
 
 class SenderEntry(BaseModel):
@@ -56,3 +58,5 @@ class StatsOut(BaseModel):
     by_year: list[dict]
     by_status: list[dict]
     recent: list[dict]
+    no_sender: int = 0
+    low_value: int = 0

@@ -27,10 +27,22 @@ def get_stats():
             ORDER BY archived_at DESC LIMIT 10
         """).fetchall()
 
+        no_sender = conn.execute("""
+            SELECT COUNT(*) FROM documents
+            WHERE status = 'ok' AND (sender IS NULL OR sender = '')
+        """).fetchone()[0]
+
+        low_value = conn.execute("""
+            SELECT COUNT(*) FROM documents
+            WHERE status = 'ok' AND low_value = 1
+        """).fetchone()[0]
+
         return {
             "total": total,
             "by_category": [dict(r) for r in by_category],
             "by_year": [dict(r) for r in by_year],
             "by_status": [dict(r) for r in by_status],
             "recent": [dict(r) for r in recent],
+            "no_sender": no_sender,
+            "low_value": low_value,
         }

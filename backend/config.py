@@ -18,11 +18,12 @@ load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
 SOURCE_DIR         = os.getenv("SOURCE_DIR",         "C:/Archive/Inbox")
 TARGET_BASE        = os.getenv("TARGET_BASE",         "C:/Archive")
-MODEL_PATH         = os.getenv("MODEL_PATH",          os.path.join(PROJECT_ROOT, "models", "qwen2.5-1.5b-instruct-q4_k_m.gguf"))
+MODEL_PATH         = os.getenv("MODEL_PATH",          os.path.join(PROJECT_ROOT, "models", "Qwen2.5-14B-Instruct-Q4_K_M.gguf"))
 MAX_RETRIES        = int(os.getenv("MAX_RETRIES",     "3"))
 FILE_READY_TIMEOUT = int(os.getenv("FILE_READY_TIMEOUT", "30"))
 SENDER_SUBFOLDERS  = os.getenv("SENDER_SUBFOLDERS", "true").lower() == "true"
 MOCK_LLM           = os.getenv("MOCK_LLM", "false").lower() == "true"
+N_GPU_LAYERS       = int(os.getenv("N_GPU_LAYERS", "-1"))
 
 DUPLICATES_DIR = os.path.join(TARGET_BASE, "duplicates")
 FAILED_DIR     = os.path.join(TARGET_BASE, "failed")
@@ -37,7 +38,7 @@ DB_PATH        = os.getenv("DB_PATH", os.path.join(TARGET_BASE, "archive.db"))
 CATEGORIES = [
     "Arbeit & Rente", "Bank & Finanzen", "Gesundheit", "Versicherung", "Fahrzeug & Werkstatt",
     "Wohnen & Eigentum", "Vermieter", "Energie & Versorgung", "Kommunikation",
-    "Einkauf & Bestellungen", "Kassenbon & Quittung", "Geraete & Garantie", "Behoerde & Urkunden",
+    "Einkauf & Bestellungen", "Kassenbon & Quittung", "Geräte & Garantie", "Behörde & Urkunden",
     "Ausbildung & Verein", "Sonstiges",
 ]
 
@@ -53,14 +54,14 @@ CATEGORY_FOLDER_MAP = {
     "Kommunikation":          "09 - Kommunikation",
     "Einkauf & Bestellungen": "10 - Einkauf & Bestellungen",
     "Kassenbon & Quittung":   "11 - Kassenbon & Quittung",
-    "Geraete & Garantie":     "12 - Geraete & Garantie",
-    "Behoerde & Urkunden":    "13 - Behoerde & Urkunden",
+    "Geräte & Garantie":      "12 - Geräte & Garantie",
+    "Behörde & Urkunden":     "13 - Behörde & Urkunden",
     "Ausbildung & Verein":    "14 - Ausbildung & Verein",
     "Sonstiges":              "15 - Sonstiges",
 }
 
 DOCUMENT_TYPES = [
-    "Rechnung", "Abrechnung", "Vertrag", "Versicherungsschein", "Mahnung", "Kuendigung",
+    "Rechnung", "Abrechnung", "Vertrag", "Versicherungsschein", "Mahnung", "Kündigung",
     "Bescheid", "Lieferschein", "Kontoauszug", "Angebot", "Sonstiges",
 ]
 
@@ -81,7 +82,8 @@ JSON-Schema (alle Felder sind Pflicht):
   "document_type": "einer der erlaubten Typen (s.u.)",
   "category": "eine der erlaubten Kategorien (s.u.)",
   "summary": "Ein Satz auf Deutsch worum es in dem Dokument geht",
-  "keywords": "5-15 relevante Suchbegriffe aus dem Dokument, kommagetrennt (z.B. Betraege, Vertragsnummern, Produktnamen, Orte, spezifische Begriffe)"
+  "keywords": "5-15 relevante Suchbegriffe aus dem Dokument, kommagetrennt (z.B. Betraege, Vertragsnummern, Produktnamen, Orte, spezifische Begriffe)",
+  "low_value": true oder false
 }
 
 Erlaubte Werte fuer document_type (NUR diese 11, keine anderen erfinden):
@@ -90,7 +92,7 @@ Erlaubte Werte fuer document_type (NUR diese 11, keine anderen erfinden):
 - Vertrag        – Vereinbarungen, Vertraege, AGB, Mietvertraege, Arbeitsvertraege
 - Versicherungsschein – Police, Versicherungsbestaetigung, Deckungsbestaetigung
 - Mahnung        – Zahlungserinnerung, Mahnschreiben, Inkasso
-- Kuendigung     – Kuendigungsschreiben, Vertragsende-Bestaetigung
+- Kündigung      – Kündigungsschreiben, Vertragsende-Bestätigung
 - Bescheid       – Behoerdliche Entscheidungen, Steuerbescheid, Beitragsbescheid, Rentenbescheid (NICHT Lohnabrechnung)
 - Lieferschein   – Lieferbestaetigung, Versandbestaetigung, Paketschein
 - Kontoauszug    – Kontoauszug einer Bank, Depotauszug
@@ -110,8 +112,8 @@ Erlaubte Werte fuer category (NUR diese 15, keine anderen erfinden):
 - Kommunikation        – Mobilfunk, Internet, Festnetz, Streaming-Dienste, TV
 - Einkauf & Bestellungen – Online-Bestellungen, Lieferscheine, Retouren (kein Kassenbon)
 - Kassenbon & Quittung – Kassenzettel vom Supermarkt, Drogerie, Baumarkt, Tankstelle (Papierbon oder E-Bon)
-- Geraete & Garantie   – Garantieurkunde, Kaufbeleg fuer Elektrogeraete, Seriennummer-Dokumente
-- Behoerde & Urkunden  – Finanzamt, Einwohnermeldeamt, Personalausweis, Geburtsurkunde, Baugenehmigung
+- Geräte & Garantie    – Garantieurkunde, Kaufbeleg für Elektrogeräte, Seriennummer-Dokumente
+- Behörde & Urkunden   – Finanzamt, Einwohnermeldeamt, Personalausweis, Geburtsurkunde, Baugenehmigung
 - Ausbildung & Verein  – Schulbescheinigung, Studium, Vereinsbeitrag, Kursgebühr, Zeugnisse
 - Sonstiges            – Alles was in keine der obigen Kategorien passt
 
@@ -126,4 +128,5 @@ Wichtige Regeln:
 - ACHTUNG BEI KASSENBONS/RECHNUNGEN: Das Wort "Netto" im Text bezieht sich fast immer auf den steuerlichen Netto-Betrag (MwSt-Netto) und NICHT auf den Absender (Händler). Der Absender ist die ausstellende Kette (z.B. EDEKA, REWE, etc.) im Briefkopf. Klassifiziere den Absender nur dann als "Netto Marken-Discount", wenn der Markenname explizit im Briefkopf/Logo-Bereich steht.
 - 'date' muss ein reales Datum sein. Das aktuelle Jahr ist {current_year}. Zukuenftige Jahre sind ungueltig.
 - 'summary' muss mindestens einen vollstaendigen Satz enthalten.
-- 'keywords' sollen spezifische, durchsuchbare Begriffe sein (keine allgemeinen Woerter wie 'Dokument' oder 'Brief')."""
+- 'keywords' sollen spezifische, durchsuchbare Begriffe sein (keine allgemeinen Woerter wie 'Dokument' oder 'Brief').
+- 'low_value': Setze true wenn das Dokument langfristig kaum Archivwert hat. Typische Faelle: Kassenbons unter ca. 10 EUR, reine Versandbenachrichtigungen ohne Bestelldetails, Marketing-Newsletter, automatische Bestellbestaetigung ohne Rechnungsnummer, Parkscheine. Setze false fuer Rechnungen, Vertraege, Abrechnungen, Bescheide, Versicherungsscheine und alle Dokumente mit rechtlicher oder finanzieller Relevanz."""
