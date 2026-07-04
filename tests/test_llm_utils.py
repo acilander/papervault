@@ -1,7 +1,8 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
-from llm import filter_keywords_against_text
+from llm import filter_keywords_against_text, normalize_sender
+import storage
 
 
 TEXT = (
@@ -93,3 +94,33 @@ def test_multiword_keyword_partial_match():
 def test_keyword_not_in_text_removed():
     result = filter_keywords_against_text("Krankenhaus, Rezept, Diagnose", TEXT)
     assert result == ""
+
+
+# ── Sender normalization ─────────────────────────────────────────────────────
+
+def test_normalize_sender_exact_match(monkeypatch):
+    monkeypatch.setattr(storage, "sender_registry", {
+        "AOK Baden-Württemberg": {"aliases": []}
+    })
+    assert normalize_sender("AOK Baden-Württemberg") == "AOK Baden-Württemberg"
+
+
+def test_normalize_sender_alias_match(monkeypatch):
+    monkeypatch.setattr(storage, "sender_registry", {
+        "AOK Baden-Württemberg": {"aliases": ["AOK BW"]}
+    })
+    assert normalize_sender("AOK BW") == "AOK Baden-Württemberg"
+
+
+def test_normalize_sender_fuzzy_typo_correction(monkeypatch):
+    monkeypatch.setattr(storage, "sender_registry", {
+        "AOK Baden-Württemberg": {"aliases": []}
+    })
+    assert normalize_sender("AOK Bodan-Württemberg") == "AOK Baden-Württemberg"
+
+
+def test_normalize_sender_returns_unknown_when_no_match(monkeypatch):
+    monkeypatch.setattr(storage, "sender_registry", {
+        "AOK Baden-Württemberg": {"aliases": []}
+    })
+    assert normalize_sender("Unbekannter Absender GmbH") == "Unbekannter Absender GmbH"
