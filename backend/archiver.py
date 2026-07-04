@@ -75,6 +75,7 @@ if __name__ == "__main__":
     log(f"Modell: {os.path.basename(MODEL_PATH)[:20]}... | OCR verfuegbar: {OCR_AVAILABLE}")
     load_sender_registry()
     db.init_db()
+    os.makedirs(SOURCE_DIR, exist_ok=True)
 
     worker_thread = threading.Thread(target=_worker, daemon=True)
     worker_thread.start()
