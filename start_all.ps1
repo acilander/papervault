@@ -27,14 +27,16 @@ Stop-ProcessOnPort 8000
 
 # Start frontend
 Write-Host "[Frontend] Starte Frontend auf Port 5173..."
-$frontend = Start-Process -FilePath "cmd.exe" `
-    -ArgumentList "/c cd /d `"$root\frontend`" && npm run dev" `
+$frontend = Start-Process -FilePath "node" `
+    -ArgumentList "node_modules/vite/bin/vite.js" `
+    -WorkingDirectory "$root\frontend" `
     -NoNewWindow -PassThru
 
 # Start backend
 Write-Host "[API]      Starte API auf Port 8000..."
-$backend = Start-Process -FilePath "cmd.exe" `
-    -ArgumentList "/c cd /d `"$root\backend`" && `"$root\.venv\Scripts\python.exe`" -m uvicorn api.main:app --host 0.0.0.0 --port 8000" `
+$backend = Start-Process -FilePath "$root\.venv\Scripts\python.exe" `
+    -ArgumentList "-m uvicorn api.main:app --host 0.0.0.0 --port 8000" `
+    -WorkingDirectory "$root\backend" `
     -NoNewWindow -PassThru
 
 # Wait for API
