@@ -5,6 +5,7 @@ from datetime import datetime
 
 from config import LOG_FILE, CATEGORIES
 from utils import log
+import db
 import db.sender_repo as sender_repo
 
 # ── Locks & In-memory state ───────────────────────────────────────────────────
@@ -51,8 +52,7 @@ def load_hashes():
     global content_hashes
     with _registry_lock:
         try:
-            import db as _db
-            with _db.get_conn() as conn:
+            with db.get_conn() as conn:
                 rows = conn.execute(
                     "SELECT content_hash, file_path FROM documents WHERE content_hash IS NOT NULL AND status='ok'"
                 ).fetchall()

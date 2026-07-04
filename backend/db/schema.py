@@ -65,6 +65,7 @@ MIGRATIONS = [
 def init_db():
     import db
     from db.sender_repo import init_sender_table
+    from db.feedback_repo import init_feedback_table
     os.makedirs(os.path.dirname(db.DB_PATH) if os.path.dirname(db.DB_PATH) else ".", exist_ok=True)
     with get_conn() as conn:
         conn.executescript(SCHEMA)
@@ -75,3 +76,4 @@ def init_db():
             except Exception:
                 pass
     init_sender_table()
+    init_feedback_table()

@@ -1,42 +1,24 @@
 """
 feedback.py – Sammelt manuelle Korrekturen aus der GUI als Few-Shot-Beispiele.
-
-Format von feedback.json:
-[
-  {
-    "ts": "2024-01-15T10:30:00",
-    "sender": "Deutsche Telekom AG",
-    "document_type": "Rechnung",
-    "category": "Kommunikation",
-    "summary": "Monatsrechnung für Mobilfunkvertrag",
-    "corrected_fields": ["category"]   # welche Felder der User geändert hat
-  },
-  ...
-]
+Persistenz: SQLite-Tabelle `feedback` via db.feedback_repo.
 """
 import json
 import os
 from datetime import datetime
 
-from config import FEEDBACK_FILE
-
-MAX_EXAMPLES = 200  # Maximale Anzahl gespeicherter Beispiele
+import db.feedback_repo as feedback_repo
 
 
-def load_feedback() -> list:
+def _migrate_from_json():
+    """One-time migration: import feedback.json into DB if it exists and DB is empty."""
+    from config import FEEDBACK_FILE
     if not os.path.exists(FEEDBACK_FILE):
-        return []
+        return
     try:
         with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
-
-
-def save_feedback(examples: list):
-    try:
-        with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
-            json.dump(examples, f, ensure_ascii=False, indent=2)
+            data = json.load(f)
+        if data:
+            feedback_repo.import_from_list(data)
     except Exception:
         pass
 
@@ -52,7 +34,7 @@ def record_correction(original: dict, corrected: dict):
         if corrected.get(k) and corrected.get(k) != original.get(k)
     ]
     if not corrected_fields:
-        return  # No meaningful change
+        return
 
     example = {
         "ts": datetime.now().isoformat(timespec="seconds"),
@@ -62,28 +44,14 @@ def record_correction(original: dict, corrected: dict):
         "summary": corrected.get("summary") or original.get("summary"),
         "corrected_fields": corrected_fields,
     }
-
-    examples = load_feedback()
-    # Deduplicate: remove older entry with same sender+category+type
-    examples = [
-        e for e in examples
-        if not (e.get("sender") == example["sender"]
-                and e.get("category") == example["category"]
-                and e.get("document_type") == example["document_type"])
-    ]
-    examples.append(example)
-    # Keep most recent MAX_EXAMPLES
-    examples = examples[-MAX_EXAMPLES:]
-    save_feedback(examples)
+    feedback_repo.insert(example)
 
 
 def get_few_shot_examples(n: int = 20) -> list:
     """Return the n most recent unique examples for LLM prompt injection."""
-    examples = load_feedback()
-    # Prefer examples where user corrected the category (most valuable signal)
+    examples = feedback_repo.get_recent(n * 3)
     corrected = [e for e in examples if "category" in e.get("corrected_fields", [])]
     others = [e for e in examples if "category" not in e.get("corrected_fields", [])]
-    # Take up to n, filling first from category-corrected, then others
     combined = corrected[-n:] + others[-(max(0, n - len(corrected))):] if len(corrected) < n else corrected[-n:]
     return combined[:n]
 

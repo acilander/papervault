@@ -14,6 +14,8 @@ async def lifespan(app: FastAPI):
     # Startup actions
     db.init_db()
     storage.load_sender_registry()
+    import feedback as fb
+    fb._migrate_from_json()
     yield
     # Shutdown actions (none currently required)
 
