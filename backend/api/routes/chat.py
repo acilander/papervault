@@ -1,6 +1,6 @@
 import json
 import re
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 import db
@@ -90,6 +90,11 @@ def _generate_answer(question: str, docs: list[dict]) -> str:
 @router.post("/", response_model=ChatResponse)
 def chat(req: ChatRequest):
     log(f"[Chat] Frage: {req.question}")
+
+    llm = get_llm()
+    if llm is None:
+        log("[Chat] LLM nicht verfügbar.")
+        raise HTTPException(status_code=503, detail="KI-Modell ist nicht geladen oder nicht konfiguriert.")
 
     filters = _extract_filters(req.question)
     log(f"[Chat] Extrahierte Filter: {filters}")

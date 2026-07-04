@@ -46,11 +46,12 @@ export default function Chat() {
         response: res,
       }
       setMessages(prev => [...prev, assistantMsg])
-    } catch {
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || 'Unbekannter Fehler'
       setMessages(prev => [...prev, {
         id: ++idCounter.current,
         role: 'assistant',
-        text: 'Fehler bei der Anfrage. Ist der Server erreichbar?',
+        text: `Fehler bei der Anfrage: ${detail}`,
       }])
     }
     setLoading(false)
