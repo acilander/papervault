@@ -2,34 +2,34 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 import storage
+import db.sender_repo as sender_repo
 
 
 def _reset():
     storage.sender_registry = {}
     storage.content_hashes = {}
+    sender_repo._clear_all_for_tests()
 
 
 # ── reviewed flag ─────────────────────────────────────────────────────────────
 
-def test_new_sender_has_reviewed_false(tmp_path, monkeypatch):
+def test_new_sender_has_reviewed_false():
     _reset()
-    monkeypatch.setattr(storage, "SENDERS_FILE", str(tmp_path / "senders.json"))
     storage.record_sender("Bank & Finanzen", "Sparkasse")
     assert storage.sender_registry["Sparkasse"]["reviewed"] is False
 
 
-def test_new_sender_has_excluded_categories_empty(tmp_path, monkeypatch):
+def test_new_sender_has_excluded_categories_empty():
     _reset()
-    monkeypatch.setattr(storage, "SENDERS_FILE", str(tmp_path / "senders.json"))
     storage.record_sender("Bank & Finanzen", "Sparkasse")
     assert storage.sender_registry["Sparkasse"]["excluded_categories"] == []
 
 
-def test_existing_sender_not_reset_reviewed(tmp_path, monkeypatch):
+def test_existing_sender_not_reset_reviewed():
     _reset()
-    monkeypatch.setattr(storage, "SENDERS_FILE", str(tmp_path / "senders.json"))
     storage.record_sender("Bank & Finanzen", "Sparkasse")
     storage.sender_registry["Sparkasse"]["reviewed"] = True
+    sender_repo.update("Sparkasse", reviewed=True)
     storage.record_sender("Versicherung", "Sparkasse")  # add second category
     assert storage.sender_registry["Sparkasse"]["reviewed"] is True
 

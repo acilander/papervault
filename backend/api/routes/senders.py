@@ -1,4 +1,3 @@
-import json
 import os
 import shutil
 from typing import Optional
@@ -7,7 +6,8 @@ from fastapi import APIRouter, HTTPException
 
 import db
 import storage
-from config import TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, SENDERS_FILE
+import db.sender_repo as sender_repo
+from config import TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS
 from api.models import SenderEntry, SenderUpdate
 
 router = APIRouter(prefix="/senders", tags=["senders"])
@@ -19,7 +19,7 @@ def _reload():
 
 @router.post("/~reload")
 def reload_senders():
-    """Reload sender registry from senders.json into memory."""
+    """Reload sender registry from DB into memory."""
     storage.load_sender_registry()
     return {"reloaded": True, "count": len(storage.sender_registry)}
 
@@ -59,11 +59,8 @@ def update_sender(name: str, body: SenderUpdate):
         entry["reviewed"] = body.reviewed
     if body.excluded_categories is not None:
         entry["excluded_categories"] = body.excluded_categories
-    # persist
-    import json
-    from config import SENDERS_FILE
-    with open(SENDERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(dict(sorted(storage.sender_registry.items())), f, ensure_ascii=False, indent=2)
+    sender_repo.upsert(name, entry)
+    storage._refresh_cache()
     return entry
 
 
@@ -88,21 +85,8 @@ def rename_sender(body: dict):
     if new_name == name:
         return {"renamed": False, "message": "Name unverändert"}
 
-    entry = storage.sender_registry[name]
-
-    # Add old name as alias (keep existing aliases)
-    aliases = entry.get("aliases") or []
-    if name not in aliases:
-        aliases.append(name)
-    entry["aliases"] = aliases
-
-    # Rename key in registry
-    storage.sender_registry[new_name] = entry
-    del storage.sender_registry[name]
-
-    # Persist
-    with open(SENDERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(dict(sorted(storage.sender_registry.items())), f, ensure_ascii=False, indent=2)
+    sender_repo.rename(name, new_name)
+    storage._refresh_cache()
 
     # Update all DB documents
     docs = db.search_documents(sender=name, limit=9999)
@@ -115,7 +99,7 @@ def rename_sender(body: dict):
         "new_name": new_name,
         "alias_added": name,
         "docs_updated": len(docs),
-        "entry": storage.sender_registry[new_name],
+        "entry": storage.sender_registry.get(new_name, {}),
     }
 
 
@@ -181,10 +165,10 @@ def merge_sender(name: str, target: str):
             db.update_document(doc["id"], sender=target)
             skipped += 1
 
-    # Remove source sender from registry
-    del storage.sender_registry[name]
-    with open(SENDERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(dict(sorted(storage.sender_registry.items())), f, ensure_ascii=False, indent=2)
+    # Save merged target, remove source
+    sender_repo.upsert(target, dst)
+    sender_repo.delete(name)
+    storage._refresh_cache()
 
     return {
         "merged_into": target,
@@ -200,9 +184,8 @@ def merge_sender(name: str, target: str):
 def delete_sender(name: str):
     if name not in storage.sender_registry:
         raise HTTPException(status_code=404, detail="Absender nicht gefunden")
-    del storage.sender_registry[name]
-    with open(SENDERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(dict(sorted(storage.sender_registry.items())), f, ensure_ascii=False, indent=2)
+    sender_repo.delete(name)
+    storage._refresh_cache()
 
 
 @router.post("/{name}/remove-category")
@@ -248,9 +231,8 @@ def remove_category(name: str, body: dict):
     if entry.get("pinned_category") == category:
         entry["pinned_category"] = None
 
-    # Save sender registry
-    with open(SENDERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(dict(sorted(storage.sender_registry.items())), f, ensure_ascii=False, indent=2)
+    sender_repo.upsert(name, entry)
+    storage._refresh_cache()
 
     # Handle affected documents
     docs = db.search_documents(sender=name, status="ok", limit=500)

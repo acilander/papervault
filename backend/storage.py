@@ -3,8 +3,9 @@ import os
 import threading
 from datetime import datetime
 
-from config import SENDERS_FILE, LOG_FILE, CATEGORIES
+from config import LOG_FILE, CATEGORIES
 from utils import log
+import db.sender_repo as sender_repo
 
 # ── Locks & In-memory state ───────────────────────────────────────────────────
 _registry_lock = threading.RLock()
@@ -12,8 +13,7 @@ sender_registry: dict = {}
 content_hashes: dict = {}
 
 
-
-# ── Processing log ───────────────────────────────────────────────────────────
+# ── Processing log ────────────────────────────────────────────────────────────
 
 def processing_log(filename, status, data=None, error=None, features=None, user_hint=None):
     entry = {
@@ -65,29 +65,20 @@ def load_hashes():
 
 # ── Sender registry ───────────────────────────────────────────────────────────
 
+def _refresh_cache():
+    """Reload sender_registry from DB into memory."""
+    global sender_registry
+    sender_registry = sender_repo.get_all()
+
+
 def load_sender_registry():
+    """Load sender registry from DB. If senders.json exists and DB is empty, migrate it."""
     global sender_registry
     with _registry_lock:
-        if not os.path.exists(SENDERS_FILE):
-            sender_registry = {}
-            return
         try:
-            with open(SENDERS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            # Migrate old format {category: [sender, ...]} -> {sender: {categories, pinned_category}}
-            if data and isinstance(next(iter(data.values())), list):
-                log("Absender-Register: migriere altes Format...")
-                migrated = {}
-                for cat, senders in data.items():
-                    for s in senders:
-                        if s not in migrated:
-                            migrated[s] = {"categories": [], "pinned_category": None}
-                        if cat not in migrated[s]["categories"]:
-                            migrated[s]["categories"].append(cat)
-                data = migrated
-                with open(SENDERS_FILE, "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=2)
-            sender_registry = data
+            if sender_repo.count() == 0:
+                _migrate_from_json()
+            _refresh_cache()
             pinned = sum(1 for v in sender_registry.values() if v.get("pinned_category"))
             log(f"Absender-Register geladen: {len(sender_registry)} Absender, {pinned} mit fester Kategorie.")
         except Exception as e:
@@ -95,24 +86,41 @@ def load_sender_registry():
             sender_registry = {}
 
 
+def _migrate_from_json():
+    """One-time migration: import senders.json into DB if it exists."""
+    from config import SENDERS_FILE
+    if not os.path.exists(SENDERS_FILE):
+        return
+    try:
+        with open(SENDERS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not data:
+            return
+        # Handle old format {category: [sender, ...]}
+        if isinstance(next(iter(data.values())), list):
+            log("Absender-Register: migriere altes JSON-Format...")
+            migrated = {}
+            for cat, senders in data.items():
+                for s in senders:
+                    if s not in migrated:
+                        migrated[s] = {"categories": [], "pinned_category": None,
+                                       "excluded_categories": [], "aliases": [], "reviewed": False}
+                    if cat not in migrated[s]["categories"]:
+                        migrated[s]["categories"].append(cat)
+            data = migrated
+        sender_repo.import_from_dict(data)
+        log(f"Absender-Register: {len(data)} Absender aus senders.json in DB migriert.")
+    except Exception as e:
+        log(f"Absender-Migration fehlgeschlagen: {e}")
+
+
 def record_sender(category, sender):
     if not sender or not category:
         return
-    changed = False
-    if sender not in sender_registry:
-        sender_registry[sender] = {"categories": [], "pinned_category": None, "reviewed": False, "excluded_categories": []}
-        changed = True
-    entry = sender_registry[sender]
-    if category not in entry["categories"]:
-        entry["categories"].append(category)
-        entry["categories"].sort()
-        changed = True
-    if changed:
-        try:
-            with open(SENDERS_FILE, "w", encoding="utf-8") as f:
-                json.dump(dict(sorted(sender_registry.items())), f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            log(f"Absender-Register konnte nicht gespeichert werden: {e}")
+    with _registry_lock:
+        changed = sender_repo.record_category(sender, category)
+        if changed:
+            _refresh_cache()
 
 
 def apply_sender_overrides(data):

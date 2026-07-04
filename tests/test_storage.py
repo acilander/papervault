@@ -2,11 +2,14 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 import storage
+import db.sender_repo as sender_repo
+from unittest.mock import patch
 
 
 def _reset():
     storage.sender_registry = {}
     storage.content_hashes = {}
+    sender_repo._clear_all_for_tests()
 
 
 def test_apply_sender_overrides_no_registry():
@@ -40,17 +43,15 @@ def test_apply_sender_overrides_invalid_pin_ignored():
     assert result["category"] == "Sonstiges"
 
 
-def test_record_sender_adds_new(tmp_path, monkeypatch):
+def test_record_sender_adds_new():
     _reset()
-    monkeypatch.setattr(storage, "SENDERS_FILE", str(tmp_path / "senders.json"))
     storage.record_sender("Bank & Finanzen", "Sparkasse")
     assert "Sparkasse" in storage.sender_registry
     assert "Bank & Finanzen" in storage.sender_registry["Sparkasse"]["categories"]
 
 
-def test_record_sender_no_duplicate_category(tmp_path, monkeypatch):
+def test_record_sender_no_duplicate_category():
     _reset()
-    monkeypatch.setattr(storage, "SENDERS_FILE", str(tmp_path / "senders.json"))
     storage.record_sender("Bank & Finanzen", "Sparkasse")
     storage.record_sender("Bank & Finanzen", "Sparkasse")
     assert storage.sender_registry["Sparkasse"]["categories"].count("Bank & Finanzen") == 1
