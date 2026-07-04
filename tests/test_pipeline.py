@@ -28,10 +28,27 @@ def in_memory_db(monkeypatch, tmp_path):
     os.makedirs(review_dir, exist_ok=True)
     os.makedirs(failed_dir, exist_ok=True)
 
+    target_dir = str(tmp_path / "Archive")
+    duplicates_dir = str(tmp_path / "duplicates")
+    encrypted_dir = str(tmp_path / "encrypted")
+    os.makedirs(target_dir, exist_ok=True)
+    os.makedirs(duplicates_dir, exist_ok=True)
+    os.makedirs(encrypted_dir, exist_ok=True)
+
     monkeypatch.setattr(config, "SOURCE_DIR", source_dir)
+    monkeypatch.setattr(config, "TARGET_BASE", target_dir)
     monkeypatch.setattr(config, "REVIEW_DIR", review_dir)
     monkeypatch.setattr(config, "FAILED_DIR", failed_dir)
+    monkeypatch.setattr(config, "DUPLICATES_DIR", duplicates_dir)
+    monkeypatch.setattr(config, "ENCRYPTED_DIR", encrypted_dir)
     monkeypatch.setattr(config, "MOCK_LLM", True)
+
+    import pipeline.core as _core
+    monkeypatch.setattr(_core, "TARGET_BASE", target_dir)
+    monkeypatch.setattr(_core, "REVIEW_DIR", review_dir)
+    monkeypatch.setattr(_core, "FAILED_DIR", failed_dir)
+    monkeypatch.setattr(_core, "DUPLICATES_DIR", duplicates_dir)
+    monkeypatch.setattr(_core, "ENCRYPTED_DIR", encrypted_dir)
 
     yield tmp_path
 
