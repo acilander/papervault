@@ -3,7 +3,7 @@ import os
 import threading
 from datetime import datetime
 
-from config import SENDERS_FILE, HASHES_FILE, LOG_FILE, CATEGORIES
+from config import SENDERS_FILE, LOG_FILE, CATEGORIES
 from utils import log
 
 # ── Locks & In-memory state ───────────────────────────────────────────────────
@@ -50,7 +50,6 @@ def processing_log(filename, status, data=None, error=None, features=None, user_
 def load_hashes():
     global content_hashes
     with _registry_lock:
-        # Primary: load from DB (survives restarts)
         try:
             import db as _db
             with _db.get_conn() as conn:
@@ -59,29 +58,9 @@ def load_hashes():
                 ).fetchall()
             content_hashes = {r["content_hash"]: r["file_path"] for r in rows}
             log(f"Hash-Register geladen: {len(content_hashes)} Eintraege (aus DB).")
-            return
         except Exception as e:
             log(f"Hash-Register konnte nicht aus DB geladen werden: {e}")
-        # Fallback: load from file
-        if os.path.exists(HASHES_FILE):
-            try:
-                with open(HASHES_FILE, "r", encoding="utf-8") as f:
-                    content_hashes = json.load(f)
-                log(f"Hash-Register geladen: {len(content_hashes)} Eintraege (aus Datei).")
-            except Exception as e:
-                log(f"Hash-Register konnte nicht geladen werden: {e}")
-                content_hashes = {}
-        else:
             content_hashes = {}
-
-
-def save_hashes():
-    with _registry_lock:
-        try:
-            with open(HASHES_FILE, "w", encoding="utf-8") as f:
-                json.dump(content_hashes, f, ensure_ascii=False)
-        except Exception as e:
-            log(f"Hash-Register konnte nicht gespeichert werden: {e}")
 
 
 # ── Sender registry ───────────────────────────────────────────────────────────
