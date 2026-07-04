@@ -35,16 +35,17 @@ def rebuild_senders():
     with a non-empty sender and records their category.
     """
     log(f"[Registry] Baue Absender-Register aus Dokumenten auf (DB: {db.DB_PATH})...")
+    added = 0
     with db.get_conn() as conn:
         rows = conn.execute(
             "SELECT sender, category FROM documents WHERE sender IS NOT NULL AND sender != ''"
         ).fetchall()
-    added = 0
-    for row in rows:
-        if storage.record_sender(row["category"], row["sender"]):
-            added += 1
+        for row in rows:
+            if sender_repo.record_category(row["sender"], row["category"]):
+                added += 1
     storage._refresh_cache()
-    log(f"[Registry] Aufbau abgeschlossen: {len(storage.sender_registry)} Absender, {added} neu hinzugefügt.")
+    db_count = sender_repo.count()
+    log(f"[Registry] Aufbau abgeschlossen: in-memory={len(storage.sender_registry)}, DB={db_count}, neu={added}")
     return {"rebuilt": True, "count": len(storage.sender_registry), "added": added}
 
 
