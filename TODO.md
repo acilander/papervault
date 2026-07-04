@@ -4,66 +4,45 @@
 
 ### JSON-Datenspeicher in SQLite migrieren
 
-Aktuell werden drei JSON-Dateien als Datenspeicher verwendet. Langfristig sollten diese in die SQLite-DB überführt werden.
+#### ✅ `hashes.json` → entfernt
+- Legacy-Fallback aus `storage.py` entfernt, `HASHES_FILE` aus `config.py` entfernt
+- DB `content_hash`-Spalte ist alleinige Quelle
 
-#### `hashes.json` → obsolet (jetzt sofort)
-- Die DB ist bereits die Primärquelle (`content_hash`-Spalte in `documents`)
-- `hashes.json` ist nur noch Legacy-Fallback in `storage.load_hashes()`
-- **Aktion:** Fallback-Code aus `storage.py` entfernen, Datei aus Repo entfernen
+#### ✅ `senders.json` → Tabelle `senders` (Repository-Pattern)
+- `db/sender_repo.py` implementiert alle CRUD-Operationen gegen SQLite
+- `storage.py` delegiert alle Schreibzugriffe an `sender_repo`
+- Alle 7× `open(SENDERS_FILE, "w")` aus `senders.py` Routes entfernt
+- Einmalige Migration von `senders.json` → DB beim ersten Start
 
-#### `senders.json` → neue Tabelle `senders`
-- Enthält: `pinned_category`, `excluded_categories`, `aliases`, `reviewed`-Flag
-- **Vorteile DB:** Atomare Transaktionen, kein Dateizugriffs-Konflikt bei parallelen Schreibvorgängen, SQL-Queries statt JSON-Iteration
-- Aktuell alles per GUI verwaltbar (Absender-Manager)
-
-**Architektur-Problem (Root Cause):** `storage.py` mischt Datenzugriff, Business-Logik und Persistenz. Routes greifen direkt auf `storage.sender_registry` (globales Dict) zu und mutieren es. Das macht die Implementierung schwer austauschbar.
-
-**Lösung – Repository-Pattern:**
-```
-SenderRepository (Interface/Abstract)
-  ├── JsonSenderRepository   ← aktuelle Implementierung
-  └── SqliteSenderRepository ← Ziel-Implementierung
-```
-Alle Routes sprechen nur gegen das Interface. Migration JSON → SQLite = Tausch der Implementierung, keine Route muss angefasst werden. Gleiches Prinzip für `FeedbackRepository`.
-
-#### `feedback.json` → neue Tabelle `feedback`
+#### `feedback.json` → neue Tabelle `feedback` (offen)
 - Enthält: manuelle Korrekturen als Few-Shot-Beispiele für den LLM-Prompt
-- **Vorteile DB:** Feedback per GUI durchsuchbar und löschbar, kein unbegrenztes JSON-Wachstum, Priorisierung per SQL statt in-memory Sort
+- **Vorteile DB:** Feedback per GUI durchsuchbar und löschbar, kein unbegrenztes JSON-Wachstum
 - **Aufwand:** Mittel – `feedback.py` umschreiben, GUI-Seite für Feedback-Verwaltung ergänzen
 
 ---
 
-## Code Smells (priorisiert)
+## Code Smells
 
-### 🔴 Hoch
+### ✅ Erledigt
 
-**Persistenz-Logik in HTTP-Routes (`senders.py`)**
-`open(SENDERS_FILE, "w")` steht 7× direkt in Route-Handlern. Persistenz gehört ins Repository, nicht in HTTP-Handler.
+- **Persistenz in HTTP-Routes** – alle `open(SENDERS_FILE)` durch `sender_repo`-Aufrufe ersetzt
+- **Globaler mutabler Zustand (`sender_registry`)** – schreibt nur noch durch `sender_repo`, Cache via `_refresh_cache()`
+- **`config.py` als God-Modul** – aufgeteilt in `config.py` (Pfade/Env), `categories.py` (Listen), `prompts.py` (System-Prompt)
+- **God Function `process_pdf()`** – in 7 klar benannte Phasen aufgeteilt (`_register_doc`, `_extract_text`, `_build_user_hint`, `_stage_or_archive`)
+- **`import` mitten in Funktionen** – alle Inline-Imports in `senders.py` entfernt
 
-**Globaler mutabler Zustand (`storage.py`)**
-`sender_registry` und `content_hashes` sind globale Dicts, direkt von Routes, `llm.py` und `pipeline/core.py` mutiert. Wird durch Repository-Pattern gelöst.
+### 🟡 Offen (mittel)
 
-### 🟡 Mittel
+**Zirkulärer Import als Workaround (`storage.py`)**
+`import db as _db` innerhalb von `load_hashes()` ist ein Workaround für einen zirkulären Import. Fix: `db` per Dependency Injection übergeben.
 
-**God Function `process_pdf()` (`pipeline/core.py`)**
-292 Zeilen, macht alles: Extraktion, OCR, Duplikat-Check, LLM, Datei-Verschiebung, DB, Logging. Kaum als Einheit testbar. Aufteilen in klar benannte Pipeline-Steps mit definierten Ein-/Ausgaben.
-
-**Zirkulärer Import als Workaround (`storage.py` Z.55)**
-`import db as _db` innerhalb von `load_hashes()` ist ein Workaround für einen zirkulären Import. Fix: `db` per Dependency Injection übergeben statt globalen Import.
-
-**`import` mitten in Funktionen (`senders.py` Z.63-64)**
-`import json` und `from config import SENDERS_FILE` stehen innerhalb von Route-Funktionen obwohl sie oben bereits importiert sind. Bereinigen.
-
-**`config.py` als God-Modul**
-Enthält Pfade, Konstanten, Kategorien, Dokumenttypen, Owner-Namen und den kompletten LLM-System-Prompt (133 Zeilen). Aufteilen: `config.py` (Pfade/Env), `prompts.py` (System-Prompt), `categories.py` (Listen).
-
-### 🟢 Niedrig
+### 🟢 Offen (niedrig)
 
 **`vision._model` als globale Variable**
-Funktioniert, aber eine `VisionService`-Klasse mit `__init__` und lazy-load wäre sauberer und testbarer.
+Funktioniert, aber eine `VisionService`-Klasse mit lazy-load wäre sauberer und testbarer.
 
 **Kein einheitlicher Error-Boundary in der Pipeline**
-Jeder Step in `core.py` hat seinen eigenen Fehler-Pfad mit individuellem `return`. Ein zentraler Pipeline-Runner mit einheitlicher Fehlerbehandlung wäre wartbarer.
+Jeder Step in `core.py` hat seinen eigenen Fehler-Pfad. Ein zentraler Pipeline-Runner mit einheitlicher Fehlerbehandlung wäre wartbarer.
 
 ---
 
