@@ -18,7 +18,7 @@ from llm import classify_document, filter_keywords_against_text
 from storage import record_sender, apply_sender_overrides, processing_log
 import db
 from utils import log
-from pipeline.steps import check_duplicate
+from pipeline.steps import check_duplicate, cleanup_empty_inbox_folders
 
 def _register_doc(file_path: str, doc_id) -> int:
     """Ensure document has a DB identity. Returns doc_id."""
@@ -51,6 +51,7 @@ def _extract_text(file_path: str, doc_id: int):
         processing_log(os.path.basename(file_path), "encrypted")
         db.update_document(doc_id, file_path=dest, filename=os.path.basename(dest),
                            summary="VERSCHLUESSELT: Das PDF-Dokument ist passwortgeschützt.", status="encrypted")
+        cleanup_empty_inbox_folders(file_path)
         return None, None
 
     if status == "corrupt":
@@ -62,6 +63,7 @@ def _extract_text(file_path: str, doc_id: int):
         processing_log(os.path.basename(file_path), "corrupt")
         db.update_document(doc_id, file_path=dest, filename=os.path.basename(dest),
                            summary="FEHLER: PDF-Datei ist nicht lesbar (Datei beschädigt oder ungültig).", status="corrupt")
+        cleanup_empty_inbox_folders(file_path)
         return None, None
 
     log(f"PyMuPDF: {len(text.strip())} Zeichen gefunden.")
@@ -78,6 +80,7 @@ def _extract_text(file_path: str, doc_id: int):
         processing_log(os.path.basename(file_path), "no_text")
         db.update_document(doc_id, file_path=dest, filename=os.path.basename(dest),
                            summary="FEHLER: Kein verwertbarer Text im Dokument gefunden (auch nach OCR-Texterkennung).", status="no_text")
+        cleanup_empty_inbox_folders(file_path)
         return None, None
 
     return text, status
@@ -177,6 +180,7 @@ def process_pdf(file_path, doc_id=None):
         db.update_document(doc_id, file_path=dest_pdf, filename=os.path.basename(dest_pdf),
                            summary="FEHLER: LLM-Klassifizierung nach allen Versuchen fehlgeschlagen.",
                            status="classification_failed")
+        cleanup_empty_inbox_folders(file_path)
         return
 
     data = apply_sender_overrides(data)
@@ -226,6 +230,8 @@ def process_pdf(file_path, doc_id=None):
             except Exception as rollback_err:
                 log(f"FATAL: Rollback fehlgeschlagen, Datei festgefahren unter {dest_pdf}! (Fehler: {rollback_err})")
         raise
+
+    cleanup_empty_inbox_folders(file_path)
 
     # Phase 7: Post-processing (confidence notes, keyword validation)
     notes = f"[Vertrauen: {confidence.upper()}] {confidence_reason}"

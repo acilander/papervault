@@ -19,6 +19,34 @@ def create_shortcut(target_path, shortcut_path):
         log(f"Shortcut konnte nicht erstellt werden: {e}")
 
 
+def cleanup_empty_inbox_folders(original_path: str) -> None:
+    """Remove empty parent directories left behind after moving a file out of SOURCE_DIR.
+
+    Stops at SOURCE_DIR itself and never deletes it. Only operates on paths that were
+    originally inside SOURCE_DIR.
+    """
+    from config import SOURCE_DIR
+
+    src_dir = os.path.dirname(os.path.abspath(original_path))
+    source_dir = os.path.abspath(SOURCE_DIR)
+    if not src_dir.startswith(source_dir + os.sep):
+        return
+
+    current = src_dir
+    while current != source_dir:
+        try:
+            if os.path.isdir(current) and not os.listdir(current):
+                os.rmdir(current)
+            else:
+                break
+        except OSError:
+            break
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+
+
 def check_duplicate(file_path, text, doc_id):
     cleaned_text = text.strip()
     if len(cleaned_text) >= 100:
@@ -68,6 +96,7 @@ def check_duplicate(file_path, text, doc_id):
             status="duplicate"
         )
 
+        cleanup_empty_inbox_folders(file_path)
         return True
 
     return False

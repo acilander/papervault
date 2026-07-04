@@ -90,6 +90,60 @@ def test_process_pdf_id_tracking_and_reprocess(in_memory_db, monkeypatch):
     assert "test_invoice_reprocess" in final_docs[0]["file_path"]
 
 
+def test_cleanup_empty_inbox_folders_after_processing(in_memory_db, monkeypatch):
+    """Verify that nested empty inbox folders are removed after a PDF is processed."""
+    from pipeline.steps import cleanup_empty_inbox_folders
+    subdir = os.path.join(config.SOURCE_DIR, "2025", "Unsorted")
+    os.makedirs(subdir, exist_ok=True)
+    inbox_file = os.path.join(subdir, "nested_invoice.pdf")
+    with open(inbox_file, "w") as f:
+        f.write("Dummy PDF Text Content")
+
+    monkeypatch.setattr("pipeline.core.extract_text", lambda path: ("Rechnung von Telekom. Dies ist ein sehr langer Text mit vielen Details, um OCR zu ueberspringen.", "ok"))
+
+    process_pdf(inbox_file)
+
+    assert not os.path.exists(os.path.join(config.SOURCE_DIR, "2025", "Unsorted"))
+    assert not os.path.exists(os.path.join(config.SOURCE_DIR, "2025"))
+    assert os.path.exists(config.SOURCE_DIR)
+
+
+def test_cleanup_preserves_non_empty_inbox_folders(in_memory_db, monkeypatch):
+    """Verify that non-empty inbox folders are kept during cleanup."""
+    from pipeline.steps import cleanup_empty_inbox_folders
+    subdir = os.path.join(config.SOURCE_DIR, "2025", "Mixed")
+    os.makedirs(subdir, exist_ok=True)
+    keep_file = os.path.join(subdir, "keep.pdf")
+    with open(keep_file, "w") as f:
+        f.write("Another PDF")
+    inbox_file = os.path.join(subdir, "move_me.pdf")
+    with open(inbox_file, "w") as f:
+        f.write("Dummy PDF Text Content")
+
+    monkeypatch.setattr("pipeline.core.extract_text", lambda path: ("Rechnung von Telekom. Dies ist ein sehr langer Text mit vielen Details, um OCR zu ueberspringen.", "ok"))
+
+    process_pdf(inbox_file)
+
+    assert os.path.exists(os.path.join(config.SOURCE_DIR, "2025", "Mixed"))
+    assert os.path.exists(keep_file)
+
+
+def test_cleanup_ignores_paths_outside_source_dir(in_memory_db, monkeypatch):
+    """Verify that cleanup does nothing if the file was not inside SOURCE_DIR."""
+    from pipeline.steps import cleanup_empty_inbox_folders
+    outside_dir = os.path.join(os.path.dirname(config.SOURCE_DIR), "other")
+    os.makedirs(outside_dir, exist_ok=True)
+    outside_file = os.path.join(outside_dir, "outside.pdf")
+    with open(outside_file, "w") as f:
+        f.write("Outside")
+
+    dest = os.path.join(config.TARGET_BASE, "outside.pdf")
+    shutil.move(outside_file, dest)
+    cleanup_empty_inbox_folders(outside_file)
+
+    assert os.path.exists(outside_dir)
+
+
 def test_detect_known_sender_word_boundaries_and_header(monkeypatch):
     """Verify that Stufe-0 rules strictly require word boundaries and are isolated from body text."""
     # Configure mock registry
