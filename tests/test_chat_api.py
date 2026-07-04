@@ -58,6 +58,18 @@ def test_extract_filters_formats_prompt_without_key_error(in_memory_db, monkeypa
     assert result == {"sender": "Telekom", "year": "2025"}
 
 
+def test_extract_filters_ignores_extra_text_around_json(in_memory_db, monkeypatch):
+    """Verify that extra LLM text before/after the JSON does not break parsing."""
+    from api.routes import chat as chat_module
+
+    def fake_llm(prompt, **kwargs):
+        return {"choices": [{"text": 'Hier sind die Filter: {"sender": "Telekom", "year": "2025"}. Ich hoffe das hilft.'}]}
+
+    monkeypatch.setattr(chat_module, "get_llm", lambda: fake_llm)
+    result = chat_module._extract_filters("Zeig mir Telekom-Rechnungen von 2025")
+    assert result == {"sender": "Telekom", "year": "2025"}
+
+
 def test_chat_returns_answer_with_mock_llm(in_memory_db, monkeypatch):
     """Verify chat with a mocked LLM returns filters and documents."""
     from fastapi.testclient import TestClient

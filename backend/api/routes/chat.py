@@ -53,9 +53,12 @@ def _extract_filters(question: str) -> dict:
     try:
         output = llm(prompt, max_tokens=200, temperature=0.1, stop=["\n\n"])
         raw = output["choices"][0]["text"].strip()
-        match = re.search(r'\{.*\}', raw, re.DOTALL)
-        if match:
-            return json.loads(match.group())
+        # Try to find the first syntactically valid JSON object in the output.
+        for match in re.finditer(r'\{.*?\}', raw, re.DOTALL):
+            try:
+                return json.loads(match.group())
+            except json.JSONDecodeError:
+                continue
     except Exception as e:
         log(f"[Chat] Filter-Extraktion fehlgeschlagen: {e}")
     return {}
