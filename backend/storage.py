@@ -116,11 +116,12 @@ def _migrate_from_json():
 
 def record_sender(category, sender):
     if not sender or not category:
-        return
+        return False
     with _registry_lock:
         changed = sender_repo.record_category(sender, category)
         if changed:
             _refresh_cache()
+        return changed
 
 
 def apply_sender_overrides(data):

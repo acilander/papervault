@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, RefreshCw } from 'lucide-react'
-import { getSenders, getSenderCounts, reloadSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, type SenderEntry } from '../api'
+import { getSenders, getSenderCounts, reloadSenders, rebuildSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, type SenderEntry } from '../api'
 import { useConfig } from '../ConfigContext'
 
 export default function Senders() {
@@ -96,6 +96,17 @@ export default function Senders() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <RefreshCw size={12} /> Neu laden
+          </button>
+          <button
+            onClick={async () => {
+              const res = await rebuildSenders()
+              alert(`Absender-Register neu aufgebaut: ${res.count} Absender, ${res.added} hinzugefügt.`)
+              await load()
+            }}
+            title="Absender aus bestehenden Dokumenten aufbauen"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <RefreshCw size={12} /> Neu aufbauen
           </button>
           <button
             onClick={() => setShowUnreviewed(v => !v)}

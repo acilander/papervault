@@ -25,6 +25,26 @@ def reload_senders():
     return {"reloaded": True, "count": len(storage.sender_registry)}
 
 
+@router.post("/~rebuild")
+def rebuild_senders():
+    """Populate the sender registry from existing documents.
+
+    Useful after the pipeline did not record senders for previously processed
+    documents (e.g. before the fix was applied). Iterates over all documents
+    with a non-empty sender and records their category.
+    """
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            "SELECT sender, category FROM documents WHERE sender IS NOT NULL AND sender != ''"
+        ).fetchall()
+    added = 0
+    for row in rows:
+        if storage.record_sender(row["category"], row["sender"]):
+            added += 1
+    storage._refresh_cache()
+    return {"rebuilt": True, "count": len(storage.sender_registry), "added": added}
+
+
 @router.get("/", response_model=dict[str, SenderEntry])
 def list_senders():
     return storage.sender_registry

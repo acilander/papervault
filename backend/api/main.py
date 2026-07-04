@@ -7,14 +7,15 @@ import os
 
 import db
 import storage
-from config import DB_PATH, SOURCE_DIR
+import config
+from config import DB_PATH
 from api.routes import documents, senders, stats, monitor, chat
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup actions
-    os.makedirs(SOURCE_DIR, exist_ok=True)
+    os.makedirs(config.SOURCE_DIR, exist_ok=True)
     db.init_db()
     storage.load_sender_registry()
     import feedback as fb

@@ -104,6 +104,9 @@ export const deleteDocumentWithFile = (id: number) =>
 export const reloadSenders = () =>
   api.post<{ reloaded: boolean; count: number }>('/senders/~reload').then(r => r.data)
 
+export const rebuildSenders = () =>
+  api.post<{ rebuilt: boolean; count: number; added: number }>('/senders/~rebuild').then(r => r.data)
+
 export const getSenders = () =>
   api.get<Record<string, SenderEntry>>('/senders/').then(r => r.data)
 
