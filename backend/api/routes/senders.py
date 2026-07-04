@@ -9,6 +9,7 @@ import storage
 import db.sender_repo as sender_repo
 from config import TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS
 from api.models import SenderEntry, SenderUpdate
+from pdf_utils import build_filename, unique_path
 
 router = APIRouter(prefix="/senders", tags=["senders"])
 
@@ -146,14 +147,15 @@ def merge_sender(name: str, target: str):
         # Update sender name in DB regardless of file existence
         new_category = dest_cat if doc.get("status") == "ok" else doc.get("category")
         if doc.get("status") == "ok" and os.path.exists(src_path):
-            dest_path = os.path.join(dest_dir, os.path.basename(src_path))
+            # Regenerate filename with new sender name
+            merged_doc = {**doc, "sender": target, "category": new_category}
+            new_filename = build_filename(merged_doc, os.path.basename(src_path))
+            dest_path = unique_path(os.path.join(dest_dir, new_filename))
             if os.path.abspath(src_path) != os.path.abspath(dest_path):
-                if os.path.exists(dest_path):
-                    base, ext = os.path.splitext(os.path.basename(src_path))
-                    dest_path = os.path.join(dest_dir, f"{base}_1{ext}")
                 try:
                     shutil.move(src_path, dest_path)
-                    db.update_document(doc["id"], sender=target, category=new_category, file_path=dest_path)
+                    db.update_document(doc["id"], sender=target, category=new_category,
+                                       file_path=dest_path, filename=os.path.basename(dest_path))
                     moved += 1
                 except Exception as e:
                     errors.append(f"{os.path.basename(src_path)}: {e}")

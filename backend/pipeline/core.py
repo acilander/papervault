@@ -10,8 +10,8 @@ from config import (
     CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, CATEGORIES,
 )
 from pdf_utils import (
-    extract_text, ocr_pdf, prepare_text_for_llm, is_cryptic_filename,
-    build_filename, unique_path, extract_features, build_feature_prompt,
+    extract_text, ocr_pdf, prepare_text_for_llm,
+    unique_path, extract_features, build_feature_prompt,
     detect_receipt
 )
 from llm import classify_document, filter_keywords_against_text
@@ -191,10 +191,7 @@ def process_pdf(file_path, doc_id=None):
         except Exception:
             pass
 
-    original_name = os.path.basename(file_path)
-    new_name = build_filename(data, original_name) if is_cryptic_filename(original_name) else original_name
-    if new_name != original_name:
-        log(f"Kryptischer Dateiname erkannt – umbenannt zu: {new_name}")
+    new_name = os.path.basename(file_path)
 
     # Phase 6: File placement + DB update (transactional)
     try:
@@ -218,6 +215,7 @@ def process_pdf(file_path, doc_id=None):
             content_hash=doc_content_hash,
             status=final_status,
             low_value=data.get("low_value", 0),
+            full_text=safe_text,
         )
     except Exception as db_err:
         log(f"FEHLER: Dateisystem-DB Transaktionsfehler. Starte Rollback... (Fehler: {db_err})")

@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS documents (
     expires_at    TEXT,
     notes         TEXT,
     keywords      TEXT DEFAULT '',
-    low_value     INTEGER DEFAULT 0
+    low_value     INTEGER DEFAULT 0,
+    full_text     TEXT DEFAULT ''
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
@@ -58,6 +59,7 @@ MIGRATIONS = [
     # Rebuild FTS index to include new keywords column
     "INSERT INTO documents_fts(documents_fts) VALUES('rebuild')",
     "ALTER TABLE documents ADD COLUMN low_value INTEGER DEFAULT 0",
+    "ALTER TABLE documents ADD COLUMN full_text TEXT DEFAULT ''",
 ]
 
 def init_db():

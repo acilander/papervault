@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, Copy, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, Copy, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon, MessageSquare } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import DocumentDetail from './pages/DocumentDetail'
 import Senders from './pages/Senders'
 import Monitor from './pages/Monitor'
 import Inbox from './pages/Inbox'
+import Chat from './pages/Chat'
 import axios from 'axios'
 import { ConfigProvider } from './ConfigContext'
 
@@ -15,6 +16,7 @@ const nav = [
   { to: '/inbox', label: 'Inbox', icon: InboxIcon },
   { to: '/documents', label: 'Dokumente', icon: FileText },
   { to: '/senders', label: 'Absender', icon: Users },
+  { to: '/chat', label: 'KI-Suche', icon: MessageSquare },
   { to: '/monitor', label: 'Monitor', icon: Activity },
 ]
 
@@ -169,6 +171,7 @@ export default function App() {
             <Route path="/senders" element={<Senders />} />
             <Route path="/inbox" element={<Inbox />} />
             <Route path="/monitor" element={<Monitor />} />
+            <Route path="/chat" element={<Chat />} />
           </Routes>
         </main>
       </div>

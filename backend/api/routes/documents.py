@@ -240,14 +240,24 @@ def confirm_document(doc_id: int):
         raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
 
     from pipeline.steps import archive_file_on_disk
+    from pdf_utils import build_filename, is_cryptic_filename
 
     category = doc.get("category") or "Sonstiges"
     sender = doc.get("sender")
+    current_name = os.path.basename(path)
+
+    # Regenerate filename from current (possibly user-corrected) metadata
+    new_name = build_filename(doc, current_name)
+    if new_name != current_name:
+        renamed_path = os.path.join(os.path.dirname(path), new_name)
+        if not os.path.exists(renamed_path):
+            os.rename(path, renamed_path)
+            path = renamed_path
 
     # Call centralized archiving helper
     dest_pdf = archive_file_on_disk(path, category, sender, doc.get("date"))
 
-    db.update_document(doc_id, status="ok", file_path=dest_pdf)
+    db.update_document(doc_id, status="ok", file_path=dest_pdf, filename=os.path.basename(dest_pdf))
     storage.record_sender(category, sender)
     return {"detail": "Dokument bestaetigt und archiviert.", "file_path": dest_pdf}
 

@@ -5,14 +5,15 @@ import { getDocuments, getExpiring, type Document } from '../api'
 import { useConfig } from '../ConfigContext'
 
 const STATUS_COLORS: Record<string, string> = {
-  ok: 'bg-green-50 text-green-700',
-  pending: 'bg-blue-100 text-blue-700',
-  missing: 'bg-orange-100 text-orange-700',
-  classification_failed: 'bg-red-100 text-red-700',
-  duplicate: 'bg-purple-100 text-purple-700',
-  no_text: 'bg-gray-200 text-gray-600',
-  encrypted: 'bg-yellow-100 text-yellow-700',
-  corrupt: 'bg-red-50 text-red-700',
+  ok:                    'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+  pending:               'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+  review:                'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
+  missing:               'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
+  classification_failed: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+  duplicate:             'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+  no_text:               'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+  encrypted:             'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
+  corrupt:               'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
 }
 
 export default function Documents() {
@@ -222,12 +223,12 @@ export default function Documents() {
                   <td className="px-4 py-2 text-gray-600 truncate max-w-[160px]">{doc.sender ?? '–'}</td>
                   <td className="px-4 py-2">
                     {doc.category && (
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs whitespace-nowrap">{doc.category}</span>
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 rounded-full text-xs whitespace-nowrap">{doc.category}</span>
                     )}
                   </td>
                   <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{doc.date ?? '–'}</td>
                   <td className="px-4 py-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100'}`}>{doc.status}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status}</span>
                   </td>
                   <td className="px-4 py-2 text-gray-400 text-xs whitespace-nowrap">{doc.archived_at.slice(0, 10)}</td>
                 </tr>

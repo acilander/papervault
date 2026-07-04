@@ -6,7 +6,7 @@ from fastapi.responses import Response
 import db
 import storage
 from config import DB_PATH
-from api.routes import documents, senders, stats, monitor
+from api.routes import documents, senders, stats, monitor, chat
 
 
 @asynccontextmanager
@@ -39,6 +39,7 @@ app.include_router(documents.router)
 app.include_router(senders.router)
 app.include_router(stats.router)
 app.include_router(monitor.router)
+app.include_router(chat.router)
 
 
 @app.get("/health")

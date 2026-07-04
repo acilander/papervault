@@ -337,7 +337,13 @@ def detect_receipt(text, filename=None):
 
 def is_cryptic_filename(name):
     stem = os.path.splitext(name)[0]
-    return bool(re.match(r'^[\d_\-]{10,}$', stem))
+    # Pure digit/underscore/dash names (e.g. 20251125_001)
+    if re.match(r'^[\d_\-]{10,}$', stem):
+        return True
+    # Common scanner prefixes followed by digits (e.g. Scan_20251125110336_001, IMG_20250101, DOC-2025)
+    if re.match(r'^(?:Scan|IMG|Image|DOC|Document|document|scan|img|adobe|capture|page|Page)[\d_\-]{6,}', stem, re.IGNORECASE):
+        return True
+    return False
 
 
 def build_filename(data, original_name):

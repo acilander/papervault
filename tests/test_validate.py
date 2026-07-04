@@ -89,9 +89,9 @@ def test_sender_equals_summary_rejected():
     assert any("identisch" in e for e in errors)
 
 
-def test_type_category_mismatch_rejected():
+def test_type_category_any_combination_allowed():
     d = _valid()
     d["document_type"] = "Versicherungsschein"
     d["category"] = "Sonstiges"
     errors = validate_classification(d)
-    assert any("Versicherungsschein" in e for e in errors)
+    assert not any("erfordert" in e for e in errors)

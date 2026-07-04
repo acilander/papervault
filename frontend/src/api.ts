@@ -173,3 +173,12 @@ export const pdfUrl = (id: number) => `/documents/${id}/file`
 
 export const getOriginalDocument = (id: number) =>
   api.get<Document>(`/documents/${id}/original`).then(r => r.data)
+
+export interface ChatResponse {
+  answer: string
+  filters: Record<string, string>
+  documents: Document[]
+}
+
+export const chatSearch = (question: string) =>
+  api.post<ChatResponse>('/chat/', { question }).then(r => r.data)

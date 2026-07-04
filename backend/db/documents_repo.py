@@ -51,7 +51,7 @@ def update_document(doc_id, **fields):
         fields["file_path"] = os.path.normpath(fields["file_path"])
     allowed = {"sender", "date", "document_type", "category", "summary", "status",
                "file_path", "filename", "tags", "tax_relevant", "tax_year", "expires_at", "notes",
-               "keywords", "low_value"}
+               "keywords", "low_value", "full_text"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return

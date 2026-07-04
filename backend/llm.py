@@ -10,7 +10,7 @@ from llama_cpp import Llama
 
 from config import (
     MODEL_PATH, MAX_RETRIES, CATEGORIES, DOCUMENT_TYPES,
-    OWNER_NAMES, TYPE_CATEGORY_MAP, SYSTEM_PROMPT, N_GPU_LAYERS,
+    OWNER_NAMES, SYSTEM_PROMPT, N_GPU_LAYERS,
 )
 import storage
 import feedback as fb
@@ -18,6 +18,12 @@ from utils import log, normalize_umlauts, extract_year
 
 _llm_lock = threading.Lock()
 _llm = None
+
+
+def get_llm():
+    """Return the loaded LLM instance (loads if necessary)."""
+    load_model()
+    return _llm
 
 
 def load_model():
@@ -106,12 +112,6 @@ def validate_classification(data):
     # Check 6: document_type in allowed list
     if data.get("document_type") not in DOCUMENT_TYPES:
         errors.append(f"'document_type' '{data.get('document_type')}' ist nicht erlaubt. Waehle aus: {', '.join(DOCUMENT_TYPES)}")
-
-    # Check 9: type/category consistency
-    doc_type = data.get("document_type")
-    expected_cat = TYPE_CATEGORY_MAP.get(doc_type)
-    if expected_cat and data.get("category") != expected_cat:
-        errors.append(f"'document_type' '{doc_type}' erfordert 'category' '{expected_cat}', aber '{data.get('category')}' wurde gewaehlt.")
 
     # Check 10: sender same as summary
     if sender and summary and sender.lower() == summary.lower():

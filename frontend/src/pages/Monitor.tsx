@@ -161,11 +161,13 @@ export default function Monitor() {
   }
 
   const levelColor = (text: string) => {
-    if (/FEHLER|fehlgeschlagen|Fehler|ERROR/i.test(text)) return 'text-red-400'
+    if (/FATAL|fehlgeschlagen|classification_failed|corrupt|no_text/i.test(text)) return 'text-red-400'
+    if (/Plausibilitaetsfehler|Validierungsfehler/i.test(text)) return 'text-orange-400'
+    if (/FEHLER|ERROR/i.test(text)) return 'text-red-400'
     if (/WARNUNG|VERSCHLUESSELT|WARN/i.test(text)) return 'text-yellow-400'
-    if (/\bOK\b|Fertig|Archiviert/i.test(text)) return 'text-green-400'
     if (/Versuch|LLM/i.test(text)) return 'text-orange-400'
-    return 'text-gray-300'
+    if (/\bOK\b|Fertig|Archiviert|Abgeschlossen|AUTO-ARCHIV/i.test(text)) return 'text-green-400'
+    return 'text-gray-400 dark:text-gray-300'
   }
 
   return (
