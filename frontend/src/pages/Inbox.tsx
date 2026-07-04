@@ -40,7 +40,19 @@ export default function Inbox() {
     }
   }, [])
 
+  const refresh = useCallback(async () => {
+    try {
+      const data = await getDocuments({ status: 'review', limit: 200 })
+      setDocs(data)
+    } catch {}
+  }, [])
+
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const t = setInterval(refresh, 5000)
+    return () => clearInterval(t)
+  }, [refresh])
 
   const initEdit = (doc: Document): EditState => ({
     sender: doc.sender ?? '',
