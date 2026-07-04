@@ -23,6 +23,8 @@ export default function Inbox() {
   const [busy, setBusy] = useState<Record<number, string>>({})
   const [reprocessHint, setReprocessHint] = useState('')
   const [reprocessDlg, setReprocessDlg] = useState<number | null>(null)
+  const [reprocessAllDlg, setReprocessAllDlg] = useState(false)
+  const [reprocessAllHint, setReprocessAllHint] = useState('')
   
   // Selection state
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -100,6 +102,16 @@ export default function Inbox() {
     }
   }
 
+  const reprocessSelected = async (hint?: string) => {
+    const toReprocess = docs.filter(d => selected.has(d.id))
+    if (!toReprocess.length) return
+    for (const doc of toReprocess) {
+      await reprocessDocument(doc.id, hint || undefined)
+    }
+    setDocs(d => d.filter(x => !selected.has(x.id)))
+    setSelected(new Set())
+  }
+
   const confirmSelected = async () => {
     const toConfirm = docs.filter(d => selected.has(d.id))
     if (!toConfirm.length) return
@@ -144,12 +156,20 @@ export default function Inbox() {
         {docs.length > 0 && (
           <div className="flex items-center gap-3">
             {selected.size > 0 && (
-              <button
-                onClick={confirmSelected}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
-                <CheckCircle size={16} />
-                {selected.size} Markierte bestätigen
-              </button>
+              <>
+                <button
+                  onClick={() => { setReprocessAllHint(''); setReprocessAllDlg(true) }}
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors">
+                  <RefreshCw size={16} />
+                  {selected.size} Neu klassifizieren
+                </button>
+                <button
+                  onClick={confirmSelected}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+                  <CheckCircle size={16} />
+                  {selected.size} Markierte bestätigen
+                </button>
+              </>
             )}
             <button
               onClick={toggleSelectAll}
@@ -295,6 +315,36 @@ export default function Inbox() {
           </div>
         )
       })}
+
+      {/* Bulk reprocess dialog */}
+      {reprocessAllDlg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{selected.size} Dokumente neu klassifizieren</h3>
+            <textarea
+              value={reprocessAllHint}
+              onChange={e => setReprocessAllHint(e.target.value)}
+              rows={3}
+              placeholder="Optionaler Hinweis an das LLM (gilt für alle)…"
+              className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setReprocessAllDlg(false)}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                Abbrechen
+              </button>
+              <button
+                onClick={async () => {
+                  setReprocessAllDlg(false)
+                  await reprocessSelected(reprocessAllHint || undefined)
+                }}
+                className="px-4 py-2 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors">
+                Alle neu klassifizieren
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reprocess dialog */}
       {reprocessDlg !== null && (

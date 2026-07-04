@@ -19,6 +19,7 @@ export interface Document {
   tax_year: string | null
   expires_at: string | null
   notes: string | null
+  low_value: number
 }
 
 export interface DocumentUpdate {
@@ -33,6 +34,7 @@ export interface DocumentUpdate {
   tax_year?: string | null
   expires_at?: string | null
   notes?: string | null
+  low_value?: number | null
 }
 
 export interface SenderEntry {
@@ -49,6 +51,8 @@ export interface Stats {
   by_year: { year: string; count: number }[]
   by_status: { status: string; count: number }[]
   recent: Document[]
+  no_sender: number
+  low_value: number
 }
 
 export const getStats = () => api.get<Stats>('/stats/').then(r => r.data)
@@ -65,6 +69,8 @@ export const getDocuments = (params: {
   status?: string
   tax_relevant?: number
   tag?: string
+  no_sender?: number
+  low_value?: number
   limit?: number
   offset?: number
 }) => api.get<Document[]>('/documents/', { params }).then(r => r.data)
@@ -109,7 +115,7 @@ export const updateSender = (name: string, body: { pinned_category?: string | nu
 
 export const renameSender = (name: string, newName: string) =>
   api.post<{ renamed: boolean; old_name: string; new_name: string; alias_added: string; docs_updated: number; entry: SenderEntry }>(
-    `/senders/${encodeURIComponent(name)}/rename`, { new_name: newName }
+    `/senders/~rename`, { old_name: name, new_name: newName }
   ).then(r => r.data)
 
 export const mergeSender = (name: string, target: string) =>
@@ -145,6 +151,11 @@ export const scanMissing = () =>
     '/monitor/scan-missing'
   ).then(r => r.data)
 
+export const repairMissing = () =>
+  api.post<{ scanned: number; repaired: number; not_found: number; details: { id: number; filename: string; new_path: string }[]; missing_still: { id: number; filename: string }[] }>(
+    '/monitor/repair-missing'
+  ).then(r => r.data)
+
 export const scanOrphans = () =>
   api.get<{ count: number; orphans: { file_path: string; filename: string; folder: string; category_hint: string; size_kb: number; modified: string }[] }>(
     '/monitor/orphans'
@@ -159,3 +170,6 @@ export const confirmDocument = (id: number) =>
   api.post<{ detail: string; file_path: string }>(`/documents/${id}/confirm`).then(r => r.data)
 
 export const pdfUrl = (id: number) => `/documents/${id}/file`
+
+export const getOriginalDocument = (id: number) =>
+  api.get<Document>(`/documents/${id}/original`).then(r => r.data)

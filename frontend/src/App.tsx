@@ -27,6 +27,8 @@ interface SidebarBadges {
   tax: number
   missing: number
   review: number
+  noSender: number
+  lowValue: number
 }
 
 function SidebarQuickLinks({ badges }: { badges: SidebarBadges }) {
@@ -37,6 +39,8 @@ function SidebarQuickLinks({ badges }: { badges: SidebarBadges }) {
     { label: 'Steuerrelevant', icon: Receipt, color: 'text-yellow-600', bg: 'bg-yellow-50 dark:bg-yellow-900/20', count: badges.tax, filter: '?tax=1' },
     { label: 'Läuft ab', icon: Clock, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20', count: badges.expiring, filter: '?expires=1' },
     { label: 'Datei fehlt', icon: FileX, color: 'text-red-700', bg: 'bg-red-50 dark:bg-red-900/20', count: badges.missing, filter: '?status=missing' },
+    { label: 'Kein Absender', icon: FileX, color: 'text-gray-600', bg: 'bg-gray-100 dark:bg-gray-800', count: badges.noSender, filter: '?no_sender=1' },
+    { label: 'Geringer Wert', icon: AlertTriangle, color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800', count: badges.lowValue, filter: '?low_value=1' },
   ]
   return (
     <div className="px-3 pb-3 space-y-1">
@@ -60,7 +64,7 @@ export default function App() {
   const [dark, setDark] = useState(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches
   )
-  const [badges, setBadges] = useState<SidebarBadges>({ unreviewed: 0, expiring: 0, inbox: 0, duplicates: 0, failed: 0, tax: 0, missing: 0, review: 0 })
+  const [badges, setBadges] = useState<SidebarBadges>({ unreviewed: 0, expiring: 0, inbox: 0, duplicates: 0, failed: 0, tax: 0, missing: 0, review: 0, noSender: 0, lowValue: 0 })
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -90,6 +94,8 @@ export default function App() {
           tax: 0,
           missing: byStatus.find(s => s.status === 'missing')?.count ?? 0,
           review: byStatus.find(s => s.status === 'review')?.count ?? 0,
+          noSender: statsData.no_sender ?? 0,
+          lowValue: statsData.low_value ?? 0,
         })
       } catch {}
     }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil } from 'lucide-react'
-import { getDocument, updateDocument, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, type Document, type DocumentUpdate } from '../api'
+import { getDocument, updateDocument, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
 
@@ -18,16 +18,21 @@ export default function DocumentDetail() {
   const [reprocessDlg, setReprocessDlg] = useState(false)
   const [reprocessHint, setReprocessHint] = useState('')
   const [reprocessBusy, setReprocessBusy] = useState(false)
+  const [originalDoc, setOriginalDoc] = useState<Document | null>(null)
 
   useEffect(() => {
     if (!id) return
     getDocument(Number(id)).then(d => {
       setDoc(d)
+      if (d.status === 'duplicate') {
+        getOriginalDocument(d.id).then(setOriginalDoc).catch(() => setOriginalDoc(null))
+      }
       setEdit({
         sender: d.sender, date: d.date, document_type: d.document_type,
         category: d.category, summary: d.summary,
         tags: d.tags ?? '', tax_relevant: d.tax_relevant ?? 0,
         tax_year: d.tax_year ?? '', expires_at: d.expires_at ?? '', notes: d.notes ?? '',
+        low_value: d.low_value ?? 0,
       })
     })
   }, [id])
@@ -128,6 +133,16 @@ export default function DocumentDetail() {
           </div>
 
           {/* Steuer */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-800/50">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox"
+                checked={!!edit.low_value}
+                onChange={e => setEdit(prev => ({ ...prev, low_value: e.target.checked ? 1 : 0 }))}
+                className="w-4 h-4 accent-gray-500" />
+              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">⚠️ Geringer Archivwert</span>
+            </label>
+          </div>
+
           <div className="border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 bg-yellow-50 dark:bg-yellow-900/10 space-y-2">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox"
@@ -234,6 +249,23 @@ export default function DocumentDetail() {
             Aus DB entfernen
           </button>
         </div>
+
+        {/* Duplicate: link to original */}
+          {doc.status === 'duplicate' && (
+            <div className="px-4 py-3 border-t border-purple-200 dark:border-purple-900/50 bg-purple-50 dark:bg-purple-900/10 space-y-2">
+              <p className="text-xs font-semibold text-purple-700 dark:text-purple-400">Duplikat – Original:</p>
+              {originalDoc ? (
+                <a
+                  href={`/documents/${originalDoc.id}`}
+                  className="block text-xs text-blue-600 hover:underline truncate"
+                >
+                  {originalDoc.filename}
+                </a>
+              ) : (
+                <p className="text-xs text-purple-500 italic">Original nicht mehr in DB</p>
+              )}
+            </div>
+          )}
 
         {/* Problem document actions */}
         {['classification_failed', 'encrypted', 'duplicate', 'corrupt', 'no_text', 'pending'].includes(doc.status) && (

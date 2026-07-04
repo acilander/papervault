@@ -29,6 +29,8 @@ export default function Documents() {
   const taxFilter = searchParams.get('tax') === '1'
   const expiresFilter = searchParams.get('expires') === '1'
   const sender = searchParams.get('sender') ?? ''
+  const noSenderFilter = searchParams.get('no_sender') === '1'
+  const lowValueFilter = searchParams.get('low_value') === '1'
 
   const setStatus = (v: string) => {
     const p = new URLSearchParams(searchParams)
@@ -54,6 +56,20 @@ export default function Documents() {
     setSearchParams(p, { replace: true })
   }
 
+  const setNoSenderFilter = (fn: (prev: boolean) => boolean) => {
+    const next = fn(noSenderFilter)
+    const p = new URLSearchParams(searchParams)
+    next ? p.set('no_sender', '1') : p.delete('no_sender')
+    setSearchParams(p, { replace: true })
+  }
+
+  const setLowValueFilter = (fn: (prev: boolean) => boolean) => {
+    const next = fn(lowValueFilter)
+    const p = new URLSearchParams(searchParams)
+    next ? p.set('low_value', '1') : p.delete('low_value')
+    setSearchParams(p, { replace: true })
+  }
+
   const resetAll = () => {
     setQ('')
     setCategory('')
@@ -70,10 +86,12 @@ export default function Documents() {
         q: q || undefined, category: category || undefined, year: year || undefined,
         sender: sender || undefined, status: status || undefined,
         tax_relevant: taxFilter ? 1 : undefined,
+        no_sender: noSenderFilter ? 1 : undefined,
+        low_value: lowValueFilter ? 1 : undefined,
         limit: 200,
       }).then(setDocs).finally(() => setLoading(false))
     }
-  }, [q, category, year, sender, status, taxFilter, expiresFilter])
+  }, [q, category, year, sender, status, taxFilter, expiresFilter, noSenderFilter, lowValueFilter])
 
   useEffect(() => { load() }, [load])
 
@@ -127,11 +145,19 @@ export default function Documents() {
           className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${expiresFilter ? 'bg-red-500 text-white border-red-500' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
           ⏰ Läuft ab
         </button>
+        <button onClick={() => setNoSenderFilter(v => !v)}
+          className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${noSenderFilter ? 'bg-gray-600 text-white border-gray-600' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+          👤 Kein Absender
+        </button>
+        <button onClick={() => setLowValueFilter(v => !v)}
+          className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${lowValueFilter ? 'bg-gray-500 text-white border-gray-500' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+          ⚠️ Geringer Wert
+        </button>
         <button onClick={load}
           className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
           Suchen
         </button>
-        {(status || taxFilter || expiresFilter || q || category || year || sender) && (
+        {(status || taxFilter || expiresFilter || noSenderFilter || lowValueFilter || q || category || year || sender) && (
           <button onClick={resetAll}
             className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             ✕ Zurücksetzen

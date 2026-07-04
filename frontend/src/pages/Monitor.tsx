@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Circle, RefreshCw, Play, Square, Inbox, FileText, AlertCircle } from 'lucide-react'
 import axios from 'axios'
-import { scanOrphans, importOrphans, scanMissing, deleteMissing } from '../api'
+import { scanOrphans, importOrphans, scanMissing, deleteMissing, repairMissing } from '../api'
 
 interface LogLine { id: number; text: string; ts: string }
 interface InboxFile { filename: string; size_kb: number; modified: string }
@@ -369,8 +369,26 @@ export default function Monitor() {
           {missingDocs !== null && missingDocs.length > 0 && (
             <div className="space-y-1">
               <p className="text-xs text-red-600 dark:text-red-400 text-center">
-                {missingDocs.length} Einträge als „missing“ markiert
+                {missingDocs.length} Einträge als „missing" markiert
               </p>
+              <button
+                onClick={async () => {
+                  setMissingBusy(true)
+                  try {
+                    const r = await repairMissing()
+                    alert(`✓ ${r.repaired} repariert, ${r.not_found} nicht gefunden.`)
+                    const scan = await scanMissing()
+                    setMissingDocs(scan.missing)
+                  } catch (e: any) {
+                    alert('Fehler: ' + e.message)
+                  }
+                  setMissingBusy(false)
+                }}
+                disabled={missingBusy}
+                className="w-full px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 transition-colors"
+              >
+                🔧 Automatisch reparieren
+              </button>
               <button
                 onClick={async () => {
                   if (!confirm(`${missingDocs.length} DB-Einträge wirklich löschen? Die Dateien können danach neu eingelesen werden.`)) return
