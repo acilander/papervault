@@ -65,35 +65,23 @@ Start-Process "http://localhost:5173"
 Write-Host "Fenster offen lassen fuer Logs. Strg+C zum Beenden."
 Write-Host ""
 
-# Store PIDs for the Ctrl+C handler
-$script:frontendPid = $frontend.Id
-$script:backendPid = $backend.Id
-$script:shuttingDown = $false
+# Store PIDs for cleanup
+$frontendPid = $frontend.Id
+$backendPid = $backend.Id
 
-# Handle Ctrl+C
-$cancelHandler = {
-    param($sender, $e)
-    if ($script:shuttingDown) { return }
-    $script:shuttingDown = $true
-    $e.Cancel = $true
-    Stop-ProcessTree $script:frontendPid
-    Stop-ProcessTree $script:backendPid
+function Stop-All($frontendPid, $backendPid) {
+    Stop-ProcessTree $frontendPid
+    Stop-ProcessTree $backendPid
     Stop-ProcessOnPort 5173
     Stop-ProcessOnPort 8000
 }
-[Console]::add_CancelKeyPress($cancelHandler)
 
+# Keep the script running. Ctrl+C raises an exception and the finally block cleans up.
 try {
-    # Wait for either process to exit
-    $frontend.WaitForExit()
-    $backend.WaitForExit()
+    while (-not ($frontend.HasExited -and $backend.HasExited)) {
+        Start-Sleep -Milliseconds 200
+    }
 }
 finally {
-    [Console]::remove_CancelKeyPress($cancelHandler)
-    if (-not $script:shuttingDown) {
-        Stop-ProcessTree $script:frontendPid
-        Stop-ProcessTree $script:backendPid
-    }
-    Stop-ProcessOnPort 5173
-    Stop-ProcessOnPort 8000
+    Stop-All $frontendPid $backendPid
 }
