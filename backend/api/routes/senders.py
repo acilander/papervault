@@ -67,15 +67,18 @@ def update_sender(name: str, body: SenderUpdate):
     return entry
 
 
-@router.post("/{name}/rename")
-def rename_sender(name: str, body: dict):
+@router.post("/~rename")
+def rename_sender(body: dict):
     """
     Rename a sender to a new canonical name.
     The old name is preserved as an alias so the LLM can still recognize it.
     All DB documents are updated to the new name.
-    body: { "new_name": str }
+    body: { "old_name": str, "new_name": str }
     """
+    name = (body.get("old_name") or "").strip()
     new_name = (body.get("new_name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="old_name darf nicht leer sein")
     if not new_name:
         raise HTTPException(status_code=400, detail="new_name darf nicht leer sein")
     if name not in storage.sender_registry:

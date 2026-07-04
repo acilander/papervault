@@ -88,7 +88,8 @@ if __name__ == "__main__":
     if existing:
         log(f"Startup-Scan: {len(existing)} vorhandene PDF(s) gefunden - verarbeite zuerst...")
         for filepath in existing:
-            process_pdf(filepath)
+            _pdf_queue.put(filepath)
+        _pdf_queue.join()
         log("Startup-Scan abgeschlossen.")
     else:
         log("Startup-Scan: Keine vorhandenen PDFs im Inbox-Ordner.")

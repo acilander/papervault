@@ -1,6 +1,10 @@
 import re
+import sys
 from datetime import datetime
 from typing import Optional
+
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 def log(msg, log_file: Optional[str] = None):
     line = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"

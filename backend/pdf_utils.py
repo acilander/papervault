@@ -180,6 +180,14 @@ def extract_features(text, filename=None, file_path=None):
 
     features = {}
 
+    # --- Exact Key-Value Matches (Regex) ---
+    m_date = re.search(r'rechnungsdatum[\s:]+(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})', t_norm)
+    if m_date:
+        features["exact_date"] = m_date.group(1)
+    m_invno = re.search(r'rechnungs(?:nummer|[-.]?nr)[\s:]+([a-zA-Z0-9\-/]{4,20})', text, re.IGNORECASE)
+    if m_invno:
+        features["exact_invoice_no"] = m_invno.group(1)
+
     # --- Structural signals ---
     features["has_amount"]   = bool(re.search(r'\d+[.,]\d{2}\s*€|EUR\s*\d', text))
     features["has_iban"]     = bool(re.search(r'\bDE\d{2}[\s\d]{15,}', text))
@@ -191,6 +199,20 @@ def extract_features(text, filename=None, file_path=None):
     # --- Header zone (top 30% of first page) ---
     header = extract_header_zone(file_path) if file_path else text[:400]
     features["header_zone"] = header
+
+    # --- Vision Logo Detection ---
+    if file_path and len(header.strip()) < 20:
+        try:
+            from vision import analyze_logo
+            tmp_img = "temp_header.png"
+            extract_header_image(file_path, tmp_img)
+            logo_text = analyze_logo(tmp_img)
+            if logo_text:
+                features["vision_logo_text"] = logo_text
+            if os.path.exists(tmp_img):
+                os.remove(tmp_img)
+        except Exception as e:
+            log(f"Vision Logo Detection fehlgeschlagen: {e}")
 
     # --- Category keyword scoring ---
     cat_scores = {}
@@ -254,7 +276,23 @@ def build_feature_prompt(features):
         lines.append(f"  Wahrscheinlicher Dokumenttyp: {tc}")
     if features.get("header_zone"):
         lines.append(f"  Briefkopf (erste 30% der Seite): {features['header_zone'][:200]}")
+    if features.get("exact_date"):
+        lines.append(f"  Gefundenes Rechnungsdatum: {features['exact_date']}")
+    if features.get("exact_invoice_no"):
+        lines.append(f"  Gefundene Rechnungsnummer: {features['exact_invoice_no']}")
+    if features.get("vision_logo_text"):
+        lines.append(f"  Vision-KI Logo Erkennung: {features['vision_logo_text']}")
     return "\n".join(lines)
+
+
+def extract_header_image(file_path, output_path="temp_header.png"):
+    """Render the top 30% of the first PDF page as a PNG image."""
+    doc = fitz.open(file_path)
+    page = doc[0]
+    clip = fitz.Rect(0, 0, page.rect.width, page.rect.height * 0.30)
+    pix = page.get_pixmap(clip=clip, dpi=150)
+    pix.save(output_path)
+    doc.close()
 
 
 RECEIPT_SIGNALS = [

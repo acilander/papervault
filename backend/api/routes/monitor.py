@@ -168,6 +168,44 @@ def scan_missing():
     return {"scanned": len(docs), "missing_found": len(missing), "missing": missing}
 
 
+@router.post("/repair-missing")
+def repair_missing():
+    """
+    For each DB entry with status='missing', search TARGET_BASE recursively for a file
+    with the same filename. If found, update file_path and restore status to previous value.
+    """
+    docs = db.search_documents(status="missing", limit=99999)
+    repaired, not_found = [], []
+
+    # Build a filename→path index of all PDFs in TARGET_BASE once (fast)
+    file_index: dict[str, list[str]] = {}
+    for root, dirs, files in os.walk(TARGET_BASE):
+        # Skip special dirs
+        skip = {"duplicates", "failed", "encrypted", "review", "Inbox"}
+        dirs[:] = [d for d in dirs if d not in skip]
+        for fname in files:
+            if fname.lower().endswith(".pdf"):
+                file_index.setdefault(fname, []).append(os.path.join(root, fname))
+
+    for doc in docs:
+        fname = doc.get("filename") or os.path.basename(doc.get("file_path", ""))
+        matches = file_index.get(fname, [])
+        if matches:
+            new_path = matches[0]  # take first match
+            db.update_document(doc["id"], file_path=new_path, status="ok")
+            repaired.append({"id": doc["id"], "filename": fname, "new_path": new_path})
+        else:
+            not_found.append({"id": doc["id"], "filename": fname})
+
+    return {
+        "scanned": len(docs),
+        "repaired": len(repaired),
+        "not_found": len(not_found),
+        "details": repaired,
+        "missing_still": not_found,
+    }
+
+
 @router.delete("/missing")
 def delete_missing():
     """Delete all DB entries with status='missing' at once."""
@@ -233,34 +271,32 @@ def scan_orphans():
 @router.post("/orphans/import")
 def import_orphans(body: dict):
     """
-    Import selected orphan PDFs into the DB with status='pending'.
+    Import selected orphan PDFs by moving them into the Inbox so the archiver picks them up.
     body: { "paths": ["/path/to/file.pdf", ...] }
-    The archiver will pick them up on next run for LLM classification.
     """
+    import shutil
+    from pdf_utils import unique_path
     paths = body.get("paths", [])
     if not paths:
         raise HTTPException(status_code=400, detail="Keine Pfade angegeben")
 
+    os.makedirs(SOURCE_DIR, exist_ok=True)
     imported, skipped, errors = 0, 0, []
     for fpath in paths:
+        fpath = os.path.normpath(fpath)
         if not os.path.exists(fpath):
             errors.append(f"Nicht gefunden: {fpath}")
             continue
         fname = os.path.basename(fpath)
         try:
-            db.upsert_document(
-                file_path=fpath,
-                filename=fname,
-                sender=None,
-                date=None,
-                document_type=None,
-                category=None,
-                summary=None,
-                status="pending",
-            )
+            inbox_path = unique_path(os.path.join(SOURCE_DIR, fname))
+            shutil.move(fpath, inbox_path)
+            # Remove stale DB entry at old path if present
+            existing = db.get_document_by_path(fpath)
+            if existing:
+                db.delete_document(existing["id"])
             imported += 1
         except Exception as e:
-            # Likely already exists with different path – skip
             skipped += 1
             errors.append(f"{fname}: {e}")
 
