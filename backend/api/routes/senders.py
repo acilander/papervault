@@ -209,9 +209,12 @@ def merge_sender(name: str, target: str):
 @router.delete("/{name}", status_code=204)
 def delete_sender(name: str):
     if name not in storage.sender_registry:
+        log(f"[Sender] Löschen fehlgeschlagen: '{name}' nicht im Register")
         raise HTTPException(status_code=404, detail="Absender nicht gefunden")
+    log(f"[Sender] Lösche '{name}' aus DB...")
     sender_repo.delete(name)
     storage._refresh_cache()
+    log(f"[Sender] '{name}' gelöscht. Verbleibend: {len(storage.sender_registry)}")
 
 
 @router.post("/{name}/remove-category")

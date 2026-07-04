@@ -58,8 +58,12 @@ export default function Senders() {
 
   const handleDelete = async (name: string) => {
     if (!confirm(`Absender "${name}" wirklich löschen?`)) return
-    await deleteSender(name)
-    await load()
+    try {
+      await deleteSender(name)
+      await load()
+    } catch (e: any) {
+      alert('Fehler beim Löschen: ' + (e?.response?.data?.detail ?? e.message))
+    }
   }
 
   const handleConfirm = async (name: string) => {

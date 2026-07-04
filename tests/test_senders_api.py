@@ -119,3 +119,68 @@ def test_rebuild_senders_persists_after_restart(in_memory_db):
     registry = response.json()
     assert "Telekom" in registry
     assert "Kommunikation" in registry["Telekom"]["categories"]
+
+
+def test_delete_sender_removes_entry_from_registry(in_memory_db):
+    """Verify that DELETE /senders/{name} removes the sender and refreshes the registry."""
+    from fastapi.testclient import TestClient
+    from api.main import app
+    import db.sender_repo as sender_repo
+
+    db.upsert_document(
+        file_path="/tmp/telekom.pdf",
+        filename="telekom.pdf",
+        sender="Telekom",
+        date="2026-01-15",
+        document_type="Rechnung",
+        category="Kommunikation",
+        summary="Telekom Rechnung",
+        status="ok",
+    )
+
+    client = TestClient(app)
+    client.post("/senders/~rebuild")
+    assert sender_repo.count() == 1
+
+    response = client.delete("/senders/Telekom")
+    assert response.status_code == 204
+    assert sender_repo.count() == 0
+
+    response = client.get("/senders/")
+    assert response.status_code == 200
+    registry = response.json()
+    assert "Telekom" not in registry
+
+
+def test_delete_sender_with_special_characters(in_memory_db):
+    """Verify that URL-encoded sender names are decoded and deleted correctly."""
+    from fastapi.testclient import TestClient
+    from api.main import app
+    import db.sender_repo as sender_repo
+
+    name = "AOK Baden-Württemberg"
+    db.upsert_document(
+        file_path="/tmp/aok.pdf",
+        filename="aok.pdf",
+        sender=name,
+        date="2026-01-15",
+        document_type="Bescheid",
+        category="Gesundheit",
+        summary="AOK Beitragsbescheid",
+        status="ok",
+    )
+
+    client = TestClient(app)
+    client.post("/senders/~rebuild")
+    assert sender_repo.count() == 1
+    assert name in sender_repo.get_all()
+
+    from urllib.parse import quote
+    response = client.delete(f"/senders/{quote(name, safe='')}")
+    assert response.status_code == 204
+    assert sender_repo.count() == 0
+
+    response = client.get("/senders/")
+    assert response.status_code == 200
+    registry = response.json()
+    assert name not in registry
