@@ -96,6 +96,22 @@ def test_keyword_not_in_text_removed():
     assert result == ""
 
 
+def test_fuzzy_keyword_ocr_correction_kept():
+    # Text contains OCR typo 'Bodan', LLM corrects to 'Baden' → should survive
+    text = "AOK Bodan-Württemberg Beitragsbescheid"
+    result = filter_keywords_against_text("Baden-Württemberg, Beitragsbescheid", text)
+    assert "Baden-Württemberg" in result
+    assert "Beitragsbescheid" in result
+
+
+def test_fuzzy_keyword_does_not_allow_hallucination():
+    # Completely unrelated keyword should still be removed despite fuzzy logic
+    text = "Rechnung von Telekom"
+    result = filter_keywords_against_text("Krankenhaus", text)
+    assert "Krankenhaus" not in result
+    assert result == ""
+
+
 # ── Sender normalization ─────────────────────────────────────────────────────
 
 def test_normalize_sender_exact_match(monkeypatch):

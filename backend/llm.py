@@ -123,10 +123,13 @@ def validate_classification(data):
 def filter_keywords_against_text(keywords_str: str, source_text: str) -> str:
     """
     Remove keywords that do not appear in the source text (hallucinations).
-    Matching is case-insensitive and umlaut-normalized.
+    Matching is case-insensitive and umlaut-normalized. Also allows fuzzy matches
+    so OCR-corrected keywords (e.g. 'Baden' when the text says 'Bodan') survive.
     Single-char tokens and generic placeholder words are always removed.
     Returns cleaned comma-separated string, or '' if nothing survives.
     """
+    from difflib import get_close_matches
+
     BLOCKLIST = {
         "ibans", "iban", "vertragsnummern", "produktnamen", "ortsangaben",
         "fachbegriffe", "betraege", "betrag", "dokument", "brief", "datum",
@@ -134,6 +137,7 @@ def filter_keywords_against_text(keywords_str: str, source_text: str) -> str:
     }
 
     text_norm = normalize_umlauts(source_text)
+    text_words = text_norm.split()
     kept = []
     for kw in keywords_str.split(","):
         kw = kw.strip()
@@ -142,9 +146,12 @@ def filter_keywords_against_text(keywords_str: str, source_text: str) -> str:
         kw_norm = normalize_umlauts(kw)
         if kw_norm in BLOCKLIST:
             continue
-        # Accept if the keyword (or its first meaningful word ≥4 chars) is in text
+        # Accept if the keyword (or its meaningful words ≥4 chars) is in text
+        # either exactly or via fuzzy match (catches OCR typos like Bodan -> Baden)
         words = [w for w in kw_norm.split() if len(w) >= 4]
-        if kw_norm in text_norm or any(w in text_norm for w in words):
+        exact = kw_norm in text_norm or any(w in text_norm for w in words)
+        fuzzy = any(get_close_matches(w, text_words, n=1, cutoff=0.85) for w in words)
+        if exact or fuzzy:
             kept.append(kw)
 
     return ", ".join(kept)
