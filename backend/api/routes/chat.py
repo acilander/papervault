@@ -21,8 +21,8 @@ Verfügbare Felder:
 - keywords: Stichwort das im Dokument vorkommen soll
 
 Gib NUR ein JSON-Objekt zurück, nur mit den Feldern die in der Frage erkennbar sind.
-Beispiel: {"sender": "Autohaus Hohlweck", "year": "2025", "document_type": "Rechnung"}
-Wenn keine Filter erkennbar sind: {}
+Beispiel: {{"sender": "Autohaus Hohlweck", "year": "2025", "document_type": "Rechnung"}}
+Wenn keine Filter erkennbar sind: {{}}
 
 Frage: {question}"""
 

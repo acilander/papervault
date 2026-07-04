@@ -42,6 +42,22 @@ def test_chat_returns_503_when_llm_not_loaded(in_memory_db, monkeypatch):
     assert "KI-Modell" in response.json()["detail"]
 
 
+def test_extract_filters_formats_prompt_without_key_error(in_memory_db, monkeypatch):
+    """Verify the prompt formatting and JSON parsing work for filter extraction.
+
+    This would have caught the KeyError caused by unescaped braces in the JSON example.
+    """
+    from api.routes import chat as chat_module
+
+    def fake_llm(prompt, **kwargs):
+        assert 'Beispiel: {"sender": "Autohaus Hohlweck"' in prompt
+        return {"choices": [{"text": '{"sender": "Telekom", "year": "2025"}'}]}
+
+    monkeypatch.setattr(chat_module, "get_llm", lambda: fake_llm)
+    result = chat_module._extract_filters("Rechnungen von Telekom 2025")
+    assert result == {"sender": "Telekom", "year": "2025"}
+
+
 def test_chat_returns_answer_with_mock_llm(in_memory_db, monkeypatch):
     """Verify chat with a mocked LLM returns filters and documents."""
     from fastapi.testclient import TestClient
