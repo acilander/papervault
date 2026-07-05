@@ -13,8 +13,9 @@ pdf2image==1.17.0
 pytesseract==0.3.13
 
 # === LLM (local inference) ===
-# Install with CUDA support manually if GPU available:
-#   pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu128
+# Pre-built CUDA wheel (kein Build nötig, Python 3.10–3.12 + CUDA 11.8–13.2):
+#   pip install llama-cpp-python==0.3.32 --force-reinstall --no-cache-dir --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu132
+# GPU-Nutzung: N_GPU_LAYERS=-1 in .env (alle Layer auf GPU, Pflicht)
 llama_cpp_python==0.3.32
 
 # === Vision / Logo Detection ===
@@ -29,11 +30,9 @@ pyvips==3.1.1
 moondream==1.3.0
 
 # === PyTorch ===
-# Install with CUDA support manually:
-#   pip install torch==2.11.0 torchvision --index-url https://download.pytorch.org/whl/cu128
-# CPU-only fallback:
-#   pip install torch torchvision
-torch==2.11.0
+# CUDA-Wheel muss manuell installiert werden (vor requirements.txt!):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu132
+torch
 torchvision
 
 # === Testing ===

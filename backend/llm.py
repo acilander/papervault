@@ -7,6 +7,7 @@ from datetime import datetime
 from difflib import get_close_matches
 
 from llama_cpp import Llama
+import llama_cpp
 
 from config import (
     MODEL_PATH, MAX_RETRIES, CATEGORIES, DOCUMENT_TYPES,
@@ -26,18 +27,35 @@ def get_llm():
     return _llm
 
 
+def assert_gpu_support():
+    if N_GPU_LAYERS == 0:
+        raise RuntimeError(
+            f"GPU-Betrieb erzwungen, aber N_GPU_LAYERS=0 (CPU-only). "
+            "Setze N_GPU_LAYERS=-1 in der .env-Datei."
+        )
+    if not llama_cpp.llama_supports_gpu_offload():
+        raise RuntimeError(
+            "GPU-Unterstuetzung fehlt: llama-cpp-python wurde ohne GPU-Backend kompiliert. "
+            "Bitte mit CUDA-Index reinstallieren: "
+            "pip install llama-cpp-python==0.3.32 --force-reinstall --no-cache-dir "
+            "--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu132"
+        )
+
+
 def load_model():
     global _llm
     from config import MOCK_LLM
     if MOCK_LLM:
         return
     if _llm is None:
-        log("Lade LLM-Modell (einmalig)...")
+        assert_gpu_support()
+        model_name = os.path.basename(MODEL_PATH)
+        model_size = os.path.getsize(MODEL_PATH) / (1024 ** 3) if os.path.exists(MODEL_PATH) else 0
+        log(f"Lade LLM-Modell: {model_name} ({model_size:.1f} GB)...")
         t0 = time.time()
-        _llm = Llama(model_path=MODEL_PATH, n_ctx=8192, n_threads=6, n_gpu_layers=N_GPU_LAYERS, verbose=False, chat_format="chatml")
+        _llm = Llama(model_path=MODEL_PATH, n_ctx=4096, n_threads=6, n_gpu_layers=N_GPU_LAYERS, verbose=False, chat_format="chatml")
         elapsed = time.time() - t0
-        gpu_info = f"GPU-Layer: {N_GPU_LAYERS}" if N_GPU_LAYERS != 0 else "CPU-only"
-        log(f"Modell geladen in {elapsed:.1f}s [{gpu_info}]")
+        log(f"Modell geladen: {model_name} in {elapsed:.1f}s [GPU-Layer: {N_GPU_LAYERS}]")
 
 
 def normalize_sender(sender):
@@ -320,7 +338,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             user_hint = sender_hint_prefix
 
     load_model()
-    safe_text = safe_text[:3500]  # n_ctx=8192 gives headroom; prepare_text_for_llm already compresses
+    safe_text = safe_text[:2000]  # n_ctx=4096; prepare_text_for_llm already compresses
     system_prompt = SYSTEM_PROMPT.replace("{current_year}", str(datetime.now().year))
 
     if storage.sender_registry:
@@ -344,7 +362,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
     else:
         filename_hint = ""
 
-    few_shot_hint = fb.build_few_shot_prompt(n=10)
+    few_shot_hint = fb.build_few_shot_prompt(n=5)
 
     hint_block = f"\n\nBenutzerhinweis (hohe Prioritaet): {user_hint}" if user_hint else ""
 
@@ -372,9 +390,9 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
 
     # Emergency char-count guard (n_ctx=8192 ≈ 24000 chars; prompt should always fit with safe_text=3500)
     # Only kicks in if overhead blocks (few_shot, similar) are unexpectedly large.
-    _CHAR_LIMIT = 20000
+    _CHAR_LIMIT = 10000
     if len(system_prompt) + len(user_content) > _CHAR_LIMIT:
-        user_content = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:1500]}{hint_instruction}"
+        user_content = f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:1000]}{hint_instruction}"
 
     base_messages = [
         {"role": "system", "content": system_prompt},
@@ -400,7 +418,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             with _llm_lock:
                 result = _llm.create_chat_completion(
                     messages=current_messages,
-                    max_tokens=512,
+                    max_tokens=256,
                     temperature=0.0
                 )
             raw = result["choices"][0]["message"]["content"]

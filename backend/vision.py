@@ -27,8 +27,14 @@ def _load_model():
         return
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
-    dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "Vision-Modell (moondream2) erfordert CUDA. "
+            "Keine GPU verfügbar – bitte torch mit CUDA installieren: "
+            "pip install torch torchvision --index-url https://download.pytorch.org/whl/cu132"
+        )
+    dtype = torch.float16
+    device = "cuda"
     _stderr, sys.stderr = sys.stderr, io.StringIO()
     try:
         _tokenizer = AutoTokenizer.from_pretrained(_MODEL_ID, revision=_REVISION)
