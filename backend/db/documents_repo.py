@@ -25,6 +25,12 @@ def upsert_document(file_path, filename, sender, date, document_type,
         return row["id"] if row else None
 
 
+def get_all_file_paths() -> set:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT file_path FROM documents").fetchall()
+    return {os.path.normpath(r["file_path"]) for r in rows if r["file_path"]}
+
+
 def get_document(doc_id):
     with get_conn() as conn:
         row = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
@@ -79,50 +85,121 @@ def update_document(doc_id, **fields):
         conn.execute(f"UPDATE documents SET {set_clause} WHERE id = ?", values)
 
 
+_LIST_COLS = """
+    d.id, d.file_path, d.filename, d.sender, d.date, d.document_type, d.category,
+    SUBSTR(d.summary, 1, 200) AS summary, d.content_hash, d.status, d.archived_at,
+    d.tags, d.tax_relevant, d.tax_year, d.expires_at, d.notes, d.low_value
+"""
+
+
 def search_documents(query=None, category=None, year=None, sender=None,
                      status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None, limit=100, offset=0):
-    """Full-text search + optional filters. Returns list of dicts."""
+    """Full-text search + optional filters. Returns list of dicts (no full_text/sim_hash/keywords)."""
     with get_conn() as conn:
         if query:
-            sql = """
-                SELECT d.* FROM documents d
-                JOIN documents_fts fts ON d.id = fts.rowid
-                WHERE documents_fts MATCH ?
+            sql = f"""
+                SELECT {_LIST_COLS}
+                FROM documents d
+                WHERE EXISTS (
+                    SELECT 1 FROM documents_fts
+                    WHERE documents_fts.rowid = d.id AND documents_fts MATCH ?
+                )
             """
             params = [query]
         else:
-            sql = "SELECT * FROM documents WHERE 1=1"
+            sql = f"SELECT {_LIST_COLS} FROM documents d WHERE 1=1"
             params = []
 
         if category:
-            sql += " AND category = ?"
+            sql += " AND d.category = ?"
             params.append(category)
         if year:
-            sql += " AND date LIKE ?"
+            sql += " AND d.date LIKE ?"
             params.append(f"{year}%")
         if sender:
-            sql += " AND sender LIKE ?"
+            sql += " AND d.sender LIKE ?"
             params.append(f"%{sender}%")
         if status:
-            sql += " AND status = ?"
+            sql += " AND d.status = ?"
             params.append(status)
         if tax_relevant is not None:
-            sql += " AND tax_relevant = ?"
+            sql += " AND d.tax_relevant = ?"
             params.append(int(tax_relevant))
         if tag:
-            sql += " AND tags LIKE ?"
+            sql += " AND d.tags LIKE ?"
             params.append(f"%{tag}%")
         if no_sender:
-            sql += " AND (sender IS NULL OR sender = '')"
+            sql += " AND (d.sender IS NULL OR d.sender = '')"
         if low_value is not None:
-            sql += " AND low_value = ?"
+            sql += " AND d.low_value = ?"
             params.append(int(low_value))
 
-        sql += " ORDER BY archived_at DESC LIMIT ? OFFSET ?"
+        sql += " ORDER BY d.archived_at DESC LIMIT ? OFFSET ?"
         params += [limit, offset]
 
         rows = conn.execute(sql, params).fetchall()
         return [dict(r) for r in rows]
+
+
+def bulk_update_documents(ids: list, fields: dict) -> int:
+    """Update multiple documents in a single SQL transaction. Returns rowcount."""
+    allowed = {"sender", "category", "document_type", "date", "notes"}
+    filtered = {k: v for k, v in fields.items() if k in allowed}
+    if not filtered or not ids:
+        return 0
+    set_clause = ", ".join(f"{k} = ?" for k in filtered)
+    placeholders = ",".join("?" * len(ids))
+    values = list(filtered.values()) + list(ids)
+    with get_conn() as conn:
+        cur = conn.execute(
+            f"UPDATE documents SET {set_clause} WHERE id IN ({placeholders})",
+            values
+        )
+        return cur.rowcount
+
+
+def count_documents(query=None, category=None, year=None, sender=None,
+                    status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None):
+    """Count matching documents (same filters as search_documents, no limit/offset)."""
+    with get_conn() as conn:
+        if query:
+            sql = """
+                SELECT COUNT(*) FROM documents d
+                WHERE EXISTS (
+                    SELECT 1 FROM documents_fts
+                    WHERE documents_fts.rowid = d.id AND documents_fts MATCH ?
+                )
+            """
+            params = [query]
+        else:
+            sql = "SELECT COUNT(*) FROM documents d WHERE 1=1"
+            params = []
+
+        if category:
+            sql += " AND d.category = ?"
+            params.append(category)
+        if year:
+            sql += " AND d.date LIKE ?"
+            params.append(f"{year}%")
+        if sender:
+            sql += " AND d.sender LIKE ?"
+            params.append(f"%{sender}%")
+        if status:
+            sql += " AND d.status = ?"
+            params.append(status)
+        if tax_relevant is not None:
+            sql += " AND d.tax_relevant = ?"
+            params.append(int(tax_relevant))
+        if tag:
+            sql += " AND d.tags LIKE ?"
+            params.append(f"%{tag}%")
+        if no_sender:
+            sql += " AND (d.sender IS NULL OR d.sender = '')"
+        if low_value is not None:
+            sql += " AND d.low_value = ?"
+            params.append(int(low_value))
+
+        return conn.execute(sql, params).fetchone()[0]
 
 
 def delete_document(doc_id):

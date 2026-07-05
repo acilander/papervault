@@ -82,18 +82,23 @@ if __name__ == "__main__":
 
     existing = []
     if os.path.isdir(SOURCE_DIR):
-        for root, _, files in os.walk(SOURCE_DIR):
+        known_paths = set(db.get_all_file_paths())
+        for root, dirs, files in os.walk(SOURCE_DIR):
+            # Don't recurse into target subdirectories (review, failed, etc.)
+            dirs[:] = [d for d in dirs if os.path.join(root, d) != TARGET_BASE]
             for f in files:
                 if f.lower().endswith(".pdf"):
-                    existing.append(os.path.join(root, f))
+                    fp = os.path.join(root, f)
+                    if fp not in known_paths:
+                        existing.append(fp)
     if existing:
-        log(f"Startup-Scan: {len(existing)} vorhandene PDF(s) gefunden - verarbeite zuerst...")
+        log(f"Startup-Scan: {len(existing)} neue PDF(s) gefunden - verarbeite zuerst...")
         for filepath in existing:
             _pdf_queue.put(filepath)
         _pdf_queue.join()
         log("Startup-Scan abgeschlossen.")
     else:
-        log("Startup-Scan: Keine vorhandenen PDFs im Inbox-Ordner.")
+        log("Startup-Scan: Keine neuen PDFs im Inbox-Ordner.")
 
     log("Warte auf neue PDF-Dateien... (Strg+C zum Beenden)")
     observer = Observer()

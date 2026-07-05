@@ -114,17 +114,23 @@ def _build_user_hint(file_path: str, text: str) -> tuple[str | None, str | None]
 
 def _stage_or_archive(file_path: str, new_name: str, confidence: str, data: dict):
     """Move file to review/ or archive directly. Returns (dest_pdf, status, log_status, log_msg, log_fin)."""
+    if not os.path.exists(file_path):
+        return None, None, None, None, None
     if confidence == "high" and data.get("date") and data.get("date") != "null":
         log("[AUTO-ARCHIV] Hohes Vertrauen verifiziert. Archiviere Dokument direkt...")
         from pipeline.steps import archive_file_on_disk
-        dest_pdf = archive_file_on_disk(file_path, data.get("category") or "Sonstiges", data.get("sender"), data.get("date"))
+        try:
+            dest_pdf = archive_file_on_disk(file_path, data.get("category") or "Sonstiges", data.get("sender"), data.get("date"))
+        except FileNotFoundError:
+            return None, None, None, None, None
         return dest_pdf, "ok", "auto_archived", f"[AUTO-ARCHIV] Erfolgreich einsortiert nach: {dest_pdf}", "--- Abgeschlossen (automatisch archiviert) ---"
     else:
         os.makedirs(REVIEW_DIR, exist_ok=True)
         dest_pdf = unique_path(os.path.join(REVIEW_DIR, new_name))
-        if not os.path.exists(file_path):
+        try:
+            shutil.move(file_path, dest_pdf)
+        except FileNotFoundError:
             return None, None, None, None, None
-        shutil.move(file_path, dest_pdf)
         return dest_pdf, "review", "review", f"Bereit zur Pruefung – verschoben nach: {dest_pdf}", "--- Abgeschlossen (wartet auf Bestaetigung) ---"
 
 
@@ -222,6 +228,7 @@ def process_pdf(file_path, doc_id=None):
     db.update_document(doc_id, sim_hash=doc_sim_hash)
 
     # Phase 6: File placement + DB update (transactional)
+    dest_pdf = None
     try:
         dest_pdf, final_status, log_status, log_msg, log_fin = _stage_or_archive(file_path, new_name, confidence, data)
 
@@ -245,9 +252,11 @@ def process_pdf(file_path, doc_id=None):
             low_value=data.get("low_value", 0),
             full_text=safe_text,
         )
+        log(log_msg)
+        log(log_fin)
     except Exception as db_err:
         log(f"FEHLER: Dateisystem-DB Transaktionsfehler. Starte Rollback... (Fehler: {db_err})")
-        if 'dest_pdf' in locals() and dest_pdf and os.path.exists(dest_pdf):
+        if dest_pdf and os.path.exists(dest_pdf):
             try:
                 os.makedirs(FAILED_DIR, exist_ok=True)
                 rollback_dest = unique_path(os.path.join(FAILED_DIR, os.path.basename(dest_pdf)))
@@ -259,11 +268,12 @@ def process_pdf(file_path, doc_id=None):
                                    summary=f"FEHLER: DB-Transaktionsfehler beim Archivieren ({db_err})")
             except Exception as rollback_err:
                 log(f"FATAL: Rollback fehlgeschlagen, Datei festgefahren unter {dest_pdf}! (Fehler: {rollback_err})")
-        raise
-
-    generate_thumbnail(dest_pdf, doc_id)
-    record_sender(category, sender)
-    cleanup_empty_inbox_folders(file_path)
+        return
+    finally:
+        if dest_pdf:
+            generate_thumbnail(dest_pdf, doc_id)
+            record_sender(category, sender)
+            cleanup_empty_inbox_folders(file_path)
 
     # Phase 7: Post-processing (confidence notes, keyword validation)
     notes = f"[Vertrauen: {confidence.upper()}] {confidence_reason}"
@@ -272,9 +282,6 @@ def process_pdf(file_path, doc_id=None):
         validated_kw = filter_keywords_against_text(data["keywords"], text)
         if validated_kw:
             db.update_document(doc_id, keywords=validated_kw)
-
-    log(log_msg)
-    log(log_fin)
 
 
 def reindex_from_archive():
