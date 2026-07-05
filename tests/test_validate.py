@@ -53,12 +53,12 @@ def test_owner_as_sender_rejected():
     assert any("Empfaenger" in e for e in errors)
 
 
-def test_placeholder_sender_rejected():
+def test_placeholder_sender_normalized_to_none():
     for placeholder in ("unbekannt", "n/a", "???", "Absender", ""):
         d = _valid()
         d["sender"] = placeholder
-        errors = validate_classification(d)
-        assert errors, f"Platzhalter '{placeholder}' hätte abgelehnt werden sollen"
+        validate_classification(d)
+        assert d["sender"] is None, f"Platzhalter '{placeholder}' hätte zu None normalisiert werden sollen"
 
 
 def test_null_sender_is_accepted():
