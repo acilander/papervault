@@ -149,15 +149,17 @@ def process_single_file(req: ProcessFileRequest):
         global _processing_busy
         import utils as _utils
         _utils._FORCED_LOG_FILE = ARCHIVER_STDOUT
-        with _processing_lock:
-            _processing_busy = True
         try:
             process_pdf(req.file_path)
         finally:
             _utils._FORCED_LOG_FILE = None
+            fname = os.path.basename(req.file_path)
+            _inbox_cache["files"] = [f for f in _inbox_cache["files"] if f["filename"] != fname]
             with _processing_lock:
                 _processing_busy = False
 
+    with _processing_lock:
+        _processing_busy = True
     threading.Thread(target=_run, daemon=True, name="manual-process").start()
     return {"started": True, "file": os.path.basename(req.file_path)}
 
@@ -188,8 +190,6 @@ def process_all_inbox():
         global _processing_busy
         import utils as _utils
         _utils._FORCED_LOG_FILE = ARCHIVER_STDOUT
-        with _processing_lock:
-            _processing_busy = True
         try:
             for fp in pdfs:
                 process_pdf(fp)
@@ -198,6 +198,8 @@ def process_all_inbox():
             with _processing_lock:
                 _processing_busy = False
 
+    with _processing_lock:
+        _processing_busy = True
     threading.Thread(target=_run, daemon=True, name="manual-process-all").start()
     return {"started": True, "count": len(pdfs), "files": [os.path.basename(p) for p in pdfs]}
 
@@ -210,27 +212,60 @@ def processing_status():
 
 # ── Inbox preview ───────────────────────────────────────────────────────────
 
+_inbox_cache: dict = {"files": [], "ts": 0.0}
+_INBOX_TTL = 10.0  # seconds
+
+
+def _scan_inbox() -> list:
+    files = []
+    try:
+        with os.scandir(SOURCE_DIR) as it:
+            for entry in it:
+                if entry.is_file() and entry.name.lower().endswith(".pdf"):
+                    stat = entry.stat()
+                    files.append({
+                        "filename": entry.name,
+                        "size_kb": round(stat.st_size / 1024, 1),
+                        "modified": time.strftime("%Y-%m-%d %H:%M", time.localtime(stat.st_mtime)),
+                    })
+    except PermissionError:
+        return []
+    files.sort(key=lambda f: f["filename"])
+    return files
+
+
+def _refresh_inbox_cache():
+    """Refresh cache in background thread so requests never block."""
+    import threading
+    def _run():
+        result = _scan_inbox()
+        _inbox_cache["files"] = result
+        _inbox_cache["ts"] = time.time()
+    threading.Thread(target=_run, daemon=True, name="inbox-scan").start()
+
+
 @router.get("/inbox")
-def inbox_preview():
-    """List PDFs in SOURCE_DIR that have not been archived yet."""
+def inbox_preview(force: bool = False):
+    """List PDFs in SOURCE_DIR. Uses a cache to avoid slow network drive scans."""
     if not os.path.isdir(SOURCE_DIR):
         return {"source_dir": SOURCE_DIR, "files": [], "error": "Inbox-Ordner nicht gefunden"}
 
-    files = []
-    for root, _, fnames in os.walk(SOURCE_DIR):
-        for fname in fnames:
-            if not fname.lower().endswith(".pdf"):
-                continue
-            fpath = os.path.join(root, fname)
-            stat = os.stat(fpath)
-            rel = os.path.relpath(fpath, SOURCE_DIR)
-            files.append({
-                "filename": rel,
-                "size_kb": round(stat.st_size / 1024, 1),
-                "modified": time.strftime("%Y-%m-%d %H:%M", time.localtime(stat.st_mtime)),
-            })
-    files.sort(key=lambda f: f["filename"])
-    return {"source_dir": SOURCE_DIR, "files": files}
+    age = time.time() - _inbox_cache["ts"]
+    if force or age > _INBOX_TTL:
+        _refresh_inbox_cache()
+
+    return {"source_dir": SOURCE_DIR, "files": _inbox_cache["files"]}
+
+
+@router.post("/inbox/refresh")
+def inbox_refresh():
+    """Force an immediate inbox rescan (blocks until done)."""
+    if not os.path.isdir(SOURCE_DIR):
+        return {"source_dir": SOURCE_DIR, "files": []}
+    result = _scan_inbox()
+    _inbox_cache["files"] = result
+    _inbox_cache["ts"] = time.time()
+    return {"source_dir": SOURCE_DIR, "files": result}
 
 
 @router.get("/duplicates")
