@@ -13,6 +13,7 @@ export default defineConfig({
       '/health': 'http://localhost:8000',
       '/monitor': 'http://localhost:8000',
       '/chat': 'http://localhost:8000',
+      '/config': 'http://localhost:8000',
     },
   },
 })

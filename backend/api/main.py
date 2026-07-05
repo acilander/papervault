@@ -10,7 +10,7 @@ import db
 import storage
 import config
 from config import DB_PATH, CORS_ORIGINS
-from api.routes import documents, senders, stats, monitor, chat, collections
+from api.routes import documents, senders, stats, monitor, chat, collections, config as config_router
 
 
 @asynccontextmanager
@@ -22,7 +22,9 @@ async def lifespan(app: FastAPI):
     import feedback as fb
     fb._migrate_from_json()
     import threading
-    from llm import load_model
+    from llm import load_model, assert_gpu_support
+    if not config.MOCK_LLM:
+        assert_gpu_support()
     threading.Thread(target=load_model, daemon=True, name="llm-preload").start()
     yield
     # Shutdown actions (none currently required)
@@ -60,6 +62,7 @@ app.include_router(stats.router)
 app.include_router(monitor.router)
 app.include_router(chat.router)
 app.include_router(collections.router)
+app.include_router(config_router.router)
 
 
 @app.get("/health")

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, Copy, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, Copy, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import DocumentDetail from './pages/DocumentDetail'
@@ -11,6 +11,7 @@ import Chat from './pages/Chat'
 import Duplicates from './pages/Duplicates'
 import Validation from './pages/Validation'
 import Collections from './pages/Collections'
+import Settings from './pages/Settings'
 import axios from 'axios'
 import { ConfigProvider } from './ConfigContext'
 
@@ -24,6 +25,7 @@ const nav = [
   { to: '/duplicates', label: 'Duplikate', icon: ScanSearch },
   { to: '/validation', label: 'Validierung', icon: ShieldCheck },
   { to: '/monitor', label: 'Monitor', icon: Activity },
+  { to: '/settings', label: 'Einstellungen', icon: SettingsIcon },
 ]
 
 interface SidebarBadges {
@@ -189,6 +191,7 @@ export default function App() {
             <Route path="/validation" element={<Validation />} />
             <Route path="/collections" element={<Collections />} />
             <Route path="/collections/:id" element={<Collections />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
       </div>
