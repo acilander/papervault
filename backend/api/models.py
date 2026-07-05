@@ -2,6 +2,27 @@ from typing import Optional
 from pydantic import BaseModel
 
 
+class DocumentListOut(BaseModel):
+    """Lightweight model for list endpoints — excludes full_text, keywords, sim_hash."""
+    id: int
+    file_path: str
+    filename: str
+    sender: Optional[str]
+    date: Optional[str]
+    document_type: Optional[str]
+    category: Optional[str]
+    summary: Optional[str]
+    content_hash: Optional[str]
+    status: str
+    archived_at: str
+    tags: Optional[str] = ""
+    tax_relevant: Optional[int] = 0
+    tax_year: Optional[str] = None
+    expires_at: Optional[str] = None
+    notes: Optional[str] = None
+    low_value: Optional[int] = 0
+
+
 class DocumentOut(BaseModel):
     id: int
     file_path: str

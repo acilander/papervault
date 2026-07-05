@@ -33,6 +33,7 @@ SENDERS_FILE   = os.path.join(PROJECT_ROOT, "senders.json")
 FEEDBACK_FILE  = os.path.join(PROJECT_ROOT, "feedback.json")
 LOG_FILE       = os.path.join(TARGET_BASE, "processing_log.jsonl")
 DB_PATH        = os.getenv("DB_PATH", os.path.join(TARGET_BASE, "archive.db"))
+CORS_ORIGINS   = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",") if o.strip()]
 
 from categories import (
     CATEGORIES, CATEGORY_FOLDER_MAP, DOCUMENT_TYPES, OWNER_NAMES, TYPE_CATEGORY_MAP,

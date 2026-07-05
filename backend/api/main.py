@@ -1,14 +1,15 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+import logging
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 import os
 
 import db
 import storage
 import config
-from config import DB_PATH
+from config import DB_PATH, CORS_ORIGINS
 from api.routes import documents, senders, stats, monitor, chat, collections
 
 
@@ -20,6 +21,9 @@ async def lifespan(app: FastAPI):
     storage.load_sender_registry()
     import feedback as fb
     fb._migrate_from_json()
+    import threading
+    from llm import load_model
+    threading.Thread(target=load_model, daemon=True, name="llm-preload").start()
     yield
     # Shutdown actions (none currently required)
 
@@ -34,11 +38,20 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+logger = logging.getLogger("papervault")
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unbehandelte Exception bei %s %s", request.method, request.url)
+    return JSONResponse(status_code=500, content={"detail": "Interner Serverfehler"})
 
 
 app.include_router(documents.router)

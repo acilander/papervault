@@ -27,25 +27,25 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
-    filename, sender, summary, keywords,
+    filename, sender, summary, keywords, full_text,
     content=documents, content_rowid=id
 );
 
 CREATE TRIGGER IF NOT EXISTS documents_ai AFTER INSERT ON documents BEGIN
-    INSERT INTO documents_fts(rowid, filename, sender, summary, keywords)
-    VALUES (new.id, new.filename, new.sender, new.summary, new.keywords);
+    INSERT INTO documents_fts(rowid, filename, sender, summary, keywords, full_text)
+    VALUES (new.id, new.filename, new.sender, new.summary, new.keywords, new.full_text);
 END;
 
 CREATE TRIGGER IF NOT EXISTS documents_au AFTER UPDATE ON documents BEGIN
-    INSERT INTO documents_fts(documents_fts, rowid, filename, sender, summary, keywords)
-    VALUES ('delete', old.id, old.filename, old.sender, old.summary, old.keywords);
-    INSERT INTO documents_fts(rowid, filename, sender, summary, keywords)
-    VALUES (new.id, new.filename, new.sender, new.summary, new.keywords);
+    INSERT INTO documents_fts(documents_fts, rowid, filename, sender, summary, keywords, full_text)
+    VALUES ('delete', old.id, old.filename, old.sender, old.summary, old.keywords, old.full_text);
+    INSERT INTO documents_fts(rowid, filename, sender, summary, keywords, full_text)
+    VALUES (new.id, new.filename, new.sender, new.summary, new.keywords, new.full_text);
 END;
 
 CREATE TRIGGER IF NOT EXISTS documents_ad AFTER DELETE ON documents BEGIN
-    INSERT INTO documents_fts(documents_fts, rowid, filename, sender, summary, keywords)
-    VALUES ('delete', old.id, old.filename, old.sender, old.summary, old.keywords);
+    INSERT INTO documents_fts(documents_fts, rowid, filename, sender, summary, keywords, full_text)
+    VALUES ('delete', old.id, old.filename, old.sender, old.summary, old.keywords, old.full_text);
 END;
 """
 
@@ -61,6 +61,8 @@ MIGRATIONS = [
     "ALTER TABLE documents ADD COLUMN low_value INTEGER DEFAULT 0",
     "ALTER TABLE documents ADD COLUMN full_text TEXT DEFAULT ''",
     "ALTER TABLE documents ADD COLUMN sim_hash INTEGER DEFAULT NULL",
+    "CREATE INDEX IF NOT EXISTS idx_documents_archived_at ON documents(archived_at DESC)",
+    "INSERT INTO documents_fts(documents_fts) VALUES('rebuild')",
 ]
 
 def init_db():

@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from db.connection import get_conn
 
 
@@ -58,7 +58,7 @@ def get_collection(collection_id: int):
 
 
 def create_collection(name: str, description: str = "", color: str = "#6366f1"):
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     with get_conn() as conn:
         cur = conn.execute(
             "INSERT INTO collections (name, description, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
@@ -72,7 +72,7 @@ def update_collection(collection_id: int, **fields):
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
-    updates["updated_at"] = datetime.utcnow().isoformat()
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     set_clause = ", ".join(f"{k} = ?" for k in updates)
     values = list(updates.values()) + [collection_id]
     with get_conn() as conn:
@@ -85,7 +85,7 @@ def delete_collection(collection_id: int):
 
 
 def add_document(collection_id: int, document_id: int):
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     with get_conn() as conn:
         conn.execute(
             "INSERT OR IGNORE INTO collection_documents (collection_id, document_id, added_at) VALUES (?, ?, ?)",
@@ -102,7 +102,7 @@ def remove_document(collection_id: int, document_id: int):
         )
         conn.execute(
             "UPDATE collections SET updated_at = ? WHERE id = ?",
-            (datetime.utcnow().isoformat(), collection_id)
+            (datetime.now(timezone.utc).isoformat(), collection_id)
         )
 
 

@@ -68,7 +68,7 @@ def _build_context(docs: list[dict]) -> str:
     parts = []
     for i, doc in enumerate(docs[:8], 1):
         full = doc.get("full_text", "").strip()
-        content = full[:400] if full else doc.get("summary", "–")
+        content = full[:800] if full else doc.get("summary", "–")
         parts.append(
             f"[{i}] {doc.get('filename', '?')} | {doc.get('sender', '–')} | "
             f"{doc.get('date', '–')} | {doc.get('document_type', '–')}\n{content}"

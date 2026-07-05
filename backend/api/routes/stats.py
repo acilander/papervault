@@ -34,22 +34,23 @@ def get_quality():
         if total == 0:
             return {"total": 0, "score": 100, "fields": {}, "top_incomplete": [], "expiring_soon": 0}
 
-        def _missing(col):
-            return conn.execute(
-                f"SELECT COUNT(*) FROM documents WHERE status NOT IN "
-                f"('processing','failed','duplicate','encrypted','corrupt') "
-                f"AND ({col} IS NULL OR TRIM({col})='')"
-            ).fetchone()[0]
-
-        missing_sender   = _missing("sender")
-        missing_date     = _missing("date")
-        missing_type     = _missing("document_type")
-        missing_category = _missing("category")
-        missing_summary  = _missing("summary")
-        no_simhash       = conn.execute(
-            "SELECT COUNT(*) FROM documents WHERE status NOT IN "
-            "('processing','failed','duplicate','encrypted','corrupt') AND sim_hash IS NULL"
-        ).fetchone()[0]
+        row = conn.execute("""
+            SELECT
+                SUM(CASE WHEN sender IS NULL OR TRIM(sender)='' THEN 1 ELSE 0 END) AS missing_sender,
+                SUM(CASE WHEN date IS NULL OR TRIM(date)='' THEN 1 ELSE 0 END) AS missing_date,
+                SUM(CASE WHEN document_type IS NULL OR TRIM(document_type)='' THEN 1 ELSE 0 END) AS missing_type,
+                SUM(CASE WHEN category IS NULL OR TRIM(category)='' THEN 1 ELSE 0 END) AS missing_category,
+                SUM(CASE WHEN summary IS NULL OR TRIM(summary)='' THEN 1 ELSE 0 END) AS missing_summary,
+                SUM(CASE WHEN sim_hash IS NULL THEN 1 ELSE 0 END) AS no_simhash
+            FROM documents
+            WHERE status NOT IN ('processing','failed','duplicate','encrypted','corrupt')
+        """).fetchone()
+        missing_sender   = row["missing_sender"]   or 0
+        missing_date     = row["missing_date"]     or 0
+        missing_type     = row["missing_type"]     or 0
+        missing_category = row["missing_category"] or 0
+        missing_summary  = row["missing_summary"]  or 0
+        no_simhash       = row["no_simhash"]       or 0
 
         # weighted score: sender+date+type are critical (weight 3 each), others weight 1
         weights = {"sender": 3, "date": 3, "document_type": 3, "category": 1, "summary": 1}
