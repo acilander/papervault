@@ -36,3 +36,8 @@ senders.json
 
 # Logs
 *.log
+
+# Test/coverage artifacts
+.coverage
+coverage.txt
+pytest_output*.txt
