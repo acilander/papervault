@@ -94,8 +94,11 @@ def validate_classification(data):
     # Check 3 & 7: sender not empty or placeholder
     sender = str(data.get("sender") or "").strip()
     sender_is_null = data.get("sender") is None
-    if not sender_is_null and (not sender or sender.lower() in ("null", "unbekannt", "n/a", "???", "absender", "")):
-        errors.append(f"'sender' ist leer oder ein Platzhalter ('{sender}'). Bitte den Namen der ausstellenden Organisation angeben.")
+    _sender_placeholders = ("null", "unbekannt", "unknown", "n/a", "???", "absender", "keine angabe", "")
+    if not sender_is_null and sender.lower() in _sender_placeholders:
+        # Normalize to null instead of erroring — sender genuinely unknown is valid
+        data["sender"] = None
+        sender_is_null = True
 
     # Check 4: sender is not the archive owner
     elif not sender_is_null and any(owner in sender.lower() for owner in OWNER_NAMES):
@@ -365,6 +368,32 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
     header_block = f"\n\n--- DOKUMENT-BRIEFKOPF (Ausschließliche Absender-Quelle) ---\n{header_zone}\n----------------------------------" if header_zone else ""
     hint_instruction = f"\n\n!!! WICHTIGE ANWEISUNG DES BENUTZERS (hat hoechste Prioritaet, ignoriere nichts davon): {user_hint} !!!" if user_hint else ""
     user_content = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text}{hint_instruction}"
+
+    # Ensure total prompt fits within context window using the LLM tokenizer.
+    # Reserve 512 tokens for the model response.
+    _n_ctx = 4096
+    _reserve = 512
+    _max_prompt_tokens = _n_ctx - _reserve
+    def _count_tokens(system: str, user: str) -> int:
+        try:
+            return len(_llm.tokenize((system + user).encode("utf-8", errors="replace")))
+        except Exception:
+            return len((system + user)) // 3
+    _tokens = _count_tokens(system_prompt, user_content)
+    if _tokens > _max_prompt_tokens:
+        # Progressively trim safe_text until it fits
+        _trim_text = safe_text
+        for _fraction in [0.75, 0.5, 0.35, 0.2, 0.1]:
+            _trim_text = safe_text[:int(len(safe_text) * _fraction)]
+            _candidate = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{_trim_text}{hint_instruction}"
+            if _count_tokens(system_prompt, _candidate) <= _max_prompt_tokens:
+                user_content = _candidate
+                safe_text = _trim_text
+                break
+        else:
+            # Overhead alone is too large — drop few_shot and similar blocks
+            user_content = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:500]}{hint_instruction}"
+            safe_text = safe_text[:500]
 
     base_messages = [
         {"role": "system", "content": system_prompt},

@@ -12,13 +12,13 @@ from config import (
 from pdf_utils import (
     extract_text, ocr_pdf, prepare_text_for_llm,
     unique_path, extract_features, build_feature_prompt,
-    detect_receipt
+    detect_receipt, compute_simhash, generate_thumbnail
 )
 from llm import classify_document, filter_keywords_against_text
 from storage import record_sender, apply_sender_overrides, processing_log
 import db
 from utils import log
-from pipeline.steps import check_duplicate, cleanup_empty_inbox_folders
+from pipeline.steps import check_duplicate, check_fuzzy_duplicate, cleanup_empty_inbox_folders
 
 def _register_doc(file_path: str, doc_id) -> int:
     """Ensure document has a DB identity. Returns doc_id."""
@@ -144,10 +144,20 @@ def process_pdf(file_path, doc_id=None):
     if text is None:
         return
 
-    # Phase 3: Duplicate check
+    # Phase 3: Duplicate check (exact hash)
     if check_duplicate(file_path, text, doc_id):
         return
     doc_content_hash = getattr(check_duplicate, 'last_hash', None)
+
+    # Phase 3b: SimHash near-duplicate check (rescanned documents)
+    doc_sim_hash = compute_simhash(text)
+    sim_matches = db.get_similar_by_simhash(doc_sim_hash, doc_id)
+    sim_duplicate_note = None
+    if sim_matches:
+        best = sim_matches[0]
+        similarity = round((1.0 - best['simhash_distance'] / 64) * 100, 1)
+        log(f"SCAN-DUPLIKAT erkannt ({similarity}% Textübereinstimmung) – ähnlich wie: {os.path.basename(best['file_path'])}")
+        sim_duplicate_note = f"Mögliches Scan-Duplikat ({similarity}% Textübereinstimmung) von: {os.path.basename(best['file_path'])}"
 
     # Phase 4: Pre-analysis (features, hints, receipt detection)
     safe_text = prepare_text_for_llm(text)
@@ -189,6 +199,18 @@ def process_pdf(file_path, doc_id=None):
     confidence = data.get("confidence", "low")
     confidence_reason = data.get("confidence_reason", "")
 
+    # Phase 5b: Fuzzy duplicate check (Sender + Datum + Typ)
+    fuzzy_match = check_fuzzy_duplicate(doc_id, sender, data.get("date"), data.get("document_type"))
+    if fuzzy_match:
+        log(f"WAHRSCHEINLICHES DUPLIKAT: Gleicher Absender/Datum/Typ wie '{os.path.basename(fuzzy_match['file_path'])}' – zur Prüfung verschoben.")
+        confidence = "low"
+        data["confidence"] = "low"
+        data["notes"] = f"Wahrscheinliches Duplikat von: {os.path.basename(fuzzy_match['file_path'])} (gleicher Absender/Datum/Typ)"
+    elif sim_duplicate_note:
+        confidence = "low"
+        data["confidence"] = "low"
+        data["notes"] = sim_duplicate_note
+
     if user_hint and os.path.exists(hint_path):
         try:
             os.remove(hint_path)
@@ -196,6 +218,8 @@ def process_pdf(file_path, doc_id=None):
             pass
 
     new_name = os.path.basename(file_path)
+
+    db.update_document(doc_id, sim_hash=doc_sim_hash)
 
     # Phase 6: File placement + DB update (transactional)
     try:
@@ -225,12 +249,19 @@ def process_pdf(file_path, doc_id=None):
         log(f"FEHLER: Dateisystem-DB Transaktionsfehler. Starte Rollback... (Fehler: {db_err})")
         if 'dest_pdf' in locals() and dest_pdf and os.path.exists(dest_pdf):
             try:
-                shutil.move(dest_pdf, file_path)
-                log(f"Rollback erfolgreich: Datei zurückverschoben nach {file_path}")
+                os.makedirs(FAILED_DIR, exist_ok=True)
+                rollback_dest = unique_path(os.path.join(FAILED_DIR, os.path.basename(dest_pdf)))
+                shutil.move(dest_pdf, rollback_dest)
+                log(f"Rollback: Datei in failed/ verschoben: {rollback_dest}")
+                db.update_document(doc_id, file_path=rollback_dest,
+                                   filename=os.path.basename(rollback_dest),
+                                   status="failed",
+                                   summary=f"FEHLER: DB-Transaktionsfehler beim Archivieren ({db_err})")
             except Exception as rollback_err:
                 log(f"FATAL: Rollback fehlgeschlagen, Datei festgefahren unter {dest_pdf}! (Fehler: {rollback_err})")
         raise
 
+    generate_thumbnail(dest_pdf, doc_id)
     record_sender(category, sender)
     cleanup_empty_inbox_folders(file_path)
 

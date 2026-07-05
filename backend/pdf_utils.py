@@ -14,8 +14,33 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
-from config import FILE_READY_TIMEOUT
+from config import FILE_READY_TIMEOUT, TARGET_BASE
 from utils import log
+
+THUMBNAILS_DIR = os.path.join(TARGET_BASE, "thumbnails")
+
+
+def generate_thumbnail(file_path: str, doc_id: int, width: int = 240) -> str | None:
+    """Render first page of PDF to a WebP thumbnail.
+    Returns the thumbnail path on success, None on failure."""
+    os.makedirs(THUMBNAILS_DIR, exist_ok=True)
+    thumb_path = os.path.join(THUMBNAILS_DIR, f"{doc_id}.webp")
+    try:
+        doc = fitz.open(file_path)
+        page = doc[0]
+        scale = width / page.rect.width
+        mat = fitz.Matrix(scale, scale)
+        pix = page.get_pixmap(matrix=mat, alpha=False)
+        pix.save(thumb_path, output="webp")
+        doc.close()
+        return thumb_path
+    except Exception as e:
+        log(f"Thumbnail-Fehler für {os.path.basename(file_path)}: {e}")
+        return None
+
+
+def get_thumbnail_path(doc_id: int) -> str:
+    return os.path.join(THUMBNAILS_DIR, f"{doc_id}.webp")
 
 
 
@@ -371,11 +396,60 @@ def wait_for_file(file_path, timeout=FILE_READY_TIMEOUT):
     return False
 
 
+def compute_simhash(text: str, bits: int = 64) -> int:
+    """Compute a SimHash fingerprint of the given text.
+    Similar texts produce hashes with low Hamming distance.
+    Returns an integer fingerprint."""
+    import hashlib as _hl
+    tokens = re.findall(r'\w+', text.lower())
+    if not tokens:
+        return 0
+    v = [0] * bits
+    for token in tokens:
+        h = int(_hl.md5(token.encode("utf-8", errors="replace")).hexdigest(), 16)
+        for i in range(bits):
+            if h & (1 << i):
+                v[i] += 1
+            else:
+                v[i] -= 1
+    fingerprint = 0
+    for i in range(bits):
+        if v[i] > 0:
+            fingerprint |= (1 << i)
+    return fingerprint & 0x7FFF_FFFF_FFFF_FFFF
+
+
+def simhash_distance(h1: int, h2: int) -> int:
+    """Hamming distance between two SimHash fingerprints (number of differing bits)."""
+    x = h1 ^ h2
+    dist = 0
+    while x:
+        dist += x & 1
+        x >>= 1
+    return dist
+
+
+def simhash_similarity(h1: int, h2: int, bits: int = 64) -> float:
+    """Similarity [0.0 – 1.0] between two SimHash fingerprints."""
+    if h1 == 0 and h2 == 0:
+        return 1.0
+    return 1.0 - simhash_distance(h1, h2) / bits
+
+
 def unique_path(path):
-    if not os.path.exists(path):
+    import os as _os
+    try:
+        from db.documents_repo import get_document_by_path as _get_doc
+        def _taken(p):
+            return _os.path.exists(p) or (_get_doc(p) is not None)
+    except Exception:
+        def _taken(p):
+            return _os.path.exists(p)
+
+    if not _taken(path):
         return path
-    base, ext = os.path.splitext(path)
+    base, ext = _os.path.splitext(path)
     counter = 1
-    while os.path.exists(f"{base}_{counter}{ext}"):
+    while _taken(f"{base}_{counter}{ext}"):
         counter += 1
     return f"{base}_{counter}{ext}"

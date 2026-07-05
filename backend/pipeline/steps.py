@@ -65,8 +65,11 @@ def check_duplicate(file_path, text, doc_id):
             hash_type = "text"
 
     check_duplicate.last_hash = content_hash  # expose hash to caller
-    
+    check_duplicate.last_fuzzy_match = None   # expose fuzzy match to caller
+
     import db as _db
+
+    # --- Exact hash match ---
     existing_doc = _db.get_document_by_hash(content_hash)
     if existing_doc and existing_doc["id"] != doc_id:
         existing_path = existing_doc["file_path"]
@@ -86,13 +89,12 @@ def check_duplicate(file_path, text, doc_id):
                 log(f"Shortcut zum Original erstellt: {shortcut_name}")
 
         log("--- Abgeschlossen (als Duplikat) ---")
-        
-        # Record duplicate in the SQLite database by updating the exact tracking ID
+
         _db.update_document(
-            doc_id, 
-            file_path=dest, 
-            filename=os.path.basename(dest), 
-            summary=f"DUPLIKAT: Identisch mit '{os.path.basename(existing_path)}' (Hash: {content_hash})", 
+            doc_id,
+            file_path=dest,
+            filename=os.path.basename(dest),
+            summary=f"DUPLIKAT: Identisch mit '{os.path.basename(existing_path)}' (Hash: {content_hash})",
             status="duplicate"
         )
 
@@ -100,6 +102,28 @@ def check_duplicate(file_path, text, doc_id):
         return True
 
     return False
+
+
+def check_fuzzy_duplicate(doc_id, sender, date, document_type):
+    """Check for probable duplicate by matching sender + date + document_type.
+    Returns the existing document if a match is found, else None."""
+    if not sender or not date or not document_type:
+        return None
+    import db as _db
+    from db.connection import get_conn as _get_conn
+    with _get_conn() as conn:
+        row = conn.execute(
+            """SELECT * FROM documents
+               WHERE sender = ? AND date = ? AND document_type = ?
+                 AND status IN ('ok', 'review')
+                 AND id != ?
+               LIMIT 1""",
+            (sender, date, document_type, doc_id)
+        ).fetchone()
+    if row:
+        check_duplicate.last_fuzzy_match = dict(row)
+        return dict(row)
+    return None
 
 
 def archive_file_on_disk(file_path, category, sender, date):
