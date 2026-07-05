@@ -9,8 +9,9 @@ from difflib import get_close_matches
 from llama_cpp import Llama
 import llama_cpp
 
+import config as _config
 from config import (
-    MODEL_PATH, MAX_RETRIES, CATEGORIES, DOCUMENT_TYPES,
+    MAX_RETRIES, CATEGORIES, DOCUMENT_TYPES,
     OWNER_NAMES, SYSTEM_PROMPT, N_GPU_LAYERS,
 )
 import storage
@@ -49,11 +50,12 @@ def load_model():
         return
     if _llm is None:
         assert_gpu_support()
-        model_name = os.path.basename(MODEL_PATH)
-        model_size = os.path.getsize(MODEL_PATH) / (1024 ** 3) if os.path.exists(MODEL_PATH) else 0
+        model_path = _config.MODEL_PATH
+        model_name = os.path.basename(model_path)
+        model_size = os.path.getsize(model_path) / (1024 ** 3) if os.path.exists(model_path) else 0
         log(f"Lade LLM-Modell: {model_name} ({model_size:.1f} GB)...")
         t0 = time.time()
-        _llm = Llama(model_path=MODEL_PATH, n_ctx=4096, n_threads=6, n_gpu_layers=N_GPU_LAYERS, verbose=False, chat_format="chatml")
+        _llm = Llama(model_path=model_path, n_ctx=4096, n_threads=6, n_gpu_layers=N_GPU_LAYERS, verbose=False, chat_format="chatml")
         elapsed = time.time() - t0
         log(f"Modell geladen: {model_name} in {elapsed:.1f}s [GPU-Layer: {N_GPU_LAYERS}]")
 
