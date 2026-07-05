@@ -14,6 +14,7 @@ export default defineConfig({
       '/monitor': 'http://localhost:8000',
       '/chat': 'http://localhost:8000',
       '/config': 'http://localhost:8000',
+      '/collections': 'http://localhost:8000',
     },
   },
 })
