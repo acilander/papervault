@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(_HERE)
-load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
+load_dotenv(os.path.join(PROJECT_ROOT, ".env"), override=True)
 
 SOURCE_DIR         = os.getenv("SOURCE_DIR",         "C:/Archive/Inbox")
 TARGET_BASE        = os.getenv("TARGET_BASE",         "C:/Archive")
