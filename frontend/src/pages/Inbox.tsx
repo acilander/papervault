@@ -13,9 +13,18 @@ interface EditState {
   summary: string
 }
 
+type InboxTab = 'review' | 'processing' | 'failed'
+
+const TAB_LABELS: Record<InboxTab, string> = {
+  review: 'Zu überprüfen',
+  processing: 'In Verarbeitung',
+  failed: 'Fehlgeschlagen',
+}
+
 export default function Inbox() {
   const { categories: CATEGORIES, documentTypes: DOCUMENT_TYPES } = useConfig()
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState<InboxTab>('review')
   const [docs, setDocs] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<number | null>(null)
@@ -29,23 +38,35 @@ export default function Inbox() {
   // Selection state
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
+  const fetchForTab = useCallback(async (tab: InboxTab) => {
+    if (tab === 'processing') {
+      const [pending, processing] = await Promise.all([
+        getDocuments({ status: 'pending', limit: 200 }),
+        getDocuments({ status: 'processing', limit: 200 }),
+      ])
+      return [...pending, ...processing]
+    }
+    if (tab === 'failed') return getDocuments({ status: 'classification_failed', limit: 200 })
+    return getDocuments({ status: 'review', limit: 200 })
+  }, [])
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getDocuments({ status: 'review', limit: 200 })
+      const data = await fetchForTab(activeTab)
       setDocs(data)
       setSelected(new Set())
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeTab, fetchForTab])
 
   const refresh = useCallback(async () => {
     try {
-      const data = await getDocuments({ status: 'review', limit: 200 })
+      const data = await fetchForTab(activeTab)
       setDocs(data)
     } catch {}
-  }, [])
+  }, [activeTab, fetchForTab])
 
   useEffect(() => { load() }, [load])
 
@@ -155,13 +176,30 @@ export default function Inbox() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-4">
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
+        {(Object.keys(TAB_LABELS) as InboxTab[]).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+              activeTab === tab
+                ? 'bg-white dark:bg-gray-900 border border-b-white dark:border-gray-700 dark:border-b-gray-900 text-blue-600 dark:text-blue-400 -mb-px'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            {TAB_LABELS[tab]}
+          </button>
+        ))}
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Inbox – Zur Prüfung</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Inbox – {TAB_LABELS[activeTab]}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {docs.length === 0
-              ? 'Keine Dokumente zur Prüfung.'
-              : `${docs.length} Dokument${docs.length !== 1 ? 'e' : ''} warten auf Bestätigung.`}
+              ? 'Keine Dokumente in dieser Ansicht.'
+              : `${docs.length} Dokument${docs.length !== 1 ? 'e' : ''}`}
           </p>
         </div>
         

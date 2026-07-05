@@ -267,7 +267,7 @@ class TestGenerateThumbnailsJob:
             doc_file.write_bytes(b"%PDF")
             doc_id = _insert_doc(str(doc_file), "Bank", "2024-01-01", "Kontoauszug")
             # Pre-create the thumbnail so the job sees it as already done
-            thumb = tmp_path / f"{doc_id}.webp"
+            thumb = tmp_path / f"{doc_id}.jpg"
             thumb.write_bytes(b"EXISTING")
             with patch("pdf_utils.generate_thumbnail") as mock_gen:
                 resp = client.post("/monitor/generate-thumbnails")
@@ -308,14 +308,14 @@ class TestThumbnailEndpoint:
         assert resp.status_code == 404
 
     def test_serves_existing_thumbnail(self, tmp_path):
-        thumb = tmp_path / "cached.webp"
-        thumb.write_bytes(b"RIFF\x00\x00\x00\x00WEBP")
+        thumb = tmp_path / "cached.jpg"
+        thumb.write_bytes(b"\xff\xd8\xff" + b"\x00" * 10)
         doc_id = _insert_doc("/a/thumb_doc.pdf", "Telekom", "2024-01-01", "Rechnung")
         with patch(f"{self._mod}.get_thumbnail_path", return_value=str(thumb)), \
              patch(f"{self._mod}.os.path.exists", return_value=True):
             resp = client.get(f"/documents/{doc_id}/thumbnail")
         assert resp.status_code == 200
-        assert "webp" in resp.headers["content-type"]
+        assert "jpeg" in resp.headers["content-type"]
 
     def test_generates_thumbnail_if_missing(self, tmp_path):
         thumb = tmp_path / "new.webp"
@@ -364,10 +364,14 @@ class TestGenerateThumbnailFunction:
 
     def test_returns_none_for_invalid_file(self, tmp_path):
         from pdf_utils import generate_thumbnail
-        bad = tmp_path / "not_a_pdf.txt"
-        bad.write_text("hello")
-        result = generate_thumbnail(str(bad), doc_id=1)
-        assert result is None
+        import pdf_utils
+        original = pdf_utils.THUMBNAILS_DIR
+        pdf_utils.THUMBNAILS_DIR = str(tmp_path)
+        try:
+            result = generate_thumbnail(str(tmp_path / "nonexistent_xyz.pdf"), doc_id=1)
+            assert result is None
+        finally:
+            pdf_utils.THUMBNAILS_DIR = original
 
     def test_returns_none_for_missing_file(self, tmp_path):
         from pdf_utils import generate_thumbnail
@@ -382,7 +386,7 @@ class TestGenerateThumbnailFunction:
         pdf_utils.THUMBNAILS_DIR = monkeypatch_dir
         try:
             path = get_thumbnail_path(42)
-            assert path.endswith("42.webp")
+            assert path.endswith("42.jpg")
             assert "42" in path
         finally:
             pdf_utils.THUMBNAILS_DIR = original

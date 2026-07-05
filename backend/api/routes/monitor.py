@@ -176,19 +176,37 @@ def find_duplicates(min_score: int = 60):
                 key = (min(a["id"], b["id"]), max(a["id"], b["id"]))
                 pairs[key] = {"doc_a": a, "doc_b": b, "score": 100, "reason": "Identischer Inhalt (Hash-Match)"}
 
-    # Pass 2: SimHash near-duplicate (score proportional to similarity)
-    # Limit to 500 most recent docs to avoid O(n²) timeout on large archives
-    sim_docs = [d for d in docs if d.get("sim_hash")][-500:]
-    for i in range(len(sim_docs)):
-        for j in range(i + 1, len(sim_docs)):
-            a, b = sim_docs[i], sim_docs[j]
-            key = (min(a["id"], b["id"]), max(a["id"], b["id"]))
-            if key in pairs:
-                continue
-            dist = bin(a["sim_hash"] ^ b["sim_hash"]).count("1")
-            score = round((1.0 - dist / 64) * 100)
-            if score >= 80:
-                pairs[key] = {"doc_a": a, "doc_b": b, "score": score, "reason": f"Ähnlicher Text ({score}% Übereinstimmung)"}
+    # Pass 2: SimHash near-duplicate via LSH band bucketing — O(n) instead of O(n²)
+    # 64-bit SimHash split into 8 bands of 8 bits each.
+    # Two docs collide in a bucket ↔ they share at least one identical 8-bit band,
+    # which statistically captures pairs with Hamming distance ≤ ~8 (≥87.5% similarity).
+    sim_docs = [d for d in docs if d.get("sim_hash")]
+    NUM_BANDS, BITS_PER_BAND = 8, 8
+    lsh_buckets: dict = {}
+    for doc in sim_docs:
+        h = doc["sim_hash"]
+        for band in range(NUM_BANDS):
+            band_val = (h >> (band * BITS_PER_BAND)) & ((1 << BITS_PER_BAND) - 1)
+            bucket_key = (band, band_val)
+            lsh_buckets.setdefault(bucket_key, []).append(doc)
+    candidate_pairs: set = set()
+    for bucket_docs in lsh_buckets.values():
+        if len(bucket_docs) < 2:
+            continue
+        for i in range(len(bucket_docs)):
+            for j in range(i + 1, len(bucket_docs)):
+                a, b = bucket_docs[i], bucket_docs[j]
+                candidate_pairs.add((min(a["id"], b["id"]), max(a["id"], b["id"])))
+    id_to_doc = {d["id"]: d for d in sim_docs}
+    for cand_key in candidate_pairs:
+        if cand_key in pairs:
+            continue
+        a = id_to_doc[cand_key[0]]
+        b = id_to_doc[cand_key[1]]
+        dist = bin(a["sim_hash"] ^ b["sim_hash"]).count("1")
+        score = round((1.0 - dist / 64) * 100)
+        if score >= 80:
+            pairs[cand_key] = {"doc_a": a, "doc_b": b, "score": score, "reason": f"Ähnlicher Text ({score}% Übereinstimmung)"}
 
     # Pass 3: Metadata match — same sender + date + document_type (score=70)
     from itertools import combinations

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search, Filter, LayoutList, LayoutGrid, Download, X } from 'lucide-react'
-import { getDocuments, getExpiring, thumbnailUrl, bulkUpdate, csvExportUrl, type Document } from '../api'
+import { Search, Filter, LayoutList, LayoutGrid, Download, X, Undo2, FolderPlus } from 'lucide-react'
+import { getDocumentsPage, getExpiring, thumbnailUrl, bulkUpdate, csvExportUrl, getCollections, addDocumentToCollection, type Document, type Collection } from '../api'
 import { useConfig } from '../ConfigContext'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -16,19 +16,30 @@ const STATUS_COLORS: Record<string, string> = {
   corrupt:               'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
 }
 
+const PAGE_SIZE = 50
+
 export default function Documents() {
   const { categories: CATEGORIES } = useConfig()
   const [searchParams, setSearchParams] = useSearchParams()
   const [docs, setDocs] = useState<Document[]>([])
+  const [total, setTotal] = useState(0)
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
   const [year, setYear] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [bulkField, setBulkField] = useState('')
   const [bulkValue, setBulkValue] = useState('')
   const [bulkLoading, setBulkLoading] = useState(false)
+  // Fix 18: Undo bulk edit
+  const [undoSnapshot, setUndoSnapshot] = useState<{ docs: Document[]; label: string } | null>(null)
+  // Fix 19: Bulk-add to collection
+  const [collections, setCollections] = useState<Collection[]>([])
+  const [addToColId, setAddToColId] = useState('')
+  const [addToColLoading, setAddToColLoading] = useState(false)
 
   // Derive filter state directly from URL so sidebar quick-links and cross-page navigation work
   const status = searchParams.get('status') ?? ''
@@ -55,20 +66,17 @@ export default function Documents() {
     next ? p.set('expires', '1') : p.delete('expires')
     setSearchParams(p, { replace: true })
   }
-
   const setSender = (v: string) => {
     const p = new URLSearchParams(searchParams)
     v ? p.set('sender', v) : p.delete('sender')
     setSearchParams(p, { replace: true })
   }
-
   const setNoSenderFilter = (fn: (prev: boolean) => boolean) => {
     const next = fn(noSenderFilter)
     const p = new URLSearchParams(searchParams)
     next ? p.set('no_sender', '1') : p.delete('no_sender')
     setSearchParams(p, { replace: true })
   }
-
   const setLowValueFilter = (fn: (prev: boolean) => boolean) => {
     const next = fn(lowValueFilter)
     const p = new URLSearchParams(searchParams)
@@ -80,28 +88,60 @@ export default function Documents() {
     setQ('')
     setCategory('')
     setYear('')
+    setTagFilter('')
     setSearchParams({}, { replace: true })
   }
 
-  const load = useCallback(() => {
+  const buildFilterParams = useCallback(() => ({
+    q: q || undefined,
+    category: category || undefined,
+    year: year || undefined,
+    sender: sender || undefined,
+    status: status || undefined,
+    tax_relevant: taxFilter ? 1 : undefined,
+    no_sender: noSenderFilter ? 1 : undefined,
+    low_value: lowValueFilter ? 1 : undefined,
+    tag: tagFilter || undefined,
+  }), [q, category, year, sender, status, taxFilter, noSenderFilter, lowValueFilter, tagFilter])
+
+  const load = useCallback(async () => {
     setLoading(true)
-    if (expiresFilter) {
-      getExpiring(60).then(setDocs).finally(() => setLoading(false))
-    } else {
-      getDocuments({
-        q: q || undefined, category: category || undefined, year: year || undefined,
-        sender: sender || undefined, status: status || undefined,
-        tax_relevant: taxFilter ? 1 : undefined,
-        no_sender: noSenderFilter ? 1 : undefined,
-        low_value: lowValueFilter ? 1 : undefined,
-        limit: 200,
-      }).then(setDocs).finally(() => setLoading(false))
+    setDocs([])
+    setTotal(0)
+    try {
+      if (expiresFilter) {
+        const data = await getExpiring(60)
+        setDocs(data)
+        setTotal(data.length)
+      } else {
+        const { docs: data, total: t } = await getDocumentsPage({ ...buildFilterParams(), limit: PAGE_SIZE, offset: 0 })
+        setDocs(data)
+        setTotal(t)
+      }
+    } finally {
+      setLoading(false)
     }
-  }, [q, category, year, sender, status, taxFilter, expiresFilter, noSenderFilter, lowValueFilter])
+  }, [expiresFilter, buildFilterParams])
+
+  const loadMore = async () => {
+    setLoadingMore(true)
+    try {
+      const { docs: more } = await getDocumentsPage({ ...buildFilterParams(), limit: PAGE_SIZE, offset: docs.length })
+      setDocs(prev => [...prev, ...more])
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { getCollections().then(setCollections).catch(() => {}) }, [])
 
   const years = Array.from({ length: 10 }, (_, i) => String(new Date().getFullYear() - i))
+
+  // Fix 16: collect unique tags from loaded docs
+  const allTags = Array.from(new Set(
+    docs.flatMap(d => (d.tags ?? '').split(',').map(t => t.trim()).filter(Boolean))
+  )).sort()
 
   const toggleSelect = (id: number) => setSelected(prev => {
     const next = new Set(prev)
@@ -113,17 +153,49 @@ export default function Documents() {
   )
   const clearSelection = () => setSelected(new Set())
 
+  // Fix 18: Undo — snapshot before applying
   const applyBulk = async () => {
     if (!bulkField || !bulkValue || selected.size === 0) return
     setBulkLoading(true)
+    const snapshot = docs.filter(d => selected.has(d.id))
     try {
       await bulkUpdate(Array.from(selected), { [bulkField]: bulkValue })
+      setUndoSnapshot({ docs: snapshot, label: `${bulkField}: ${bulkValue}` })
       clearSelection()
       setBulkField('')
       setBulkValue('')
       load()
     } finally {
       setBulkLoading(false)
+    }
+  }
+
+  const undoBulk = async () => {
+    if (!undoSnapshot) return
+    const ids = undoSnapshot.docs.map(d => d.id)
+    // Restore original values per-document (only the field that was changed)
+    for (const snap of undoSnapshot.docs) {
+      await bulkUpdate([snap.id], {
+        sender: snap.sender ?? '',
+        category: snap.category ?? '',
+        document_type: snap.document_type ?? '',
+      })
+    }
+    setUndoSnapshot(null)
+    load()
+    void ids
+  }
+
+  // Fix 19: Bulk-add to collection
+  const addSelectedToCollection = async () => {
+    if (!addToColId || selected.size === 0) return
+    setAddToColLoading(true)
+    try {
+      await Promise.all(Array.from(selected).map(id => addDocumentToCollection(Number(addToColId), id)))
+      clearSelection()
+      setAddToColId('')
+    } finally {
+      setAddToColLoading(false)
     }
   }
 
@@ -191,7 +263,7 @@ export default function Documents() {
           className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
           Suchen
         </button>
-        {(status || taxFilter || expiresFilter || noSenderFilter || lowValueFilter || q || category || year || sender) && (
+        {(status || taxFilter || expiresFilter || noSenderFilter || lowValueFilter || q || category || year || sender || tagFilter) && (
           <button onClick={resetAll}
             className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             ✕ Zurücksetzen
@@ -199,8 +271,25 @@ export default function Documents() {
         )}
       </div>
 
+      {/* Fix 16: Tag filter chips */}
+      {allTags.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-400">Tags:</span>
+          {allTags.map(tag => (
+            <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? '' : tag)}
+              className={`px-2 py-0.5 rounded-full text-xs border transition-colors ${
+                tagFilter === tag
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+              }`}>
+              #{tag}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Active filter pills */}
-      {(status || taxFilter || expiresFilter) && (
+      {(status || taxFilter || expiresFilter || tagFilter) && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-gray-400">Aktive Filter:</span>
           {status && (
@@ -221,9 +310,30 @@ export default function Documents() {
               <button onClick={() => setExpiresFilter(() => false)} className="hover:text-red-900 leading-none">✕</button>
             </span>
           )}
-          <button onClick={resetAll}
-            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline ml-1">
+          {tagFilter && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs">
+              #{tagFilter}
+              <button onClick={() => setTagFilter('')} className="hover:text-indigo-900 leading-none">✕</button>
+            </span>
+          )}
+          <button onClick={resetAll} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline ml-1">
             Alle löschen
+          </button>
+        </div>
+      )}
+
+      {/* Fix 18: Undo toast */}
+      {undoSnapshot && (
+        <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-2.5">
+          <span className="text-sm text-amber-800 dark:text-amber-200">
+            Bulk-Edit angewendet: <strong>{undoSnapshot.label}</strong> ({undoSnapshot.docs.length} Dok.)
+          </span>
+          <button onClick={undoBulk}
+            className="flex items-center gap-1 px-3 py-1 bg-amber-600 text-white text-xs rounded-lg hover:bg-amber-700 transition-colors">
+            <Undo2 size={12} /> Rückgängig
+          </button>
+          <button onClick={() => setUndoSnapshot(null)} className="ml-auto text-amber-500 hover:text-amber-700">
+            <X size={14} />
           </button>
         </div>
       )}
@@ -232,6 +342,8 @@ export default function Documents() {
       {selected.size > 0 && (
         <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-xl px-4 py-2.5 flex flex-wrap items-center gap-3">
           <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">{selected.size} ausgewählt</span>
+
+          {/* Bulk-edit */}
           <select value={bulkField} onChange={e => setBulkField(e.target.value)}
             className="text-sm border border-indigo-200 dark:border-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-100 rounded-lg px-2 py-1 focus:outline-none">
             <option value="">Feld wählen…</option>
@@ -245,16 +357,34 @@ export default function Documents() {
               <option value="">Kategorie wählen…</option>
               {CATEGORIES.map(c => <option key={c}>{c}</option>)}
             </select>
-          ) : (
+          ) : bulkField ? (
             <input value={bulkValue} onChange={e => setBulkValue(e.target.value)}
               placeholder="Neuer Wert…"
               className="text-sm border border-indigo-200 dark:border-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-100 rounded-lg px-2 py-1 focus:outline-none w-48" />
-          )}
+          ) : null}
           <button onClick={applyBulk} disabled={!bulkField || !bulkValue || bulkLoading}
             className="px-3 py-1 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-40 transition-colors">
             {bulkLoading ? 'Wird gespeichert…' : 'Anwenden'}
           </button>
-          <button onClick={clearSelection} className="flex items-center gap-1 text-sm text-indigo-500 hover:text-indigo-700">
+
+          {/* Fix 19: Bulk-add to collection */}
+          {collections.length > 0 && (
+            <>
+              <div className="w-px h-5 bg-indigo-200 dark:bg-indigo-700" />
+              <FolderPlus size={14} className="text-indigo-400" />
+              <select value={addToColId} onChange={e => setAddToColId(e.target.value)}
+                className="text-sm border border-indigo-200 dark:border-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-100 rounded-lg px-2 py-1 focus:outline-none">
+                <option value="">Collection wählen…</option>
+                {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <button onClick={addSelectedToCollection} disabled={!addToColId || addToColLoading}
+                className="px-3 py-1 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-40 transition-colors">
+                {addToColLoading ? 'Hinzufügen…' : 'Zu Collection'}
+              </button>
+            </>
+          )}
+
+          <button onClick={clearSelection} className="flex items-center gap-1 text-sm text-indigo-500 hover:text-indigo-700 ml-auto">
             <X size={13} /> Auswahl aufheben
           </button>
         </div>
@@ -263,7 +393,9 @@ export default function Documents() {
       {/* Table / Grid */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
         <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-          <span className="text-xs text-gray-500 dark:text-gray-400">{loading ? 'Lade…' : `${docs.length} Dokument${docs.length !== 1 ? 'e' : ''}`}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {loading ? 'Lade…' : `${docs.length} von ${total} Dokument${total !== 1 ? 'en' : ''}`}
+          </span>
           <div className="flex items-center gap-2">
             <a href={currentCsvUrl} download title="Als CSV exportieren"
               className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-500 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors">
@@ -312,13 +444,13 @@ export default function Documents() {
                         {doc.filename}
                       </Link>
                     </td>
-                    <td className="px-4 py-2 text-gray-600 truncate max-w-[160px]">{doc.sender ?? '–'}</td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-gray-400 truncate max-w-[160px]">{doc.sender ?? '–'}</td>
                     <td className="px-4 py-2">
                       {doc.category && (
                         <span className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 rounded-full text-xs whitespace-nowrap">{doc.category}</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{doc.date ?? '–'}</td>
+                    <td className="px-4 py-2 text-gray-500 dark:text-gray-400 whitespace-nowrap">{doc.date ?? '–'}</td>
                     <td className="px-4 py-2">
                       <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status}</span>
                     </td>
@@ -326,7 +458,7 @@ export default function Documents() {
                   </tr>
                 ))}
                 {docs.length === 0 && !loading && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Keine Dokumente gefunden</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Keine Dokumente gefunden</td></tr>
                 )}
               </tbody>
             </table>
@@ -361,6 +493,16 @@ export default function Documents() {
           </div>
         )}
       </div>
+
+      {/* Fix 17: Load More button */}
+      {!expiresFilter && docs.length < total && (
+        <div className="flex justify-center pt-2">
+          <button onClick={loadMore} disabled={loadingMore}
+            className="px-6 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors shadow-sm">
+            {loadingMore ? 'Lade weitere…' : `Mehr laden (${total - docs.length} weitere)`}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -190,6 +190,23 @@ export const chatSearch = (question: string) =>
 export const bulkUpdate = (ids: number[], fields: Record<string, string>) =>
   api.post<{ updated: number; skipped: number }>('/documents/bulk-update', { ids, fields }).then(r => r.data)
 
+export interface Collection { id: number; name: string; color: string; description?: string; doc_count?: number }
+
+export const getCollections = () => api.get<Collection[]>('/collections/').then(r => r.data)
+
+export const addDocumentToCollection = (collectionId: number, documentId: number) =>
+  api.post(`/collections/${collectionId}/documents/${documentId}`)
+
+export const getDocumentsPage = async (params: {
+  q?: string; category?: string; year?: string; sender?: string; status?: string
+  tax_relevant?: number; tag?: string; no_sender?: number; low_value?: number
+  limit: number; offset: number
+}): Promise<{ docs: Document[]; total: number }> => {
+  const r = await api.get<Document[]>('/documents/', { params })
+  const total = parseInt(r.headers['x-total-count'] ?? '0', 10)
+  return { docs: r.data, total }
+}
+
 export const getQuality = () =>
   api.get<{
     total: number
