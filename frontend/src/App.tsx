@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, Copy, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon, MessageSquare } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, Copy, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import DocumentDetail from './pages/DocumentDetail'
@@ -8,6 +8,9 @@ import Senders from './pages/Senders'
 import Monitor from './pages/Monitor'
 import Inbox from './pages/Inbox'
 import Chat from './pages/Chat'
+import Duplicates from './pages/Duplicates'
+import Validation from './pages/Validation'
+import Collections from './pages/Collections'
 import axios from 'axios'
 import { ConfigProvider } from './ConfigContext'
 
@@ -17,6 +20,9 @@ const nav = [
   { to: '/documents', label: 'Dokumente', icon: FileText },
   { to: '/senders', label: 'Absender', icon: Users },
   { to: '/chat', label: 'KI-Suche', icon: MessageSquare },
+  { to: '/collections', label: 'Sammlungen', icon: FolderOpen },
+  { to: '/duplicates', label: 'Duplikate', icon: ScanSearch },
+  { to: '/validation', label: 'Validierung', icon: ShieldCheck },
   { to: '/monitor', label: 'Monitor', icon: Activity },
 ]
 
@@ -36,7 +42,8 @@ interface SidebarBadges {
 function SidebarQuickLinks({ badges }: { badges: SidebarBadges }) {
   const navigate = useNavigate()
   const items = [
-    { label: 'Duplikate', icon: Copy, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20', count: badges.duplicates, filter: '?status=duplicate' },
+    { label: 'Duplikate (DB)', icon: Copy, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20', count: badges.duplicates, filter: '?status=duplicate' },
+    { label: 'Ähnliche prüfen', icon: ScanSearch, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20', count: 0, filter: undefined, link: '/duplicates' },
     { label: 'Fehlgeschlagen', icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20', count: badges.failed, filter: '?status=classification_failed' },
     { label: 'Steuerrelevant', icon: Receipt, color: 'text-yellow-600', bg: 'bg-yellow-50 dark:bg-yellow-900/20', count: badges.tax, filter: '?tax=1' },
     { label: 'Läuft ab', icon: Clock, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20', count: badges.expiring, filter: '?expires=1' },
@@ -47,17 +54,20 @@ function SidebarQuickLinks({ badges }: { badges: SidebarBadges }) {
   return (
     <div className="px-3 pb-3 space-y-1">
       <p className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 dark:text-gray-600 uppercase tracking-wider">Schnellfilter</p>
-      {items.map(({ label, icon: Icon, color, bg, count, filter }) => (
-        <button key={label}
-          onClick={() => navigate(filter ? `/documents${filter}` : '/dashboard')}
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-          <span className={`${bg} ${color} p-1 rounded`}><Icon size={12} /></span>
-          <span className="flex-1 text-left">{label}</span>
-          {count > 0 && (
-            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${bg} ${color}`}>{count}</span>
-          )}
-        </button>
-      ))}
+      {items.map((item) => {
+        const { label, icon: Icon, color, bg, count, filter } = item
+        return (
+          <button key={label}
+            onClick={() => (item as any).link ? navigate((item as any).link) : navigate(filter ? `/documents${filter}` : '/dashboard')}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            <span className={`${bg} ${color} p-1 rounded`}><Icon size={12} /></span>
+            <span className="flex-1 text-left">{label}</span>
+            {count > 0 && (
+              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${bg} ${color}`}>{count}</span>
+            )}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -152,6 +162,9 @@ export default function App() {
                 {label === 'Inbox' && badges.review > 0 && (
                   <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400">{badges.review}</span>
                 )}
+                {label === 'Duplikate' && (
+                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">neu</span>
+                )}
                 {label === 'Monitor' && badges.inbox > 0 && (
                   <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">{badges.inbox}</span>
                 )}
@@ -172,6 +185,10 @@ export default function App() {
             <Route path="/inbox" element={<Inbox />} />
             <Route path="/monitor" element={<Monitor />} />
             <Route path="/chat" element={<Chat />} />
+            <Route path="/duplicates" element={<Duplicates />} />
+            <Route path="/validation" element={<Validation />} />
+            <Route path="/collections" element={<Collections />} />
+            <Route path="/collections/:id" element={<Collections />} />
           </Routes>
         </main>
       </div>

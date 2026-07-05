@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, RefreshCw } from 'lucide-react'
+import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { getSenders, getSenderCounts, reloadSenders, rebuildSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, type SenderEntry } from '../api'
 import { useConfig } from '../ConfigContext'
 
@@ -22,15 +22,61 @@ export default function Senders() {
   const [renameValue, setRenameValue] = useState('')
   const [renameBusy, setRenameBusy] = useState(false)
 
+  type SortCol = 'name' | 'count' | 'categories' | 'pinned'
+  type SortDir = 'asc' | 'desc'
+  const [sortCol, setSortCol] = useState<SortCol>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const DEFAULT_WIDTHS = { name: 220, count: 90, categories: 220, pinned: 160, merge: 200, reorg: 100, actions: 80 }
+  const [colWidths, setColWidths] = useState(DEFAULT_WIDTHS)
+  const resizingRef = useRef<{ col: keyof typeof DEFAULT_WIDTHS; startX: number; startW: number } | null>(null)
+
+  const startResize = useCallback((col: keyof typeof DEFAULT_WIDTHS, e: React.MouseEvent) => {
+    e.preventDefault()
+    resizingRef.current = { col, startX: e.clientX, startW: colWidths[col] }
+    const onMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return
+      const delta = ev.clientX - resizingRef.current.startX
+      const newW = Math.max(60, resizingRef.current.startW + delta)
+      setColWidths(prev => ({ ...prev, [resizingRef.current!.col]: newW }))
+    }
+    const onUp = () => {
+      resizingRef.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [colWidths])
+
+  const handleSort = (col: SortCol) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir('asc') }
+  }
+
+  const SortIcon = ({ col }: { col: SortCol }) => {
+    if (sortCol !== col) return <ChevronsUpDown size={11} className="opacity-30" />
+    return sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />
+  }
+
   const load = () => Promise.all([getSenders().then(setSenders), getSenderCounts().then(setCounts)])
   useEffect(() => { load() }, [])
 
   const unreviewedCount = Object.values(senders).filter(e => e.reviewed === false).length
 
-  const filtered = Object.entries(senders).filter(([name, entry]) => {
-    if (showUnreviewed && entry.reviewed !== false) return false
-    return name.toLowerCase().includes(q.toLowerCase())
-  })
+  const filtered = Object.entries(senders)
+    .filter(([name, entry]) => {
+      if (showUnreviewed && entry.reviewed !== false) return false
+      return name.toLowerCase().includes(q.toLowerCase())
+    })
+    .sort(([nameA, entryA], [nameB, entryB]) => {
+      let cmp = 0
+      if (sortCol === 'name') cmp = nameA.localeCompare(nameB)
+      else if (sortCol === 'count') cmp = (counts[nameA] ?? 0) - (counts[nameB] ?? 0)
+      else if (sortCol === 'categories') cmp = entryA.categories.length - entryB.categories.length
+      else if (sortCol === 'pinned') cmp = (entryA.pinned_category ?? '').localeCompare(entryB.pinned_category ?? '')
+      return sortDir === 'asc' ? cmp : -cmp
+    })
 
   const handlePin = async (name: string, pin: string) => {
     setSaving(name)
@@ -149,16 +195,41 @@ export default function Senders() {
       </div>
 
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-        <table className="w-full text-sm">
+        <table className="text-sm table-fixed" style={{ width: Object.values(colWidths).reduce((a, b) => a + b, 0) }}>
+          <colgroup>
+            {(Object.keys(colWidths) as (keyof typeof colWidths)[]).map(col => (
+              <col key={col} style={{ width: colWidths[col] }} />
+            ))}
+          </colgroup>
           <thead>
-            <tr className="border-b border-gray-100 dark:border-gray-800 text-left text-xs text-gray-500 dark:text-gray-400">
-              <th className="px-4 py-2 font-medium">Absender</th>
-              <th className="px-4 py-2 font-medium text-center">Dokumente</th>
-              <th className="px-4 py-2 font-medium">Kategorien</th>
-              <th className="px-4 py-2 font-medium">Feste Kategorie</th>
-              <th className="px-4 py-2 font-medium">Zusammenführen mit</th>
-              <th className="px-4 py-2 font-medium">Reorganisieren</th>
-              <th className="px-4 py-2 font-medium"></th>
+            <tr className="border-b border-gray-100 dark:border-gray-800 text-left text-xs text-gray-500 dark:text-gray-400 select-none">
+              {([
+                { col: 'name', key: 'name', label: 'Absender', sortable: true, align: '' },
+                { col: 'count', key: 'count', label: 'Dokumente', sortable: true, align: 'text-center' },
+                { col: 'categories', key: 'categories', label: 'Kategorien', sortable: true, align: '' },
+                { col: 'pinned', key: 'pinned', label: 'Feste Kategorie', sortable: true, align: '' },
+                { col: 'merge', key: 'merge', label: 'Zusammenführen mit', sortable: false, align: '' },
+                { col: 'reorg', key: 'reorg', label: 'Reorganisieren', sortable: false, align: '' },
+                { col: 'actions', key: 'actions', label: '', sortable: false, align: '' },
+              ] as const).map(({ col, label, sortable, align }) => (
+                <th key={col} className={`px-4 py-2 font-medium relative ${align}`} style={{ width: colWidths[col] }}>
+                  <div className={`flex items-center gap-1 ${align === 'text-center' ? 'justify-center' : ''}`}>
+                    {sortable ? (
+                      <button
+                        onClick={() => handleSort(col as SortCol)}
+                        className="flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                      >
+                        {label}
+                        <SortIcon col={col as SortCol} />
+                      </button>
+                    ) : label}
+                  </div>
+                  <div
+                    onMouseDown={e => startResize(col, e)}
+                    className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400/40 transition-colors"
+                  />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -167,7 +238,7 @@ export default function Senders() {
                 entry.reviewed === false ? 'bg-blue-50/40 dark:bg-blue-900/10' :
                 entry.categories.length > 2 && !entry.pinned_category ? 'bg-orange-50/30 dark:bg-orange-900/10' : ''
               }`}>
-                <td className="px-4 py-2 font-medium text-gray-800 dark:text-gray-100 max-w-[220px]">
+                <td className="px-4 py-2 font-medium text-gray-800 dark:text-gray-100 overflow-hidden">
                   <div className="flex items-center gap-1.5">
                     {entry.reviewed === false && (
                       <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500" title="Nicht bestätigt" />

@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { FileText, CheckCircle, Lock, Download, Clock } from 'lucide-react'
-import { getStats, getExpiring, taxExportUrl, type Stats, type Document } from '../api'
+import { FileText, CheckCircle, Lock, Download, Clock, ShieldAlert, AlertTriangle } from 'lucide-react'
+import { getStats, getExpiring, getQuality, taxExportUrl, type Stats, type Document } from '../api'
 
 const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#14b8a6','#e11d48','#6366f1','#84cc16','#ec4899']
 
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [expiring, setExpiring] = useState<Document[]>([])
+  const [quality, setQuality] = useState<Awaited<ReturnType<typeof getQuality>> | null>(null)
   const [taxYear, setTaxYear] = useState(String(new Date().getFullYear() - 1))
   const [error, setError] = useState(false)
 
   useEffect(() => {
     getStats().then(setStats).catch(() => setError(true))
     getExpiring(60).then(setExpiring).catch(() => {})
+    getQuality().then(setQuality).catch(() => {})
   }, [])
 
   if (error) return (
@@ -82,6 +84,60 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Quality Score */}
+      {quality && (
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <ShieldAlert size={16} className={quality.score >= 90 ? 'text-green-500' : quality.score >= 70 ? 'text-yellow-500' : 'text-red-500'} />
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Archiv-Qualität</h3>
+            </div>
+            <div className="flex items-center gap-3">
+              {quality.expiring_soon > 0 && (
+                <span className="flex items-center gap-1 text-xs text-orange-600 font-medium">
+                  <AlertTriangle size={12} /> {quality.expiring_soon} laufen bald ab
+                </span>
+              )}
+              <span className={`text-2xl font-bold ${
+                quality.score >= 90 ? 'text-green-600' : quality.score >= 70 ? 'text-yellow-600' : 'text-red-600'
+              }`}>{quality.score}%</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3 mb-3">
+            {Object.entries(quality.fields).filter(([k]) => k !== 'sim_hash').map(([field, data]) => (
+              <div key={field} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2.5">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">{field.replace('_', ' ')}</span>
+                  <span className={`text-xs font-semibold ${data.pct > 10 ? 'text-red-500' : data.pct > 3 ? 'text-yellow-500' : 'text-green-500'}`}>
+                    {data.pct > 0 ? `${data.pct}% fehlt` : '✓'}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                  <div className={`h-1.5 rounded-full transition-all ${
+                    data.pct > 10 ? 'bg-red-500' : data.pct > 3 ? 'bg-yellow-500' : 'bg-green-500'
+                  }`} style={{ width: `${Math.max(2, 100 - data.pct)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          {quality.top_incomplete.length > 0 && (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 select-none">
+                {quality.top_incomplete.length} unvollständige Dokumente anzeigen
+              </summary>
+              <ul className="mt-2 space-y-1">
+                {quality.top_incomplete.map(d => (
+                  <li key={d.id} className="flex items-center justify-between gap-2 py-1 border-b border-gray-100 dark:border-gray-800">
+                    <Link to={`/documents/${d.id}`} className="text-blue-600 hover:underline truncate">{d.filename}</Link>
+                    <span className="text-gray-400 shrink-0">{d.missing_fields.join(', ')} fehlt</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
 
       {/* Expiring + Tax export */}
       <div className="grid grid-cols-2 gap-6">

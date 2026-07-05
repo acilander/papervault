@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil } from 'lucide-react'
+import axios from 'axios'
+import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked } from 'lucide-react'
 import { getDocument, updateDocument, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
@@ -19,9 +20,14 @@ export default function DocumentDetail() {
   const [reprocessHint, setReprocessHint] = useState('')
   const [reprocessBusy, setReprocessBusy] = useState(false)
   const [originalDoc, setOriginalDoc] = useState<Document | null>(null)
+  const [collectionDlg, setCollectionDlg] = useState(false)
+  const [allCollections, setAllCollections] = useState<{id:number,name:string,color:string}[]>([])
+  const [docCollections, setDocCollections] = useState<{id:number,name:string,color:string}[]>([])
 
   useEffect(() => {
     if (!id) return
+    axios.get('/collections/').then(r => setAllCollections(r.data)).catch(() => {})
+    axios.get(`/collections/by-document/${id}`).then(r => setDocCollections(r.data)).catch(() => {})
     getDocument(Number(id)).then(d => {
       setDoc(d)
       if (d.status === 'duplicate') {
@@ -243,6 +249,21 @@ export default function DocumentDetail() {
             <RefreshCw size={14} />
             Neu klassifizieren
           </button>
+          <button
+            onClick={() => setCollectionDlg(true)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 text-sm rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
+            <BookMarked size={14} />
+            Zur Sammlung hinzufügen
+          </button>
+          {docCollections.length > 0 && (
+            <div className="flex flex-wrap gap-1 px-1">
+              {docCollections.map(c => (
+                <span key={c.id} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full text-white" style={{backgroundColor: c.color}}>
+                  {c.name}
+                </span>
+              ))}
+            </div>
+          )}
           <button onClick={remove}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
             <Trash2 size={14} />
@@ -289,6 +310,48 @@ export default function DocumentDetail() {
     </div>
 
     {/* Reprocess dialog */}
+    {collectionDlg && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Zur Sammlung hinzufügen</h3>
+          {allCollections.length === 0 ? (
+            <p className="text-sm text-gray-500">Keine Sammlungen vorhanden. Erstelle zuerst eine unter /collections.</p>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {allCollections.map(col => {
+                const inCol = docCollections.some(c => c.id === col.id)
+                return (
+                  <button key={col.id}
+                    onClick={async () => {
+                      if (inCol) {
+                        await axios.delete(`/collections/${col.id}/documents/${doc.id}`)
+                      } else {
+                        await axios.post(`/collections/${col.id}/documents/${doc.id}`)
+                      }
+                      const res = await axios.get(`/collections/by-document/${doc.id}`)
+                      setDocCollections(res.data)
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg border transition-colors text-left ${
+                      inCol ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}>
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{backgroundColor: col.color}} />
+                    <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{col.name}</span>
+                    {inCol && <span className="text-xs text-indigo-600 dark:text-indigo-400">✓ drin</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <div className="flex justify-end">
+            <button onClick={() => setCollectionDlg(false)}
+              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+              Schließen
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     {reprocessDlg && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4">

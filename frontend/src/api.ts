@@ -173,6 +173,7 @@ export const confirmDocument = (id: number) =>
   api.post<{ detail: string; file_path: string }>(`/documents/${id}/confirm`).then(r => r.data)
 
 export const pdfUrl = (id: number) => `/documents/${id}/file`
+export const thumbnailUrl = (id: number) => `/documents/${id}/thumbnail`
 
 export const getOriginalDocument = (id: number) =>
   api.get<Document>(`/documents/${id}/original`).then(r => r.data)
@@ -185,3 +186,22 @@ export interface ChatResponse {
 
 export const chatSearch = (question: string) =>
   api.post<ChatResponse>('/chat/', { question }).then(r => r.data)
+
+export const bulkUpdate = (ids: number[], fields: Record<string, string>) =>
+  api.post<{ updated: number; skipped: number }>('/documents/bulk-update', { ids, fields }).then(r => r.data)
+
+export const getQuality = () =>
+  api.get<{
+    total: number
+    score: number
+    fields: Record<string, { missing: number; pct: number }>
+    top_incomplete: { id: number; filename: string; missing_fields: string[] }[]
+    expiring_soon: number
+  }>('/stats/quality').then(r => r.data)
+
+export const csvExportUrl = (params: Record<string, string>) => {
+  const q = new URLSearchParams(params).toString()
+  return `/documents/export/csv${q ? '?' + q : ''}`
+}
+
+export const collectionZipUrl = (id: number) => `/collections/${id}/export/zip`

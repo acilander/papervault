@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search, Filter } from 'lucide-react'
-import { getDocuments, getExpiring, type Document } from '../api'
+import { Search, Filter, LayoutList, LayoutGrid, Download, X } from 'lucide-react'
+import { getDocuments, getExpiring, thumbnailUrl, bulkUpdate, csvExportUrl, type Document } from '../api'
 import { useConfig } from '../ConfigContext'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -24,6 +24,11 @@ export default function Documents() {
   const [category, setCategory] = useState('')
   const [year, setYear] = useState('')
   const [loading, setLoading] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [bulkField, setBulkField] = useState('')
+  const [bulkValue, setBulkValue] = useState('')
+  const [bulkLoading, setBulkLoading] = useState(false)
 
   // Derive filter state directly from URL so sidebar quick-links and cross-page navigation work
   const status = searchParams.get('status') ?? ''
@@ -97,6 +102,34 @@ export default function Documents() {
   useEffect(() => { load() }, [load])
 
   const years = Array.from({ length: 10 }, (_, i) => String(new Date().getFullYear() - i))
+
+  const toggleSelect = (id: number) => setSelected(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+  const toggleAll = () => setSelected(prev =>
+    prev.size === docs.length ? new Set() : new Set(docs.map(d => d.id))
+  )
+  const clearSelection = () => setSelected(new Set())
+
+  const applyBulk = async () => {
+    if (!bulkField || !bulkValue || selected.size === 0) return
+    setBulkLoading(true)
+    try {
+      await bulkUpdate(Array.from(selected), { [bulkField]: bulkValue })
+      clearSelection()
+      setBulkField('')
+      setBulkValue('')
+      load()
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  const currentCsvUrl = csvExportUrl(Object.fromEntries(
+    Object.entries({ q, category, year, sender, status }).filter(([, v]) => v)
+  ) as Record<string, string>)
 
   return (
     <div className="p-6 space-y-4">
@@ -195,50 +228,138 @@ export default function Documents() {
         </div>
       )}
 
-      {/* Table */}
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-xl px-4 py-2.5 flex flex-wrap items-center gap-3">
+          <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">{selected.size} ausgewählt</span>
+          <select value={bulkField} onChange={e => setBulkField(e.target.value)}
+            className="text-sm border border-indigo-200 dark:border-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-100 rounded-lg px-2 py-1 focus:outline-none">
+            <option value="">Feld wählen…</option>
+            <option value="category">Kategorie</option>
+            <option value="document_type">Dokumenttyp</option>
+            <option value="sender">Absender</option>
+          </select>
+          {bulkField === 'category' ? (
+            <select value={bulkValue} onChange={e => setBulkValue(e.target.value)}
+              className="text-sm border border-indigo-200 dark:border-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-100 rounded-lg px-2 py-1 focus:outline-none">
+              <option value="">Kategorie wählen…</option>
+              {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+            </select>
+          ) : (
+            <input value={bulkValue} onChange={e => setBulkValue(e.target.value)}
+              placeholder="Neuer Wert…"
+              className="text-sm border border-indigo-200 dark:border-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-100 rounded-lg px-2 py-1 focus:outline-none w-48" />
+          )}
+          <button onClick={applyBulk} disabled={!bulkField || !bulkValue || bulkLoading}
+            className="px-3 py-1 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-40 transition-colors">
+            {bulkLoading ? 'Wird gespeichert…' : 'Anwenden'}
+          </button>
+          <button onClick={clearSelection} className="flex items-center gap-1 text-sm text-indigo-500 hover:text-indigo-700">
+            <X size={13} /> Auswahl aufheben
+          </button>
+        </div>
+      )}
+
+      {/* Table / Grid */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-        <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
-          {loading ? 'Lade…' : `${docs.length} Dokument${docs.length !== 1 ? 'e' : ''}`}
+        <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <span className="text-xs text-gray-500 dark:text-gray-400">{loading ? 'Lade…' : `${docs.length} Dokument${docs.length !== 1 ? 'e' : ''}`}</span>
+          <div className="flex items-center gap-2">
+            <a href={currentCsvUrl} download title="Als CSV exportieren"
+              className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-500 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors">
+              <Download size={13} /> CSV
+            </a>
+            <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
+            <button onClick={() => setViewMode('list')} title="Listenansicht"
+              className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              <LayoutList size={14} />
+            </button>
+            <button onClick={() => setViewMode('grid')} title="Kachelansicht"
+              className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              <LayoutGrid size={14} />
+            </button>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-800 text-left text-xs text-gray-500 dark:text-gray-400">
-                <th className="px-4 py-2 font-medium">Dateiname</th>
-                <th className="px-4 py-2 font-medium">Absender</th>
-                <th className="px-4 py-2 font-medium">Kategorie</th>
-                <th className="px-4 py-2 font-medium">Datum</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Archiviert</th>
-              </tr>
-            </thead>
-            <tbody>
-              {docs.map(doc => (
-                <tr key={doc.id} className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <td className="px-4 py-2 max-w-xs">
-                    <Link to={`/documents/${doc.id}`} className="text-blue-600 hover:underline truncate block">
-                      {doc.filename}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2 text-gray-600 truncate max-w-[160px]">{doc.sender ?? '–'}</td>
-                  <td className="px-4 py-2">
-                    {doc.category && (
-                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 rounded-full text-xs whitespace-nowrap">{doc.category}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{doc.date ?? '–'}</td>
-                  <td className="px-4 py-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status}</span>
-                  </td>
-                  <td className="px-4 py-2 text-gray-400 text-xs whitespace-nowrap">{doc.archived_at.slice(0, 10)}</td>
+        {viewMode === 'list' ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-gray-800 text-left text-xs text-gray-500 dark:text-gray-400">
+                  <th className="px-3 py-2">
+                    <input type="checkbox" checked={docs.length > 0 && selected.size === docs.length}
+                      onChange={toggleAll} className="rounded" />
+                  </th>
+                  <th className="px-4 py-2 font-medium">Dateiname</th>
+                  <th className="px-4 py-2 font-medium">Absender</th>
+                  <th className="px-4 py-2 font-medium">Kategorie</th>
+                  <th className="px-4 py-2 font-medium">Datum</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2 font-medium">Archiviert</th>
                 </tr>
-              ))}
-              {docs.length === 0 && !loading && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Keine Dokumente gefunden</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {docs.map(doc => (
+                  <tr key={doc.id}
+                    className={`border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 ${
+                      selected.has(doc.id) ? 'bg-indigo-50/60 dark:bg-indigo-900/20' : ''
+                    }`}>
+                    <td className="px-3 py-2">
+                      <input type="checkbox" checked={selected.has(doc.id)}
+                        onChange={() => toggleSelect(doc.id)} className="rounded" />
+                    </td>
+                    <td className="px-4 py-2 max-w-xs">
+                      <Link to={`/documents/${doc.id}`} className="text-blue-600 hover:underline truncate block">
+                        {doc.filename}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 text-gray-600 truncate max-w-[160px]">{doc.sender ?? '–'}</td>
+                    <td className="px-4 py-2">
+                      {doc.category && (
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 rounded-full text-xs whitespace-nowrap">{doc.category}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{doc.date ?? '–'}</td>
+                    <td className="px-4 py-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status}</span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-400 text-xs whitespace-nowrap">{doc.archived_at.slice(0, 10)}</td>
+                  </tr>
+                ))}
+                {docs.length === 0 && !loading && (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Keine Dokumente gefunden</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            {docs.map(doc => (
+              <Link key={doc.id} to={`/documents/${doc.id}`}
+                className="group flex flex-col rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all bg-white dark:bg-gray-900">
+                <div className="aspect-[3/4] bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                  <img
+                    src={thumbnailUrl(doc.id)}
+                    alt={doc.filename}
+                    className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-200"
+                    loading="lazy"
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                </div>
+                <div className="px-2 py-1.5 space-y-0.5">
+                  <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate" title={doc.filename}>{doc.filename}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{doc.sender ?? '–'}</p>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs text-gray-400">{doc.date?.slice(0, 7) ?? '–'}</span>
+                    <span className={`px-1.5 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+            {docs.length === 0 && !loading && (
+              <p className="col-span-full py-8 text-center text-gray-400">Keine Dokumente gefunden</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
