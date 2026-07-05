@@ -39,27 +39,40 @@ python -m venv .venv
 .venv\Scripts\activate
 ```
 
-### 3. PyTorch mit CUDA installieren (GPU-Empfehlung)
+### 3. PyTorch installieren
 
-> **Wichtig:** PyTorch muss **vor** `requirements.txt` installiert werden, da pip sonst die CPU-Version zieht.
+> **Wichtig:** PyTorch muss **vor** `requirements.txt` installiert werden, da pip sonst ggf. eine falsche Version zieht.
 
 ```bash
-# CUDA 12.8 (empfohlen, passend zu torch==2.11.0):
-pip install torch==2.11.0 torchvision --index-url https://download.pytorch.org/whl/cu128
+# CPU-only (Standard, reicht für Vision/Logo-Erkennung):
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
-# Alternativ CPU-only (langsamer, kein CUDA nötig):
-pip install torch torchvision
+# CUDA (optional, nur wenn torch selbst GPU nutzen soll):
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu132
 ```
 
 CUDA-Version prüfen: `nvidia-smi` → Spalte "CUDA Version"
 
 ### 4. llama-cpp-python mit CUDA installieren
 
-> **Wichtig:** Standard `pip install llama-cpp-python` kompiliert ohne CUDA-Support.
+> **Wichtig:** Standard `pip install llama-cpp-python` löst einen Compile-Vorgang aus (erfordert MSVC + CUDA Toolkit, dauert sehr lang).
+> Stattdessen das **fertige CUDA-Wheel** verwenden — kein Build nötig.
+>
+> Voraussetzungen: **Python 3.10–3.12** (kein 3.13/3.14!) und das **venv aktiviert**.
 
 ```bash
-pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu128
+# CUDA 13.x (RTX-Karten, Treiber 610+):
+pip install llama-cpp-python==0.3.32 --force-reinstall --no-cache-dir --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu132
+
+# CUDA 12.x:
+pip install llama-cpp-python==0.3.32 --force-reinstall --no-cache-dir --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
+
+# CPU-only (kein CUDA):
+pip install llama-cpp-python==0.3.32 --force-reinstall --no-cache-dir --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
 ```
+
+Verfügbare CUDA-Versionen: `cu118`, `cu121`–`cu125`, `cu130`, `cu132`  
+Welche passt: `nvcc --version` oder `nvidia-smi` → Treiber ≥ 520 → cu121, Treiber ≥ 610 → cu132
 
 ### 5. Restliche Abhängigkeiten
 
@@ -107,6 +120,7 @@ copy .env.example .env   # dann .env anpassen
 | `TARGET_BASE` | Zielverzeichnis für das Archiv | – |
 | `MODEL_PATH` | Pfad zur GGUF-Modelldatei | – |
 | `MAX_RETRIES` | LLM-Versuche pro Dokument | `3` |
+| `N_GPU_LAYERS` | GPU-Layer für LLM (`-1` = alle auf GPU, `0` = CPU-only) | `-1` |
 | `SENDER_SUBFOLDERS` | Unterordner pro Absender | `true` |
 | `DB_PATH` | SQLite-Datenbank | `TARGET_BASE/archive.db` |
 
