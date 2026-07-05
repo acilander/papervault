@@ -38,5 +38,6 @@ torchvision
 
 # === Testing ===
 pytest==9.1.1
+pytest-cov==6.1.1
 
 
