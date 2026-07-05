@@ -34,7 +34,7 @@ def load_model():
     if _llm is None:
         log("Lade LLM-Modell (einmalig)...")
         t0 = time.time()
-        _llm = Llama(model_path=MODEL_PATH, n_ctx=4096, n_threads=6, n_gpu_layers=N_GPU_LAYERS, verbose=False, chat_format="chatml")
+        _llm = Llama(model_path=MODEL_PATH, n_ctx=8192, n_threads=6, n_gpu_layers=N_GPU_LAYERS, verbose=False, chat_format="chatml")
         elapsed = time.time() - t0
         gpu_info = f"GPU-Layer: {N_GPU_LAYERS}" if N_GPU_LAYERS != 0 else "CPU-only"
         log(f"Modell geladen in {elapsed:.1f}s [{gpu_info}]")
@@ -320,7 +320,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             user_hint = sender_hint_prefix
 
     load_model()
-    safe_text = safe_text[:2000]  # hard cap (prepare_text_for_llm already compresses to 2000)
+    safe_text = safe_text[:3500]  # n_ctx=8192 gives headroom; prepare_text_for_llm already compresses
     system_prompt = SYSTEM_PROMPT.replace("{current_year}", str(datetime.now().year))
 
     if storage.sender_registry:
@@ -344,7 +344,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
     else:
         filename_hint = ""
 
-    few_shot_hint = fb.build_few_shot_prompt(n=15)
+    few_shot_hint = fb.build_few_shot_prompt(n=10)
 
     hint_block = f"\n\nBenutzerhinweis (hohe Prioritaet): {user_hint}" if user_hint else ""
 
@@ -360,7 +360,8 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             )
         similar_block = "\n".join(lines)
     else:
-        similar_block = build_similar_docs_hint(safe_text)
+        # True fallback: only run keyword-based search when DB feature-match returned nothing
+        similar_block = build_similar_docs_hint(safe_text) if not rule_sender else ""
 
     # [Königsweg: Structural Context Isolation]
     # Pass the top portion of the first page (briefkopf) as a distinct, isolated block.
@@ -371,7 +372,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
 
     # Ensure total prompt fits within context window using the LLM tokenizer.
     # Reserve 512 tokens for the model response.
-    _n_ctx = 4096
+    _n_ctx = 8192
     _reserve = 512
     _max_prompt_tokens = _n_ctx - _reserve
     def _count_tokens(system: str, user: str) -> int:
@@ -418,8 +419,8 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
         try:
             with _llm_lock:
                 result = _llm.create_chat_completion(
-                    messages=current_messages, 
-                    max_tokens=1000,
+                    messages=current_messages,
+                    max_tokens=512,
                     temperature=0.0
                 )
             raw = result["choices"][0]["message"]["content"]

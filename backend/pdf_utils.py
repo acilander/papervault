@@ -106,7 +106,7 @@ def ocr_pdf(file_path):
         return ""
 
 
-def prepare_text_for_llm(text, max_chars=2000):
+def prepare_text_for_llm(text, max_chars=3500):
     """Compress text for LLM: remove duplicate lines, collapse whitespace, strip noise lines."""
     # Collapse excessive whitespace within lines
     lines = [re.sub(r'[ \t]{2,}', ' ', line).strip() for line in text.splitlines()]
