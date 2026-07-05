@@ -1,0 +1,24 @@
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["backend"]
+omit = [
+    "backend/api/main.py",
+    "backend/api/models.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if MOCK_LLM:",
+    "except Exception:",
+    "except ImportError:",
+]
+fail_under = 80
+show_missing = true
