@@ -60,6 +60,7 @@ MIGRATIONS = [
     "INSERT INTO documents_fts(documents_fts) VALUES('rebuild')",
     "ALTER TABLE documents ADD COLUMN low_value INTEGER DEFAULT 0",
     "ALTER TABLE documents ADD COLUMN full_text TEXT DEFAULT ''",
+    "ALTER TABLE documents ADD COLUMN sim_hash INTEGER DEFAULT NULL",
 ]
 
 def init_db():
@@ -77,3 +78,5 @@ def init_db():
                 pass
     init_sender_table()
     init_feedback_table()
+    from db.collections_repo import init_collections_table
+    init_collections_table()

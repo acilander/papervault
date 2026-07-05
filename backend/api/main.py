@@ -9,7 +9,7 @@ import db
 import storage
 import config
 from config import DB_PATH
-from api.routes import documents, senders, stats, monitor, chat
+from api.routes import documents, senders, stats, monitor, chat, collections
 
 
 @asynccontextmanager
@@ -46,6 +46,7 @@ app.include_router(senders.router)
 app.include_router(stats.router)
 app.include_router(monitor.router)
 app.include_router(chat.router)
+app.include_router(collections.router)
 
 
 @app.get("/health")

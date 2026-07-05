@@ -132,17 +132,208 @@ def inbox_preview():
         return {"source_dir": SOURCE_DIR, "files": [], "error": "Inbox-Ordner nicht gefunden"}
 
     files = []
-    for fname in sorted(os.listdir(SOURCE_DIR)):
-        if not fname.lower().endswith(".pdf"):
-            continue
-        fpath = os.path.join(SOURCE_DIR, fname)
-        stat = os.stat(fpath)
-        files.append({
-            "filename": fname,
-            "size_kb": round(stat.st_size / 1024, 1),
-            "modified": time.strftime("%Y-%m-%d %H:%M", time.localtime(stat.st_mtime)),
-        })
+    for root, _, fnames in os.walk(SOURCE_DIR):
+        for fname in fnames:
+            if not fname.lower().endswith(".pdf"):
+                continue
+            fpath = os.path.join(root, fname)
+            stat = os.stat(fpath)
+            rel = os.path.relpath(fpath, SOURCE_DIR)
+            files.append({
+                "filename": rel,
+                "size_kb": round(stat.st_size / 1024, 1),
+                "modified": time.strftime("%Y-%m-%d %H:%M", time.localtime(stat.st_mtime)),
+            })
+    files.sort(key=lambda f: f["filename"])
     return {"source_dir": SOURCE_DIR, "files": files}
+
+
+@router.get("/duplicates")
+def find_duplicates(min_score: int = 60):
+    """Find probable duplicate document pairs using exact hash, SimHash, and metadata matching.
+    Returns pairs sorted by confidence score descending."""
+    from db.connection import get_conn
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, file_path, filename, sender, date, document_type, content_hash, sim_hash "
+            "FROM documents WHERE status IN ('ok', 'review') ORDER BY id"
+        ).fetchall()
+
+    docs = [dict(r) for r in rows]
+    pairs = {}  # key: (min_id, max_id) -> pair dict
+
+    # Pass 1: Exact content_hash match (score=100)
+    hash_groups: dict = {}
+    for doc in docs:
+        h = doc.get("content_hash")
+        if h:
+            hash_groups.setdefault(h, []).append(doc)
+    for h, group in hash_groups.items():
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                a, b = group[i], group[j]
+                key = (min(a["id"], b["id"]), max(a["id"], b["id"]))
+                pairs[key] = {"doc_a": a, "doc_b": b, "score": 100, "reason": "Identischer Inhalt (Hash-Match)"}
+
+    # Pass 2: SimHash near-duplicate (score proportional to similarity)
+    # Limit to 500 most recent docs to avoid O(n²) timeout on large archives
+    sim_docs = [d for d in docs if d.get("sim_hash")][-500:]
+    for i in range(len(sim_docs)):
+        for j in range(i + 1, len(sim_docs)):
+            a, b = sim_docs[i], sim_docs[j]
+            key = (min(a["id"], b["id"]), max(a["id"], b["id"]))
+            if key in pairs:
+                continue
+            dist = bin(a["sim_hash"] ^ b["sim_hash"]).count("1")
+            score = round((1.0 - dist / 64) * 100)
+            if score >= 80:
+                pairs[key] = {"doc_a": a, "doc_b": b, "score": score, "reason": f"Ähnlicher Text ({score}% Übereinstimmung)"}
+
+    # Pass 3: Metadata match — same sender + date + document_type (score=70)
+    from itertools import combinations
+    meta_docs = [d for d in docs if d.get("sender") and d.get("date") and d.get("document_type")]
+    meta_groups: dict = {}
+    for doc in meta_docs:
+        mk = (doc["sender"].strip().lower(), doc["date"][:10] if doc["date"] else "", doc["document_type"].strip().lower())
+        meta_groups.setdefault(mk, []).append(doc)
+    for mk, group in meta_groups.items():
+        for a, b in combinations(group, 2):
+            key = (min(a["id"], b["id"]), max(a["id"], b["id"]))
+            if key in pairs:
+                continue
+            pairs[key] = {"doc_a": a, "doc_b": b, "score": 70, "reason": f"Gleicher Absender, Datum & Typ ({a['sender']} / {a['date'][:10] if a['date'] else '?'} / {a['document_type']})"}
+
+    result = [p for p in pairs.values() if p["score"] >= min_score]
+    result.sort(key=lambda p: p["score"], reverse=True)
+    return {"total": len(result), "pairs": result[:200]}
+
+
+@router.get("/validation")
+def validation_report(min_docs: int = 2):
+    """Group documents by sender+document_type and check for:
+    1. Classification inconsistencies (category or document_type varies within group)
+    2. Missing months in regular monthly series (>=3 docs spanning >=2 months)
+    Only returns groups with at least one issue."""
+    from db.connection import get_conn
+    from collections import Counter
+    import re as _re
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, filename, sender, date, document_type, category, file_path "
+            "FROM documents WHERE status IN ('ok', 'review') AND sender IS NOT NULL AND sender != '' "
+            "ORDER BY sender, document_type, date"
+        ).fetchall()
+
+    docs = [dict(r) for r in rows]
+
+    # Group by (sender, document_type)
+    groups: dict = {}
+    for doc in docs:
+        key = (
+            (doc["sender"] or "").strip(),
+            (doc["document_type"] or "").strip(),
+        )
+        if not key[0]:
+            continue
+        groups.setdefault(key, []).append(doc)
+
+    result = []
+    for (sender, doc_type), members in groups.items():
+        if len(members) < min_docs:
+            continue
+
+        issues = []
+
+        # --- Consistency check ---
+        categories = Counter(d["category"] for d in members if d.get("category"))
+        if len(categories) > 1:
+            dominant = categories.most_common(1)[0][0]
+            outliers = [d for d in members if d.get("category") and d["category"] != dominant]
+            issues.append({
+                "type": "inconsistent_category",
+                "message": f"Kategorie inkonsistent: meist '{dominant}', aber {len(outliers)} Dokument(e) abweichend",
+                "dominant": dominant,
+                "outliers": [{"id": d["id"], "filename": d["filename"], "category": d["category"], "date": d["date"]} for d in outliers],
+            })
+
+        # --- Gap detection for monthly series ---
+        # Extract YYYY-MM from date strings
+        months = []
+        for d in members:
+            raw = d.get("date") or ""
+            m = _re.search(r'(\d{4})-(\d{2})', raw)
+            if m:
+                months.append((int(m.group(1)), int(m.group(2)), d))
+
+        if len(months) >= 3:
+            months.sort(key=lambda x: (x[0], x[1]))
+            # Check if series looks monthly (avg gap ~1 month)
+            month_set = set((y, mo) for y, mo, _ in months)
+            first_y, first_mo = months[0][0], months[0][1]
+            last_y, last_mo = months[-1][0], months[-1][1]
+            total_months = (last_y - first_y) * 12 + (last_mo - first_mo) + 1
+            # Only flag as series if coverage >50% of expected months
+            if len(month_set) >= 3 and len(month_set) / total_months >= 0.5:
+                missing = []
+                y, mo = first_y, first_mo
+                while (y, mo) <= (last_y, last_mo):
+                    if (y, mo) not in month_set:
+                        missing.append(f"{y}-{mo:02d}")
+                    mo += 1
+                    if mo > 12:
+                        mo = 1
+                        y += 1
+                if missing:
+                    issues.append({
+                        "type": "missing_months",
+                        "message": f"Mögliche Lücken in monatlicher Serie: {', '.join(missing[:6])}{'…' if len(missing) > 6 else ''}",
+                        "missing_months": missing,
+                    })
+
+        if not issues:
+            continue
+
+        result.append({
+            "sender": sender,
+            "document_type": doc_type,
+            "category": members[0].get("category"),
+            "count": len(members),
+            "date_range": f"{months[0][0]}-{months[0][1]:02d} – {months[-1][0]}-{months[-1][1]:02d}" if len(months) >= 2 else "",
+            "issues": issues,
+            "members": [{"id": d["id"], "filename": d["filename"], "date": d["date"], "category": d["category"], "document_type": d["document_type"]} for d in members],
+        })
+
+    result.sort(key=lambda g: (len(g["issues"]), g["count"]), reverse=True)
+    return {"total_groups": len(result), "groups": result}
+
+
+@router.post("/generate-thumbnails")
+def generate_thumbnails_job(force: bool = False):
+    """Generate thumbnails for all ok/review documents that don't have one yet.
+    Set force=true to regenerate existing thumbnails."""
+    from pdf_utils import generate_thumbnail, get_thumbnail_path
+    docs = db.search_documents(limit=99999)
+    done = 0
+    skipped = 0
+    failed = 0
+    for doc in docs:
+        if doc.get("status") not in ("ok", "review"):
+            continue
+        path = doc.get("file_path", "")
+        if not path or not os.path.exists(path):
+            continue
+        thumb = get_thumbnail_path(doc["id"])
+        if not force and os.path.exists(thumb):
+            skipped += 1
+            continue
+        result = generate_thumbnail(path, doc["id"])
+        if result:
+            done += 1
+        else:
+            failed += 1
+    return {"generated": done, "skipped": skipped, "failed": failed}
 
 
 @router.post("/scan-missing")

@@ -14,7 +14,7 @@ import feedback as fb
 import storage
 from api.models import DocumentOut, DocumentUpdate
 from config import SOURCE_DIR, TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS
-from pdf_utils import unique_path
+from pdf_utils import unique_path, generate_thumbnail, get_thumbnail_path
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -127,6 +127,24 @@ def serve_pdf(doc_id: int):
     )
 
 
+@router.get("/{doc_id}/thumbnail")
+def get_thumbnail(doc_id: int):
+    """Return cached WebP thumbnail; generate on-the-fly if missing."""
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    thumb = get_thumbnail_path(doc_id)
+    if not os.path.exists(thumb):
+        path = doc.get("file_path", "")
+        if not path or not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="PDF nicht verfügbar")
+        result = generate_thumbnail(path, doc_id)
+        if not result:
+            raise HTTPException(status_code=500, detail="Thumbnail konnte nicht erstellt werden")
+    return FileResponse(thumb, media_type="image/webp",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 @router.post("/{doc_id}/open", status_code=204)
 def open_in_explorer(doc_id: int):
     doc = db.get_document(doc_id)
@@ -235,8 +253,16 @@ def confirm_document(doc_id: int):
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
     if doc["status"] != "review":
         raise HTTPException(status_code=400, detail=f"Dokument hat Status '{doc['status']}', erwartet 'review'")
+
+    # Atomically claim the document to prevent race conditions (double-click / concurrent requests)
+    db.update_document(doc_id, status="processing")
+    doc = db.get_document(doc_id)
+    if doc["status"] != "processing":
+        raise HTTPException(status_code=409, detail="Dokument wird bereits verarbeitet")
+
     path = doc["file_path"]
     if not os.path.exists(path):
+        db.update_document(doc_id, status="review")
         raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
 
     from pipeline.steps import archive_file_on_disk
@@ -246,20 +272,77 @@ def confirm_document(doc_id: int):
     sender = doc.get("sender")
     current_name = os.path.basename(path)
 
-    # Regenerate filename from current (possibly user-corrected) metadata
-    new_name = build_filename(doc, current_name)
-    if new_name != current_name:
-        renamed_path = os.path.join(os.path.dirname(path), new_name)
-        if not os.path.exists(renamed_path):
-            os.rename(path, renamed_path)
-            path = renamed_path
+    try:
+        # Regenerate filename from current (possibly user-corrected) metadata
+        new_name = build_filename(doc, current_name)
+        if new_name != current_name:
+            renamed_path = os.path.join(os.path.dirname(path), new_name)
+            if not os.path.exists(renamed_path):
+                os.rename(path, renamed_path)
+                path = renamed_path
 
-    # Call centralized archiving helper
-    dest_pdf = archive_file_on_disk(path, category, sender, doc.get("date"))
+        # Call centralized archiving helper
+        dest_pdf = archive_file_on_disk(path, category, sender, doc.get("date"))
 
-    db.update_document(doc_id, status="ok", file_path=dest_pdf, filename=os.path.basename(dest_pdf))
-    storage.record_sender(category, sender)
-    return {"detail": "Dokument bestaetigt und archiviert.", "file_path": dest_pdf}
+        db.update_document(doc_id, status="ok", file_path=dest_pdf, filename=os.path.basename(dest_pdf))
+        storage.record_sender(category, sender)
+        return {"detail": "Dokument bestaetigt und archiviert.", "file_path": dest_pdf}
+    except Exception:
+        db.update_document(doc_id, status="review")
+        raise
+
+
+@router.post("/bulk-update")
+def bulk_update(body: dict):
+    """Apply field updates to multiple documents at once.
+    Body: { ids: [1,2,3], fields: { category: "...", sender: "...", document_type: "..." } }
+    Only sender, category, document_type, date, notes are allowed."""
+    ids = body.get("ids", [])
+    fields = body.get("fields", {})
+    if not ids:
+        raise HTTPException(status_code=400, detail="Keine Dokument-IDs angegeben")
+    ALLOWED = {"sender", "category", "document_type", "date", "notes"}
+    filtered = {k: v for k, v in fields.items() if k in ALLOWED}
+    if not filtered:
+        raise HTTPException(status_code=400, detail="Keine gültigen Felder zum Aktualisieren")
+    updated = 0
+    for doc_id in ids:
+        doc = db.get_document(doc_id)
+        if doc:
+            db.update_document(doc_id, **filtered)
+            updated += 1
+    return {"updated": updated, "skipped": len(ids) - updated}
+
+
+@router.get("/export/csv")
+def export_csv(
+    q: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    year: Optional[str] = Query(None),
+    sender: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+):
+    """Export the current filtered document list as a CSV file."""
+    import csv
+    docs = db.search_documents(query=q, category=category, year=year, sender=sender,
+                               status=status, limit=99999)
+    buf = io.StringIO()
+    writer = csv.writer(buf, delimiter=";")
+    writer.writerow(["ID", "Dateiname", "Absender", "Datum", "Typ", "Kategorie",
+                     "Status", "Archiviert", "Zusammenfassung"])
+    for d in docs:
+        writer.writerow([
+            d.get("id"), d.get("filename"), d.get("sender", ""),
+            d.get("date", ""), d.get("document_type", ""), d.get("category", ""),
+            d.get("status", ""), d.get("archived_at", "")[:10],
+            (d.get("summary") or "").replace("\n", " "),
+        ])
+    output = buf.getvalue().encode("utf-8-sig")
+    return StreamingResponse(
+        iter([output]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=\"dokumente.csv\""},
+    )
 
 
 @router.delete("/{doc_id}/delete-file", status_code=204)
