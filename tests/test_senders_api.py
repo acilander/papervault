@@ -184,3 +184,163 @@ def test_delete_sender_with_special_characters(in_memory_db):
     assert response.status_code == 200
     registry = response.json()
     assert name not in registry
+
+
+def test_reload_senders_returns_count(in_memory_db):
+    from fastapi.testclient import TestClient
+    from api.main import app
+    import db.sender_repo as sender_repo
+
+    sender_repo.upsert("Telekom", {"categories": ["Kommunikation"], "pinned_category": None, "excluded_categories": [], "reviewed": False})
+    client = TestClient(app)
+    response = client.post("/senders/~reload")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["reloaded"] is True
+    assert data["count"] >= 1
+
+
+def test_sender_counts_and_get(in_memory_db):
+    from fastapi.testclient import TestClient
+    from api.main import app
+
+    db.upsert_document(file_path="/tmp/telekom1.pdf", filename="telekom1.pdf", sender="Telekom", date="2026-01-15", document_type="Rechnung", category="Kommunikation", summary="x", status="ok")
+    db.upsert_document(file_path="/tmp/telekom2.pdf", filename="telekom2.pdf", sender="Telekom", date="2026-01-15", document_type="Rechnung", category="Kommunikation", summary="x", status="review")
+    db.upsert_document(file_path="/tmp/aok.pdf", filename="aok.pdf", sender="AOK", date="2026-01-15", document_type="Bescheid", category="Gesundheit", summary="x", status="ok")
+    client = TestClient(app)
+    client.post("/senders/~rebuild")
+
+    resp = client.get("/senders/counts")
+    assert resp.status_code == 200
+    counts = resp.json()
+    assert counts.get("Telekom") == 1
+    assert counts.get("AOK") == 1
+
+    resp = client.get("/senders/Telekom")
+    assert resp.status_code == 200
+    assert resp.json()["categories"] == ["Kommunikation"]
+
+    resp = client.get("/senders/Fehlend")
+    assert resp.status_code == 404
+
+
+def test_update_sender_patches_fields(in_memory_db):
+    from fastapi.testclient import TestClient
+    from api.main import app
+    import db.sender_repo as sender_repo
+
+    sender_repo.upsert("Telekom", {"categories": ["Kommunikation"], "pinned_category": None, "excluded_categories": [], "reviewed": False})
+    storage._refresh_cache()
+    client = TestClient(app)
+    resp = client.patch("/senders/Telekom", json={"pinned_category": "Kommunikation", "reviewed": True})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["pinned_category"] == "Kommunikation"
+    assert data["reviewed"] is True
+
+    resp = client.patch("/senders/Fehlend", json={"reviewed": True})
+    assert resp.status_code == 404
+
+
+def test_rename_sender_updates_documents(in_memory_db, tmp_path):
+    from fastapi.testclient import TestClient
+    from api.main import app
+
+    db.upsert_document(file_path="/tmp/telekom.pdf", filename="telekom.pdf", sender="Telekom", date="2026-01-15", document_type="Rechnung", category="Kommunikation", summary="x", status="ok")
+    import db.sender_repo as sender_repo
+    sender_repo.upsert("Telekom", {"categories": ["Kommunikation"], "pinned_category": None, "excluded_categories": [], "reviewed": False})
+    storage._refresh_cache()
+    client = TestClient(app)
+
+    resp = client.post("/senders/~rename", json={"old_name": "Telekom", "new_name": "T-Mobile"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["renamed"] is True
+    assert data["new_name"] == "T-Mobile"
+    assert db.get_document(1)["sender"] == "T-Mobile"
+
+    resp = client.post("/senders/~rename", json={"old_name": "Telekom", "new_name": "T-Mobile"})
+    assert resp.status_code == 404
+
+    resp = client.post("/senders/~rename", json={"old_name": "T-Mobile", "new_name": "T-Mobile"})
+    assert resp.json()["renamed"] is False
+
+
+def test_merge_sender_moves_and_combines_categories(in_memory_db, tmp_path):
+    from fastapi.testclient import TestClient
+    from api.main import app
+
+    import config
+    monkeypatch_target = tmp_path / "archive"
+    monkeypatch_target.mkdir(parents=True, exist_ok=True)
+    # Patching is done via fixture below in real code, but we can just use absolute temp paths
+    import config as cfg
+    cfg.TARGET_BASE = str(monkeypatch_target)
+    cfg.SENDER_SUBFOLDERS = False
+
+    src_pdf = tmp_path / "telekom.pdf"
+    src_pdf.write_bytes(b"%PDF")
+    db.upsert_document(file_path=str(src_pdf), filename="telekom.pdf", sender="Telekom", date="2026-01-15", document_type="Rechnung", category="Kommunikation", summary="x", status="ok")
+    import db.sender_repo as sender_repo
+    sender_repo.upsert("Telekom", {"categories": ["Kommunikation"], "pinned_category": None, "excluded_categories": [], "reviewed": False})
+    sender_repo.upsert("Vodafone", {"categories": ["Kommunikation"], "pinned_category": None, "excluded_categories": [], "reviewed": False})
+    storage._refresh_cache()
+
+    client = TestClient(app)
+    resp = client.post("/senders/Telekom/merge/Vodafone")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["merged_into"] == "Vodafone"
+    assert db.get_document(1)["sender"] == "Vodafone"
+
+    resp = client.post("/senders/Fehlend/merge/Vodafone")
+    assert resp.status_code == 404
+
+
+def test_remove_category_and_reclassify(in_memory_db):
+    from fastapi.testclient import TestClient
+    from api.main import app
+
+    import db.sender_repo as sender_repo
+    sender_repo.upsert("Telekom", {"categories": ["Kommunikation", "Sonstiges"], "pinned_category": "Kommunikation", "excluded_categories": [], "reviewed": False})
+    storage._refresh_cache()
+    db.upsert_document(file_path="/tmp/telekom.pdf", filename="telekom.pdf", sender="Telekom", date="2026-01-15", document_type="Rechnung", category="Kommunikation", summary="x", status="ok")
+
+    client = TestClient(app)
+    resp = client.post("/senders/Telekom/remove-category", json={"category": "Kommunikation", "action": "reclassify", "ban": True})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["action"] == "reclassify"
+    assert data["affected"] == 1
+    assert db.get_document(1)["status"] == "pending"
+
+    resp = client.post("/senders/Fehlend/remove-category", json={"category": "x"})
+    assert resp.status_code == 404
+
+    resp = client.post("/senders/Telekom/remove-category", json={})
+    assert resp.status_code == 400
+
+
+def test_reorganize_sender_moves_files(in_memory_db, tmp_path):
+    from fastapi.testclient import TestClient
+    from api.main import app
+
+    import config as cfg
+    cfg.TARGET_BASE = str(tmp_path / "archive")
+    cfg.SENDER_SUBFOLDERS = False
+
+    import db.sender_repo as sender_repo
+    sender_repo.upsert("Telekom", {"categories": ["Kommunikation"], "pinned_category": "Kommunikation", "excluded_categories": [], "reviewed": False})
+    storage._refresh_cache()
+    src = tmp_path / "telekom.pdf"
+    src.write_bytes(b"%PDF")
+    db.upsert_document(file_path=str(src), filename="telekom.pdf", sender="Telekom", date="2026-01-15", document_type="Rechnung", category="Kommunikation", summary="x", status="ok")
+
+    client = TestClient(app)
+    resp = client.post("/senders/Telekom/reorganize")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["moved"] == 1
+
+    resp = client.post("/senders/Fehlend/reorganize")
+    assert resp.status_code == 404
