@@ -42,16 +42,34 @@ def get_document_by_hash(content_hash):
     if not content_hash:
         return None
     with get_conn() as conn:
-        row = conn.execute("SELECT * FROM documents WHERE content_hash = ? AND status = 'ok' LIMIT 1", (content_hash,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM documents WHERE content_hash = ? AND status IN ('ok', 'review', 'processing') LIMIT 1",
+            (content_hash,)
+        ).fetchone()
         return dict(row) if row else None
 
 
 def update_document(doc_id, **fields):
     if "file_path" in fields and fields["file_path"]:
         fields["file_path"] = os.path.normpath(fields["file_path"])
+        # If the target path is already owned by a different document, disambiguate
+        target_path = fields["file_path"]
+        with get_conn() as conn:
+            row = conn.execute(
+                "SELECT id FROM documents WHERE file_path = ? AND id != ?", (target_path, doc_id)
+            ).fetchone()
+        if row:
+            from pdf_utils import unique_path
+            new_path = unique_path(target_path)
+            if os.path.exists(target_path):
+                import shutil
+                shutil.move(target_path, new_path)
+            fields["file_path"] = new_path
+            if "filename" in fields:
+                fields["filename"] = os.path.basename(new_path)
     allowed = {"sender", "date", "document_type", "category", "summary", "status",
                "file_path", "filename", "tags", "tax_relevant", "tax_year", "expires_at", "notes",
-               "keywords", "low_value", "full_text"}
+               "keywords", "low_value", "full_text", "sim_hash", "content_hash"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
@@ -138,6 +156,30 @@ def get_tax_documents(year=None):
                 "SELECT * FROM documents WHERE tax_relevant = 1 ORDER BY tax_year DESC, date"
             ).fetchall()
         return [dict(r) for r in rows]
+
+
+def get_similar_by_simhash(sim_hash: int, doc_id: int, max_distance: int = 8, limit: int = 3):
+    """Find documents with similar SimHash (near-duplicates from rescanning).
+    max_distance=8 out of 64 bits means ~87.5% similarity threshold."""
+    if not sim_hash:
+        return []
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT id, file_path, filename, sender, date, document_type, sim_hash
+               FROM documents
+               WHERE sim_hash IS NOT NULL AND id != ? AND status IN ('ok', 'review')""",
+            (doc_id,)
+        ).fetchall()
+    results = []
+    for row in rows:
+        h = row["sim_hash"]
+        if h is None:
+            continue
+        dist = bin(sim_hash ^ h).count('1')
+        if dist <= max_distance:
+            results.append({**dict(row), "simhash_distance": dist})
+    results.sort(key=lambda r: r["simhash_distance"])
+    return results[:limit]
 
 
 def find_similar_by_features(category_candidates, type_candidate, limit=3):
