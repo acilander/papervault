@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Circle, RefreshCw, Play, Square, Inbox, FileText, AlertCircle, Image } from 'lucide-react'
+import { Circle, RefreshCw, Play, Square, Inbox, FileText, AlertCircle, Image, Loader } from 'lucide-react'
 import axios from 'axios'
 import { scanOrphans, importOrphans, scanMissing, deleteMissing, repairMissing } from '../api'
 
@@ -25,10 +25,31 @@ export default function Monitor() {
   const [thumbBusy, setThumbBusy] = useState(false)
   const [thumbForce, setThumbForce] = useState(false)
   const [thumbResult, setThumbResult] = useState<{ done: number; skipped: number } | null>(null)
+  const [processingBusy, setProcessingBusy] = useState(false)
+  const [processingFile, setProcessingFile] = useState<string | null>(null)
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const esRef = useRef<EventSource | null>(null)
   const counterRef = useRef(0)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const processFile = async (filePath: string) => {
+    setProcessingFile(filePath)
+    setProcessingBusy(true)
+    try {
+      await axios.post('/monitor/process-file', { file_path: filePath })
+      const poll = async (): Promise<void> => {
+        const res = await axios.get<{ busy: boolean }>('/monitor/processing-status')
+        if (!res.data.busy) { setProcessingBusy(false); setProcessingFile(null); fetchInbox(); return }
+        await new Promise(r => setTimeout(r, 2000))
+        return poll()
+      }
+      poll()
+    } catch (e: any) {
+      alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+      setProcessingBusy(false); setProcessingFile(null)
+    }
+  }
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -47,7 +68,6 @@ export default function Monitor() {
   const connect = useCallback(() => {
     if (esRef.current) esRef.current.close()
     setSseError(null)
-    setLines([])
     const es = new EventSource('/monitor/stream')
     esRef.current = es
     es.onopen = () => setConnected(true)
@@ -68,6 +88,10 @@ export default function Monitor() {
   useEffect(() => { connectRef.current = connect }, [connect])
 
   useEffect(() => {
+    axios.get<{ lines: string[] }>('/monitor/buffer').then(res => {
+      const ts = new Date().toLocaleTimeString('de-DE')
+      setLines(res.data.lines.map(text => ({ id: counterRef.current++, text, ts })))
+    }).catch(() => {})
     connect()
     fetchStatus()
     fetchInbox()
@@ -79,20 +103,6 @@ export default function Monitor() {
     }
   }, [connect, fetchStatus, fetchInbox])
 
-  // Auto-start archiver if not running
-  useEffect(() => {
-    const autoStart = async () => {
-      try {
-        const res = await axios.get<ArchiverStatus>('/monitor/archiver/status')
-        if (!res.data.running) {
-          await axios.post('/monitor/archiver/start')
-          await fetchStatus()
-        }
-      } catch {}
-    }
-    const t = setTimeout(autoStart, 2000)
-    return () => clearTimeout(t)
-  }, [fetchStatus])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -292,17 +302,26 @@ export default function Monitor() {
         )}
 
         <div className="flex-1 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-800">
-          {inbox?.files.map(f => (
-            <div key={f.filename} className="px-4 py-2.5">
-              <div className="flex items-start gap-2">
+          {inbox?.files.map(f => {
+            const isThis = processingFile?.endsWith(f.filename)
+            return (
+              <div key={f.filename} className="px-4 py-2.5 flex items-start gap-2">
                 <FileText size={13} className="text-gray-400 mt-0.5 shrink-0" />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate" title={f.filename}>{f.filename}</p>
                   <p className="text-xs text-gray-400">{f.size_kb} KB · {f.modified}</p>
                 </div>
+                <button
+                  onClick={() => processFile(inbox.source_dir + '\\' + f.filename)}
+                  disabled={processingBusy || archiver.running}
+                  title={archiver.running ? 'Archiver läuft bereits – stoppen um manuell zu verarbeiten' : 'Diese Datei verarbeiten'}
+                  className="shrink-0 p-1 rounded hover:bg-green-100 dark:hover:bg-green-900/30 disabled:opacity-40 text-green-600 transition-colors"
+                >
+                  {isThis ? <Loader size={13} className="animate-spin" /> : <Play size={13} />}
+                </button>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {inbox && (

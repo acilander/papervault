@@ -6,6 +6,7 @@ from logging.handlers import RotatingFileHandler
 from typing import Optional
 
 _file_loggers: dict[str, logging.Logger] = {}
+_FORCED_LOG_FILE: Optional[str] = None
 
 def _get_file_logger(log_file: str) -> logging.Logger:
     if log_file not in _file_loggers:
@@ -26,6 +27,9 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
 def log(msg, log_file: Optional[str] = None):
     line = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
     print(line, flush=True)
+    effective_log = log_file or _FORCED_LOG_FILE
+    if effective_log:
+        log_file = effective_log
     if log_file:
         try:
             logger = _get_file_logger(log_file)

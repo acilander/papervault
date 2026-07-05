@@ -123,6 +123,91 @@ def archiver_stop():
     return {"stopped": True}
 
 
+# ── Manual processing ───────────────────────────────────────────────────────
+
+_processing_lock = __import__("threading").Lock()
+_processing_busy = False
+
+
+class ProcessFileRequest(__import__("pydantic").BaseModel):
+    file_path: str
+
+
+@router.post("/process-file")
+def process_single_file(req: ProcessFileRequest):
+    """Process a single PDF immediately in a background thread. Non-blocking."""
+    global _processing_busy
+    import threading
+    from pipeline import process_pdf
+
+    if not os.path.isfile(req.file_path):
+        raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {req.file_path}")
+    if not req.file_path.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Nur PDF-Dateien werden unterstützt.")
+
+    def _run():
+        global _processing_busy
+        import utils as _utils
+        _utils._FORCED_LOG_FILE = ARCHIVER_STDOUT
+        with _processing_lock:
+            _processing_busy = True
+        try:
+            process_pdf(req.file_path)
+        finally:
+            _utils._FORCED_LOG_FILE = None
+            with _processing_lock:
+                _processing_busy = False
+
+    threading.Thread(target=_run, daemon=True, name="manual-process").start()
+    return {"started": True, "file": os.path.basename(req.file_path)}
+
+
+@router.post("/process-inbox")
+def process_all_inbox():
+    """Queue all unprocessed PDFs from the inbox for immediate processing. Non-blocking."""
+    global _processing_busy
+    import threading
+    from pipeline import process_pdf
+
+    if not os.path.isdir(SOURCE_DIR):
+        raise HTTPException(status_code=404, detail=f"Inbox-Ordner nicht gefunden: {SOURCE_DIR}")
+
+    known_paths = set(db.get_all_file_paths())
+    pdfs = []
+    for root, _, files in os.walk(SOURCE_DIR):
+        for f in files:
+            if f.lower().endswith(".pdf"):
+                fp = os.path.join(root, f)
+                if fp not in known_paths:
+                    pdfs.append(fp)
+
+    if not pdfs:
+        return {"started": False, "count": 0, "message": "Keine neuen PDFs in der Inbox."}
+
+    def _run():
+        global _processing_busy
+        import utils as _utils
+        _utils._FORCED_LOG_FILE = ARCHIVER_STDOUT
+        with _processing_lock:
+            _processing_busy = True
+        try:
+            for fp in pdfs:
+                process_pdf(fp)
+        finally:
+            _utils._FORCED_LOG_FILE = None
+            with _processing_lock:
+                _processing_busy = False
+
+    threading.Thread(target=_run, daemon=True, name="manual-process-all").start()
+    return {"started": True, "count": len(pdfs), "files": [os.path.basename(p) for p in pdfs]}
+
+
+@router.get("/processing-status")
+def processing_status():
+    """Returns whether a manual processing job is currently running."""
+    return {"busy": _processing_busy}
+
+
 # ── Inbox preview ───────────────────────────────────────────────────────────
 
 @router.get("/inbox")
