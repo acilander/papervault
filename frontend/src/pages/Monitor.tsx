@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Circle, RefreshCw, Play, Square, Inbox, FileText, AlertCircle } from 'lucide-react'
+import { Circle, RefreshCw, Play, Square, Inbox, FileText, AlertCircle, Image } from 'lucide-react'
 import axios from 'axios'
 import { scanOrphans, importOrphans, scanMissing, deleteMissing, repairMissing } from '../api'
 
@@ -22,6 +22,9 @@ export default function Monitor() {
   type MissingDoc = { id: number; filename: string; sender: string | null; date: string | null; category: string | null; file_path: string }
   const [missingDocs, setMissingDocs] = useState<MissingDoc[] | null>(null)
   const [missingBusy, setMissingBusy] = useState(false)
+  const [thumbBusy, setThumbBusy] = useState(false)
+  const [thumbForce, setThumbForce] = useState(false)
+  const [thumbResult, setThumbResult] = useState<{ done: number; skipped: number } | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const esRef = useRef<EventSource | null>(null)
   const counterRef = useRef(0)
@@ -114,6 +117,17 @@ export default function Monitor() {
     } catch (e: any) {
       alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
     } finally { setActionBusy(false) }
+  }
+
+  const handleGenerateThumbnails = async () => {
+    setThumbBusy(true)
+    setThumbResult(null)
+    try {
+      const res = await axios.post<{ done: number; skipped: number; errors: string[] }>(`/monitor/generate-thumbnails${thumbForce ? '?force=true' : ''}`)
+      setThumbResult({ done: res.data.done, skipped: res.data.skipped })
+    } catch (e: any) {
+      alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+    } finally { setThumbBusy(false) }
   }
 
   const handleRestart = async () => {
@@ -216,8 +230,25 @@ export default function Monitor() {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors">
               <RefreshCw size={13} className={actionBusy ? 'animate-spin' : ''} /> Restart
             </button>
+            <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+              <input type="checkbox" checked={thumbForce} onChange={e => setThumbForce(e.target.checked)} className="accent-gray-600" />
+              Alle
+            </label>
+            <button onClick={handleGenerateThumbnails} disabled={thumbBusy}
+              title={thumbForce ? 'Alle Thumbnails neu generieren' : 'Fehlende Thumbnails generieren'}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors">
+              <Image size={13} className={thumbBusy ? 'animate-pulse' : ''} />
+              {thumbBusy ? 'Generiere…' : 'Thumbnails'}
+            </button>
           </div>
         </div>
+
+        {thumbResult && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl px-4 py-2 text-sm text-green-700 dark:text-green-400 flex items-center justify-between">
+            <span>✓ Thumbnails: {thumbResult.done} generiert, {thumbResult.skipped} übersprungen</span>
+            <button onClick={() => setThumbResult(null)} className="text-green-500 hover:text-green-700 ml-4">✕</button>
+          </div>
+        )}
 
         {sseError && (
           <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-3 text-sm text-orange-700 dark:text-orange-400">
