@@ -40,8 +40,8 @@ export default function Monitor() {
       await axios.post('/monitor/process-file', { file_path: filePath })
       const poll = async (): Promise<void> => {
         const res = await axios.get<{ busy: boolean }>('/monitor/processing-status')
-        if (!res.data.busy) { setProcessingBusy(false); setProcessingFile(null); fetchInbox(); return }
-        await new Promise(r => setTimeout(r, 2000))
+        if (!res.data.busy) { await fetchInbox(); setProcessingBusy(false); setProcessingFile(null); return }
+        await new Promise(r => setTimeout(r, 500))
         return poll()
       }
       poll()
