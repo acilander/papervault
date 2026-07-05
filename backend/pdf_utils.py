@@ -21,17 +21,17 @@ THUMBNAILS_DIR = os.path.join(TARGET_BASE, "thumbnails")
 
 
 def generate_thumbnail(file_path: str, doc_id: int, width: int = 240) -> str | None:
-    """Render first page of PDF to a WebP thumbnail.
+    """Render first page of PDF to a JPEG thumbnail.
     Returns the thumbnail path on success, None on failure."""
     os.makedirs(THUMBNAILS_DIR, exist_ok=True)
-    thumb_path = os.path.join(THUMBNAILS_DIR, f"{doc_id}.webp")
+    thumb_path = os.path.join(THUMBNAILS_DIR, f"{doc_id}.jpg")
     try:
         doc = fitz.open(file_path)
         page = doc[0]
         scale = width / page.rect.width
         mat = fitz.Matrix(scale, scale)
         pix = page.get_pixmap(matrix=mat, alpha=False)
-        pix.save(thumb_path, output="webp")
+        pix.save(thumb_path, output="jpeg")
         doc.close()
         return thumb_path
     except Exception as e:
@@ -40,7 +40,7 @@ def generate_thumbnail(file_path: str, doc_id: int, width: int = 240) -> str | N
 
 
 def get_thumbnail_path(doc_id: int) -> str:
-    return os.path.join(THUMBNAILS_DIR, f"{doc_id}.webp")
+    return os.path.join(THUMBNAILS_DIR, f"{doc_id}.jpg")
 
 
 

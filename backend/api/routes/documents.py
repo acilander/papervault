@@ -6,20 +6,21 @@ import subprocess
 import zipfile
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
 
 import db
 import feedback as fb
 import storage
-from api.models import DocumentOut, DocumentUpdate
+from api.models import DocumentOut, DocumentListOut, DocumentUpdate
 from config import SOURCE_DIR, TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS
 from pdf_utils import unique_path, generate_thumbnail, get_thumbnail_path
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.get("/", response_model=list[DocumentOut])
+@router.get("/", response_model=list[DocumentListOut])
 def list_documents(
     q: Optional[str] = Query(None, description="Volltext-Suche"),
     category: Optional[str] = Query(None),
@@ -32,14 +33,19 @@ def list_documents(
     low_value: Optional[int] = Query(None),
     limit: int = Query(100, le=500),
     offset: int = Query(0, ge=0),
+    response: Response = None,
 ):
-    return db.search_documents(
+    filter_kwargs = dict(
         query=q, category=category, year=year, sender=sender,
         status=status, tax_relevant=tax_relevant, tag=tag,
-        no_sender=bool(no_sender),
-        low_value=low_value,
-        limit=limit, offset=offset,
+        no_sender=bool(no_sender), low_value=low_value,
     )
+    docs = db.search_documents(**filter_kwargs, limit=limit, offset=offset)
+    total = db.count_documents(**filter_kwargs)
+    if response is not None:
+        response.headers["X-Total-Count"] = str(total)
+        response.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
+    return docs
 
 
 @router.get("/expiring")
@@ -82,7 +88,7 @@ def update_document(doc_id: int, body: DocumentUpdate):
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
-    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    updates = {k: v for k, v in body.model_dump().items() if k in body.model_fields_set}
 
     # Record correction as few-shot example if classification fields changed
     fb.record_correction(original=doc, corrected=updates)
@@ -128,20 +134,26 @@ def serve_pdf(doc_id: int):
 
 
 @router.get("/{doc_id}/thumbnail")
-def get_thumbnail(doc_id: int):
+async def get_thumbnail(doc_id: int):
     """Return cached WebP thumbnail; generate on-the-fly if missing."""
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
     thumb = get_thumbnail_path(doc_id)
+    media_type = "image/jpeg"
     if not os.path.exists(thumb):
+        # Fallback: legacy .webp thumbnail from before migration
+        webp_path = thumb.replace(".jpg", ".webp")
+        if os.path.exists(webp_path):
+            return FileResponse(webp_path, media_type="image/webp",
+                                headers={"Cache-Control": "public, max-age=86400"})
         path = doc.get("file_path", "")
         if not path or not os.path.exists(path):
             raise HTTPException(status_code=404, detail="PDF nicht verfügbar")
-        result = generate_thumbnail(path, doc_id)
+        result = await run_in_threadpool(generate_thumbnail, path, doc_id)
         if not result:
             raise HTTPException(status_code=500, detail="Thumbnail konnte nicht erstellt werden")
-    return FileResponse(thumb, media_type="image/webp",
+    return FileResponse(thumb, media_type=media_type,
                         headers={"Cache-Control": "public, max-age=86400"})
 
 
@@ -305,12 +317,7 @@ def bulk_update(body: dict):
     filtered = {k: v for k, v in fields.items() if k in ALLOWED}
     if not filtered:
         raise HTTPException(status_code=400, detail="Keine gültigen Felder zum Aktualisieren")
-    updated = 0
-    for doc_id in ids:
-        doc = db.get_document(doc_id)
-        if doc:
-            db.update_document(doc_id, **filtered)
-            updated += 1
+    updated = db.bulk_update_documents(ids, filtered)
     return {"updated": updated, "skipped": len(ids) - updated}
 
 

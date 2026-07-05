@@ -1,7 +1,24 @@
 import re
 import sys
+import logging
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from typing import Optional
+
+_file_loggers: dict[str, logging.Logger] = {}
+
+def _get_file_logger(log_file: str) -> logging.Logger:
+    if log_file not in _file_loggers:
+        logger = logging.getLogger(f"papervault.file.{log_file}")
+        logger.setLevel(logging.DEBUG)
+        logger.propagate = False
+        handler = RotatingFileHandler(
+            log_file, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
+        )
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        logger.addHandler(handler)
+        _file_loggers[log_file] = logger
+    return _file_loggers[log_file]
 
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -11,8 +28,10 @@ def log(msg, log_file: Optional[str] = None):
     print(line, flush=True)
     if log_file:
         try:
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(line + "\n")
+            logger = _get_file_logger(log_file)
+            logger.info(line)
+            for h in logger.handlers:
+                h.flush()
         except Exception:
             pass
 
