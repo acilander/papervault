@@ -437,19 +437,10 @@ def simhash_similarity(h1: int, h2: int, bits: int = 64) -> float:
 
 
 def unique_path(path):
-    import os as _os
-    try:
-        from db.documents_repo import get_document_by_path as _get_doc
-        def _taken(p):
-            return _os.path.exists(p) or (_get_doc(p) is not None)
-    except Exception:
-        def _taken(p):
-            return _os.path.exists(p)
-
-    if not _taken(path):
+    if not os.path.exists(path):
         return path
-    base, ext = _os.path.splitext(path)
+    base, ext = os.path.splitext(path)
     counter = 1
-    while _taken(f"{base}_{counter}{ext}"):
+    while os.path.exists(f"{base}_{counter}{ext}"):
         counter += 1
     return f"{base}_{counter}{ext}"

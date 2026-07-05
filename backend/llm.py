@@ -370,31 +370,11 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
     hint_instruction = f"\n\n!!! WICHTIGE ANWEISUNG DES BENUTZERS (hat hoechste Prioritaet, ignoriere nichts davon): {user_hint} !!!" if user_hint else ""
     user_content = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text}{hint_instruction}"
 
-    # Ensure total prompt fits within context window using the LLM tokenizer.
-    # Reserve 512 tokens for the model response.
-    _n_ctx = 8192
-    _reserve = 512
-    _max_prompt_tokens = _n_ctx - _reserve
-    def _count_tokens(system: str, user: str) -> int:
-        try:
-            return len(_llm.tokenize((system + user).encode("utf-8", errors="replace")))
-        except Exception:
-            return len((system + user)) // 3
-    _tokens = _count_tokens(system_prompt, user_content)
-    if _tokens > _max_prompt_tokens:
-        # Progressively trim safe_text until it fits
-        _trim_text = safe_text
-        for _fraction in [0.75, 0.5, 0.35, 0.2, 0.1]:
-            _trim_text = safe_text[:int(len(safe_text) * _fraction)]
-            _candidate = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{_trim_text}{hint_instruction}"
-            if _count_tokens(system_prompt, _candidate) <= _max_prompt_tokens:
-                user_content = _candidate
-                safe_text = _trim_text
-                break
-        else:
-            # Overhead alone is too large — drop few_shot and similar blocks
-            user_content = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:500]}{hint_instruction}"
-            safe_text = safe_text[:500]
+    # Emergency char-count guard (n_ctx=8192 ≈ 24000 chars; prompt should always fit with safe_text=3500)
+    # Only kicks in if overhead blocks (few_shot, similar) are unexpectedly large.
+    _CHAR_LIMIT = 20000
+    if len(system_prompt) + len(user_content) > _CHAR_LIMIT:
+        user_content = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:1500]}{hint_instruction}"
 
     base_messages = [
         {"role": "system", "content": system_prompt},
