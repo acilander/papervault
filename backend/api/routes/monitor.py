@@ -533,29 +533,43 @@ def validation_report(min_docs: int = 2):
 
 @router.post("/generate-thumbnails")
 def generate_thumbnails_job(force: bool = False):
-    """Generate thumbnails for all ok/review documents that don't have one yet.
-    Set force=true to regenerate existing thumbnails."""
+    """Generate thumbnails with SSE streaming progress.
+    Streams 'data: {...}\\n\\n' lines so the frontend can show live progress."""
+    import json as _json
     from pdf_utils import generate_thumbnail, get_thumbnail_path
-    docs = db.search_documents(limit=99999)
-    done = 0
-    skipped = 0
-    failed = 0
-    for doc in docs:
-        if doc.get("status") not in ("ok", "review"):
-            continue
-        path = doc.get("file_path", "")
-        if not path or not os.path.exists(path):
-            continue
-        thumb = get_thumbnail_path(doc["id"])
-        if not force and os.path.exists(thumb):
-            skipped += 1
-            continue
-        result = generate_thumbnail(path, doc["id"])
-        if result:
-            done += 1
-        else:
-            failed += 1
-    return {"generated": done, "skipped": skipped, "failed": failed}
+
+    def _stream():
+        docs = db.search_documents(limit=99999)
+        candidates = [
+            d for d in docs
+            if d.get("status") in ("ok", "review")
+            and d.get("file_path")
+            and os.path.exists(d["file_path"])
+        ]
+        total = len(candidates)
+        done = 0
+        skipped = 0
+        failed = 0
+
+        yield f"data: {_json.dumps({'type': 'start', 'total': total})}\n\n"
+
+        for i, doc in enumerate(candidates, 1):
+            thumb = get_thumbnail_path(doc["id"])
+            if not force and os.path.exists(thumb):
+                skipped += 1
+                yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'failed': failed, 'file': doc['filename'], 'action': 'skipped'})}\n\n"
+                continue
+            ok = generate_thumbnail(doc["file_path"], doc["id"])
+            if ok:
+                done += 1
+                yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'failed': failed, 'file': doc['filename'], 'action': 'generated'})}\n\n"
+            else:
+                failed += 1
+                yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'failed': failed, 'file': doc['filename'], 'action': 'failed'})}\n\n"
+
+        yield f"data: {_json.dumps({'type': 'done', 'generated': done, 'skipped': skipped, 'failed': failed})}\n\n"
+
+    return StreamingResponse(_stream(), media_type="text/event-stream")
 
 
 @router.post("/scan-missing")

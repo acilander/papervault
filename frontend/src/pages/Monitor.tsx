@@ -24,7 +24,8 @@ export default function Monitor() {
   const [missingBusy, setMissingBusy] = useState(false)
   const [thumbBusy, setThumbBusy] = useState(false)
   const [thumbForce, setThumbForce] = useState(false)
-  const [thumbResult, setThumbResult] = useState<{ done: number; skipped: number } | null>(null)
+  const [thumbResult, setThumbResult] = useState<{ done: number; skipped: number; failed: number } | null>(null)
+  const [thumbProgress, setThumbProgress] = useState<{ i: number; total: number; done: number; skipped: number; failed: number; file: string } | null>(null)
   const [processingBusy, setProcessingBusy] = useState(false)
   const [processingFile, setProcessingFile] = useState<string | null>(null)
   const [inboxLoading, setInboxLoading] = useState(true)
@@ -147,11 +148,34 @@ export default function Monitor() {
   const handleGenerateThumbnails = async () => {
     setThumbBusy(true)
     setThumbResult(null)
+    setThumbProgress(null)
     try {
-      const res = await axios.post<{ done: number; skipped: number; errors: string[] }>(`/monitor/generate-thumbnails${thumbForce ? '?force=true' : ''}`)
-      setThumbResult({ done: res.data.done, skipped: res.data.skipped })
+      const response = await fetch(`/monitor/generate-thumbnails${thumbForce ? '?force=true' : ''}`, { method: 'POST' })
+      const reader = response.body!.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const parts = buf.split('\n\n')
+        buf = parts.pop() ?? ''
+        for (const part of parts) {
+          const line = part.replace(/^data: /, '').trim()
+          if (!line) continue
+          try {
+            const msg = JSON.parse(line)
+            if (msg.type === 'progress') {
+              setThumbProgress({ i: msg.i, total: msg.total, done: msg.done, skipped: msg.skipped, failed: msg.failed, file: msg.file })
+            } else if (msg.type === 'done') {
+              setThumbResult({ done: msg.generated, skipped: msg.skipped, failed: msg.failed })
+              setThumbProgress(null)
+            }
+          } catch { /* skip malformed */ }
+        }
+      }
     } catch (e: any) {
-      alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+      alert('Fehler: ' + e.message)
     } finally { setThumbBusy(false) }
   }
 
@@ -252,9 +276,25 @@ export default function Monitor() {
           </div>
         </div>
 
+        {thumbProgress && (
+          <div className="bg-gray-800 rounded-xl px-4 py-3 text-sm space-y-1.5">
+            <div className="flex justify-between text-gray-300">
+              <span className="truncate max-w-xs text-gray-400">{thumbProgress.file}</span>
+              <span className="text-gray-400 whitespace-nowrap ml-2">{thumbProgress.i} / {thumbProgress.total}</span>
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-2">
+              <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${Math.round(100 * thumbProgress.i / Math.max(thumbProgress.total, 1))}%` }} />
+            </div>
+            <div className="flex gap-4 text-xs text-gray-400">
+              <span className="text-green-400">✓ {thumbProgress.done} generiert</span>
+              <span>⏭ {thumbProgress.skipped} übersprungen</span>
+              {thumbProgress.failed > 0 && <span className="text-red-400">✗ {thumbProgress.failed} Fehler</span>}
+            </div>
+          </div>
+        )}
         {thumbResult && (
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl px-4 py-2 text-sm text-green-700 dark:text-green-400 flex items-center justify-between">
-            <span>✓ Thumbnails: {thumbResult.done} generiert, {thumbResult.skipped} übersprungen</span>
+            <span>✓ Thumbnails: {thumbResult.done} generiert, {thumbResult.skipped} übersprungen{thumbResult.failed > 0 ? `, ${thumbResult.failed} Fehler` : ''}</span>
             <button onClick={() => setThumbResult(null)} className="text-green-500 hover:text-green-700 ml-4">✕</button>
           </div>
         )}
