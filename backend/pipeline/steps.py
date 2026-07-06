@@ -141,7 +141,7 @@ def archive_file_on_disk(file_path, category, sender, date):
     year = year_match.group() if year_match else "Unbekannt"
 
     if SENDER_SUBFOLDERS and sender:
-        safe_sender = re.sub(r'[\\/:*?"<>|]', '_', sender)[:50].strip()
+        safe_sender = re.sub(r'[\\/:*?"<>|\r\n\t]', '_', sender)[:50].strip()
         target_dir = os.path.join(TARGET_BASE, folder_name, safe_sender, year)
     else:
         target_dir = os.path.join(TARGET_BASE, folder_name, year)

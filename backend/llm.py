@@ -65,6 +65,7 @@ def normalize_sender(sender):
     Always returns the canonical registry key name."""
     if not sender or not storage.sender_registry:
         return sender
+    sender = re.sub(r'[\r\n\t]+', ' ', sender).strip()
     known = list(storage.sender_registry.keys())
     # 1. Exact match on canonical name
     for k in known:
@@ -92,9 +93,28 @@ def normalize_sender(sender):
     return sender
 
 
+def sanitize_llm_output(data: dict) -> dict:
+    """Strip control characters (newlines, tabs) from all string fields.
+    Must be called immediately after json.loads before any further processing."""
+    STRING_FIELDS = ("sender", "date", "document_type", "category", "summary", "keywords", "confidence_reason")
+    for field in STRING_FIELDS:
+        val = data.get(field)
+        if isinstance(val, str):
+            val = re.sub(r'[\r\n\t]+', ' ', val)
+            val = re.sub(r' {2,}', ' ', val).strip()
+            data[field] = val if val else None
+    return data
+
+
 def validate_classification(data):
     errors = []
     current_year = datetime.now().year
+
+    # Check 0: control characters in string fields (should have been sanitized, but guard anyway)
+    for _field in ("sender", "summary", "keywords"):
+        _val = str(data.get(_field) or "")
+        if any(c in _val for c in ('\n', '\r', '\t')):
+            errors.append(f"'{_field}' enthaelt ungueltige Steuerzeichen (Newline/Tab) – mehrzeiliger LLM-Output.")
 
     # Check 1 & 8: date plausibility
     raw_date = str(data.get("date") or "")
@@ -427,6 +447,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
 
             cleaned = raw.replace("```json", "").replace("```", "").strip()
             data = json.loads(cleaned)
+            data = sanitize_llm_output(data)
 
             known_fields = {"sender", "date", "document_type", "category", "summary", "keywords", "low_value"}
             data = {k: v for k, v in data.items() if k in known_fields}
