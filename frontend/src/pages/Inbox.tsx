@@ -4,6 +4,9 @@ import { CheckCircle, RefreshCw, Trash2, Eye, ChevronDown, ChevronUp, Square, Ch
 import { getDocuments, confirmDocument, reprocessDocument, deleteDocumentWithFile, updateDocument, pdfUrl, type Document } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
+import Pagination from '../components/Pagination'
+
+const INBOX_PAGE_SIZE = 25
 
 interface EditState {
   sender: string
@@ -38,20 +41,23 @@ export default function Inbox() {
   // Selection state
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
+  const [page, setPage] = useState(1)
+
   const fetchForTab = useCallback(async (tab: InboxTab) => {
     if (tab === 'processing') {
       const [pending, processing] = await Promise.all([
-        getDocuments({ status: 'pending', limit: 200 }),
-        getDocuments({ status: 'processing', limit: 200 }),
+        getDocuments({ status: 'pending', limit: 500 }),
+        getDocuments({ status: 'processing', limit: 500 }),
       ])
       return [...pending, ...processing]
     }
-    if (tab === 'failed') return getDocuments({ status: 'classification_failed', limit: 200 })
-    return getDocuments({ status: 'review', limit: 200 })
+    if (tab === 'failed') return getDocuments({ status: 'classification_failed', limit: 500 })
+    return getDocuments({ status: 'review', limit: 500 })
   }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
+    setPage(1)
     try {
       const data = await fetchForTab(activeTab)
       setDocs(data)
@@ -199,7 +205,7 @@ export default function Inbox() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {docs.length === 0
               ? 'Keine Dokumente in dieser Ansicht.'
-              : `${docs.length} Dokument${docs.length !== 1 ? 'e' : ''}`}
+              : `${docs.length} Dokument${docs.length !== 1 ? 'e' : ''} (Seite ${page} von ${Math.ceil(docs.length / INBOX_PAGE_SIZE)})`}
           </p>
         </div>
         
@@ -238,7 +244,7 @@ export default function Inbox() {
         </div>
       )}
 
-      {docs.map(doc => {
+      {docs.slice((page - 1) * INBOX_PAGE_SIZE, page * INBOX_PAGE_SIZE).map(doc => {
         const edit = edits[doc.id] ?? initEdit(doc)
         const isExpanded = expanded === doc.id
         const isBusy = !!busy[doc.id]
@@ -432,6 +438,13 @@ export default function Inbox() {
           </div>
         </div>
       )}
+
+      <Pagination
+        page={page}
+        totalPages={Math.ceil(docs.length / INBOX_PAGE_SIZE)}
+        onPage={p => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+        className="py-4"
+      />
     </div>
   )
 }

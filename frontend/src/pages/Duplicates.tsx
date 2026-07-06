@@ -2,6 +2,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { Copy, RefreshCw, Trash2, CheckCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { deleteDocumentWithFile, pdfUrl } from '../api'
 import axios from 'axios'
+import Pagination from '../components/Pagination'
+
+const DUP_PAGE_SIZE = 20
 
 interface DocInfo {
   id: number
@@ -81,6 +84,7 @@ export default function Duplicates() {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [minScore, setMinScore] = useState(70)
+  const [page, setPage] = useState(1)
   const [dismissed, setDismissed] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem('dismissed-duplicate-pairs')
@@ -92,6 +96,7 @@ export default function Duplicates() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    setPage(1)
     try {
       const res = await axios.get(`/monitor/duplicates?min_score=${minScore}`)
       setPairs(res.data.pairs ?? [])
@@ -130,6 +135,8 @@ export default function Duplicates() {
   }
 
   const visible = pairs.filter(p => !dismissed.has(pairKey(p)))
+  const totalPages = Math.ceil(visible.length / DUP_PAGE_SIZE)
+  const pagedVisible = visible.slice((page - 1) * DUP_PAGE_SIZE, page * DUP_PAGE_SIZE)
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-4">
@@ -142,6 +149,9 @@ export default function Duplicates() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {loading ? 'Suche läuft…' : `${visible.length} mögliche Duplikat-Paare gefunden`}
           </p>
+          {!loading && totalPages > 1 && (
+            <p className="text-xs text-gray-400">Seite {page} von {totalPages}</p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
@@ -178,7 +188,7 @@ export default function Duplicates() {
         </div>
       )}
 
-      {visible.map(pair => {
+      {pagedVisible.map(pair => {
         const key = pairKey(pair)
         const isExpanded = expanded.has(key)
         return (
@@ -214,6 +224,13 @@ export default function Duplicates() {
           </div>
         )
       })}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onPage={p => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+        className="py-4"
+      />
     </div>
   )
 }

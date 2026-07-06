@@ -402,7 +402,33 @@ def find_duplicates(min_score: int = 60):
 
     result = [p for p in pairs.values() if p["score"] >= min_score]
     result.sort(key=lambda p: p["score"], reverse=True)
-    return {"total": len(result), "pairs": result[:200]}
+    return {"total": len(result), "pairs": result}
+
+
+@router.get("/duplicates/count")
+def duplicates_count(min_score: int = 70):
+    """Lightweight endpoint: returns only the count of similar pairs (for sidebar badge).
+    Uses the same SimHash logic as /duplicates but skips building full pair objects."""
+    from pdf_utils import simhash_distance
+    from db.connection import get_conn
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, sim_hash FROM documents WHERE sim_hash IS NOT NULL AND status IN ('ok', 'review')"
+        ).fetchall()
+    docs = [(r["id"], r["sim_hash"]) for r in rows]
+    seen: set = set()
+    count = 0
+    for i in range(len(docs)):
+        for j in range(i + 1, len(docs)):
+            aid, ah = docs[i]
+            bid, bh = docs[j]
+            dist = simhash_distance(ah, bh)
+            if round((1.0 - dist / 64) * 100) >= min_score:
+                key = (min(aid, bid), max(aid, bid))
+                if key not in seen:
+                    seen.add(key)
+                    count += 1
+    return {"count": count}
 
 
 @router.get("/validation")

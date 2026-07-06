@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Search, Filter, LayoutList, LayoutGrid, Download, X, Undo2, FolderPlus } from 'lucide-react'
 import { getDocumentsPage, getExpiring, thumbnailUrl, bulkUpdate, csvExportUrl, getCollections, addDocumentToCollection, type Document, type Collection } from '../api'
 import { useConfig } from '../ConfigContext'
+import Pagination from '../components/Pagination'
 
 const STATUS_COLORS: Record<string, string> = {
   ok:                    'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
@@ -28,7 +29,7 @@ export default function Documents() {
   const [year, setYear] = useState('')
   const [tagFilter, setTagFilter] = useState('')
   const [loading, setLoading] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
+  const [page, setPage] = useState(1)
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [bulkField, setBulkField] = useState('')
@@ -111,7 +112,7 @@ export default function Documents() {
     tag: tagFilter || undefined,
   }), [q, category, year, sender, status, taxFilter, noSenderFilter, lowValueFilter, confidenceFilter, tagFilter])
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (p = page) => {
     setLoading(true)
     setDocs([])
     setTotal(0)
@@ -121,26 +122,23 @@ export default function Documents() {
         setDocs(data)
         setTotal(data.length)
       } else {
-        const { docs: data, total: t } = await getDocumentsPage({ ...buildFilterParams(), limit: PAGE_SIZE, offset: 0 })
+        const { docs: data, total: t } = await getDocumentsPage({ ...buildFilterParams(), limit: PAGE_SIZE, offset: (p - 1) * PAGE_SIZE })
         setDocs(data)
         setTotal(t)
       }
     } finally {
       setLoading(false)
     }
-  }, [expiresFilter, buildFilterParams])
+  }, [expiresFilter, buildFilterParams, page])
 
-  const loadMore = async () => {
-    setLoadingMore(true)
-    try {
-      const { docs: more } = await getDocumentsPage({ ...buildFilterParams(), limit: PAGE_SIZE, offset: docs.length })
-      setDocs(prev => [...prev, ...more])
-    } finally {
-      setLoadingMore(false)
-    }
+  const goToPage = (p: number) => {
+    setPage(p)
+    load(p)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { setPage(1); load(1) }, [buildFilterParams, expiresFilter])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { getCollections().then(setCollections).catch(() => {}) }, [])
 
   const years = Array.from({ length: 10 }, (_, i) => String(new Date().getFullYear() - i))
@@ -273,7 +271,7 @@ export default function Documents() {
           <option value="medium">🟡 Medium</option>
           <option value="high">🟢 High</option>
         </select>
-        <button onClick={load}
+        <button onClick={() => goToPage(1)}
           className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
           Suchen
         </button>
@@ -514,15 +512,12 @@ export default function Documents() {
         )}
       </div>
 
-      {/* Fix 17: Load More button */}
-      {!expiresFilter && docs.length < total && (
-        <div className="flex justify-center pt-2">
-          <button onClick={loadMore} disabled={loadingMore}
-            className="px-6 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors shadow-sm">
-            {loadingMore ? 'Lade weitere…' : `Mehr laden (${total - docs.length} weitere)`}
-          </button>
-        </div>
-      )}
+      <div className="flex items-center justify-between pt-2">
+        <p className="text-xs text-gray-400">
+          {total > 0 ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} von ${total}` : ''}
+        </p>
+        <Pagination page={page} totalPages={Math.ceil(total / PAGE_SIZE)} onPage={goToPage} />
+      </div>
     </div>
   )
 }

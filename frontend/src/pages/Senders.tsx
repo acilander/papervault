@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { getSenders, getSenderCounts, reloadSenders, rebuildSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, type SenderEntry } from '../api'
 import { useConfig } from '../ConfigContext'
+import Pagination from '../components/Pagination'
+
+const SENDERS_PAGE_SIZE = 50
 
 export default function Senders() {
   const { categories: CATEGORIES } = useConfig()
@@ -26,6 +29,7 @@ export default function Senders() {
   type SortDir = 'asc' | 'desc'
   const [sortCol, setSortCol] = useState<SortCol>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [page, setPage] = useState(1)
 
   const DEFAULT_WIDTHS = { name: 220, count: 90, categories: 220, pinned: 160, merge: 200, reorg: 100, actions: 80 }
   const [colWidths, setColWidths] = useState(DEFAULT_WIDTHS)
@@ -77,6 +81,9 @@ export default function Senders() {
       else if (sortCol === 'pinned') cmp = (entryA.pinned_category ?? '').localeCompare(entryB.pinned_category ?? '')
       return sortDir === 'asc' ? cmp : -cmp
     })
+
+  const totalPages = Math.ceil(filtered.length / SENDERS_PAGE_SIZE)
+  const pagedFiltered = filtered.slice((page - 1) * SENDERS_PAGE_SIZE, page * SENDERS_PAGE_SIZE)
 
   const handlePin = async (name: string, pin: string) => {
     setSaving(name)
@@ -173,9 +180,11 @@ export default function Senders() {
               }`}>{unreviewedCount}</span>
             )}
           </button>
-          <span className="text-sm text-gray-500 dark:text-gray-400">{Object.keys(senders).length} Absender</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{filtered.length} / {Object.keys(senders).length} Absender</span>
         </div>
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPage={p => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="pb-2" />
 
       {problematic.length > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-sm text-orange-700">
@@ -233,7 +242,7 @@ export default function Senders() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(([name, entry]) => (
+            {pagedFiltered.map(([name, entry]) => (
               <tr key={name} className={`border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 ${
                 entry.reviewed === false ? 'bg-blue-50/40 dark:bg-blue-900/10' :
                 entry.categories.length > 2 && !entry.pinned_category ? 'bg-orange-50/30 dark:bg-orange-900/10' : ''
