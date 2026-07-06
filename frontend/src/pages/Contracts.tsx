@@ -71,6 +71,9 @@ export default function Contracts() {
   const [loading, setLoading] = useState(true)
   const [batchRunning, setBatchRunning] = useState(false)
   const [batchResult, setBatchResult] = useState<{ processed: number; added: number; errors: number } | null>(null)
+  const [batchLog, setBatchLog] = useState<string[]>([])
+  const [batchProgress, setBatchProgress] = useState<{ i: number; total: number; file: string } | null>(null)
+  const [pending, setPending] = useState<number | null>(null)
   const [page, setPage] = useState(1)
   const [showStats, setShowStats] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -103,15 +106,52 @@ export default function Contracts() {
 
   useEffect(() => { load(1); setPage(1) }, [load])
 
+  useEffect(() => {
+    axios.get('/contracts/pending-count').then(r => setPending(r.data.pending)).catch(() => {})
+  }, [])
+
   const goToPage = (p: number) => { setPage(p); load(p); window.scrollTo({ top: 0, behavior: 'smooth' }) }
 
   const runBatch = async () => {
     setBatchRunning(true)
     setBatchResult(null)
+    setBatchLog([])
+    setBatchProgress(null)
     try {
-      const res = await axios.post('/contracts/extract-all')
-      setBatchResult(res.data)
-      load(1); setPage(1)
+      const response = await fetch('/contracts/extract-all', { method: 'POST' })
+      const reader = response.body!.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const parts = buf.split('\n\n')
+        buf = parts.pop() ?? ''
+        for (const part of parts) {
+          const line = part.replace(/^data: /, '').trim()
+          if (!line) continue
+          try {
+            const msg = JSON.parse(line)
+            if (msg.type === 'start') {
+              setBatchLog([`Starte: ${msg.total} Dokumente zu verarbeiten…`])
+              setBatchProgress({ i: 0, total: msg.total, file: '' })
+            } else if (msg.type === 'progress') {
+              setBatchProgress({ i: msg.i, total: msg.total, file: msg.file })
+              if (msg.action === 'running') setBatchLog(l => [...l, `[${msg.i}/${msg.total}] 🔄 ${msg.file}`])
+              else if (msg.action === 'done') setBatchLog(l => [...l, `[${msg.i}/${msg.total}] ✓ ${msg.file}${msg.partner ? ' → ' + msg.partner : ''}`])
+              else if (msg.action === 'error') setBatchLog(l => [...l, `[${msg.i}/${msg.total}] ✗ ${msg.file}: ${msg.msg}`])
+            } else if (msg.type === 'done') {
+              setBatchResult({ processed: msg.processed, added: msg.added, errors: msg.errors })
+              setBatchProgress(null)
+              setPending(0)
+              load(1); setPage(1)
+            }
+          } catch { /* skip */ }
+        }
+      }
+    } catch (e: any) {
+      setBatchLog(l => [...l, `Fehler: ${e.message}`])
     } finally { setBatchRunning(false) }
   }
 
@@ -161,16 +201,36 @@ export default function Contracts() {
           <button onClick={runBatch} disabled={batchRunning}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg transition-colors">
             <RefreshCw size={14} className={batchRunning ? 'animate-spin' : ''} />
-            {batchRunning ? 'Verarbeite…' : 'Alle Verträge verarbeiten'}
+            {batchRunning ? 'Verarbeite…' : `Verträge verarbeiten${pending ? ` (${pending})` : ''}`}
           </button>
         </div>
       </div>
 
-      {/* Batch result */}
-      {batchResult && (
-        <div className="bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-xl px-4 py-3 text-sm text-violet-800 dark:text-violet-300">
-          Batch abgeschlossen: {batchResult.processed} Dokumente verarbeitet, {batchResult.added} Verträge hinzugefügt
-          {batchResult.errors > 0 && `, ${batchResult.errors} Fehler`}
+      {(batchRunning || batchLog.length > 0) && (
+        <div className="bg-gray-900 rounded-xl border border-gray-700 overflow-hidden">
+          {batchProgress && (
+            <div className="px-4 pt-3 pb-1 space-y-1.5">
+              <div className="flex justify-between text-xs text-gray-400">
+                <span className="truncate max-w-sm">{batchProgress.file || 'Initialisiere…'}</span>
+                <span className="whitespace-nowrap ml-2">{batchProgress.i} / {batchProgress.total}</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-1.5">
+                <div className="bg-violet-500 h-1.5 rounded-full transition-all"
+                  style={{ width: `${Math.round(100 * batchProgress.i / Math.max(batchProgress.total, 1))}%` }} />
+              </div>
+            </div>
+          )}
+          <div className="px-4 py-2 max-h-48 overflow-y-auto font-mono text-xs space-y-0.5">
+            {batchLog.map((line, i) => (
+              <div key={i} className={line.includes('✓') ? 'text-violet-400' : line.includes('✗') || line.includes('Fehler') ? 'text-red-400' : line.includes('🔄') ? 'text-blue-400' : 'text-gray-400'}>{line}</div>
+            ))}
+          </div>
+        </div>
+      )}
+      {batchResult && !batchRunning && (
+        <div className="bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-xl px-4 py-3 text-sm text-violet-800 dark:text-violet-300 flex justify-between">
+          <span>Batch abgeschlossen: {batchResult.processed} verarbeitet, {batchResult.added} Verträge hinzugefügt{batchResult.errors > 0 ? `, ${batchResult.errors} Fehler` : ''}</span>
+          <button onClick={() => { setBatchResult(null); setBatchLog([]) }} className="text-violet-500 hover:text-violet-700 ml-4">✕</button>
         </div>
       )}
 

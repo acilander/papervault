@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package, ScrollText } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package, ScrollText, Wrench } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import DocumentDetail from './pages/DocumentDetail'
@@ -14,6 +14,7 @@ import Collections from './pages/Collections'
 import Settings from './pages/Settings'
 import Inventory from './pages/Inventory'
 import Contracts from './pages/Contracts'
+import Services from './pages/Services'
 import axios from 'axios'
 import { ConfigProvider } from './ConfigContext'
 
@@ -27,6 +28,7 @@ const nav = [
   { to: '/duplicates', label: 'Duplikate', icon: ScanSearch },
   { to: '/inventory', label: 'Inventar', icon: Package },
   { to: '/contracts', label: 'Verträge', icon: ScrollText },
+  { to: '/services', label: 'Ausgaben', icon: Wrench },
   { to: '/validation', label: 'Validierung', icon: ShieldCheck },
   { to: '/monitor', label: 'Monitor', icon: Activity },
   { to: '/settings', label: 'Einstellungen', icon: SettingsIcon },
@@ -199,6 +201,7 @@ export default function App() {
             <Route path="/collections/:id" element={<Collections />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/contracts" element={<Contracts />} />
+            <Route path="/services" element={<Services />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>

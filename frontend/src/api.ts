@@ -172,6 +172,16 @@ export const importOrphans = (paths: string[]) =>
     '/monitor/orphans/import', { paths }
   ).then(r => r.data)
 
+export interface ImportCandidate {
+  file_path: string
+  rel_path: string
+  filename: string
+  size_kb: number
+  status: 'new' | 'duplicate' | 'likely_duplicate' | 'error'
+  reason: string | null
+  existing_path: string | null
+}
+
 export const confirmDocument = (id: number) =>
   api.post<{ detail: string; file_path: string }>(`/documents/${id}/confirm`).then(r => r.data)
 

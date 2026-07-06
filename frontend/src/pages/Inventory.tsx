@@ -55,6 +55,9 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true)
   const [batchRunning, setBatchRunning] = useState(false)
   const [batchResult, setBatchResult] = useState<{ processed: number; items_added: number; errors: number } | null>(null)
+  const [batchLog, setBatchLog] = useState<string[]>([])
+  const [batchProgress, setBatchProgress] = useState<{ i: number; total: number; file: string } | null>(null)
+  const [pending, setPending] = useState<number | null>(null)
   const [page, setPage] = useState(1)
   const [showStats, setShowStats] = useState(false)
 
@@ -89,6 +92,10 @@ export default function Inventory() {
 
   useEffect(() => { load(1); setPage(1) }, [load])
 
+  useEffect(() => {
+    axios.get('/items/pending-count').then(r => setPending(r.data.pending)).catch(() => {})
+  }, [])
+
   const goToPage = (p: number) => {
     setPage(p)
     load(p)
@@ -98,11 +105,47 @@ export default function Inventory() {
   const runBatch = async () => {
     setBatchRunning(true)
     setBatchResult(null)
+    setBatchLog([])
+    setBatchProgress(null)
     try {
-      const res = await axios.post('/items/extract-all')
-      setBatchResult(res.data)
-      load(1)
-      setPage(1)
+      const response = await fetch('/items/extract-all', { method: 'POST' })
+      const reader = response.body!.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const parts = buf.split('\n\n')
+        buf = parts.pop() ?? ''
+        for (const part of parts) {
+          const line = part.replace(/^data: /, '').trim()
+          if (!line) continue
+          try {
+            const msg = JSON.parse(line)
+            if (msg.type === 'start') {
+              setBatchLog([`Starte: ${msg.total} Rechnungen zu verarbeiten…`])
+              setBatchProgress({ i: 0, total: msg.total, file: '' })
+            } else if (msg.type === 'progress') {
+              setBatchProgress({ i: msg.i, total: msg.total, file: msg.file })
+              if (msg.action === 'running') {
+                setBatchLog(l => [...l, `[${msg.i}/${msg.total}] 🔄 ${msg.file}`])
+              } else if (msg.action === 'done') {
+                setBatchLog(l => [...l, `[${msg.i}/${msg.total}] ✓ ${msg.file} → ${msg.n} Artikel`])
+              } else if (msg.action === 'error') {
+                setBatchLog(l => [...l, `[${msg.i}/${msg.total}] ✗ ${msg.file}: ${msg.msg}`])
+              }
+            } else if (msg.type === 'done') {
+              setBatchResult({ processed: msg.processed, items_added: msg.items_added, errors: msg.errors })
+              setBatchProgress(null)
+              setPending(0)
+              load(1); setPage(1)
+            }
+          } catch { /* skip */ }
+        }
+      }
+    } catch (e: any) {
+      setBatchLog(l => [...l, `Fehler: ${e.message}`])
     } finally {
       setBatchRunning(false)
     }
@@ -150,16 +193,38 @@ export default function Inventory() {
           <button onClick={runBatch} disabled={batchRunning}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg transition-colors">
             <RefreshCw size={14} className={batchRunning ? 'animate-spin' : ''} />
-            {batchRunning ? 'Verarbeite…' : 'Alle Rechnungen verarbeiten'}
+            {batchRunning ? 'Verarbeite…' : `Rechnungen verarbeiten${pending ? ` (${pending})` : ''}`}
           </button>
         </div>
       </div>
 
+      {/* Batch progress */}
+      {(batchRunning || batchLog.length > 0) && (
+        <div className="bg-gray-900 rounded-xl border border-gray-700 overflow-hidden">
+          {batchProgress && (
+            <div className="px-4 pt-3 pb-1 space-y-1.5">
+              <div className="flex justify-between text-xs text-gray-400">
+                <span className="truncate max-w-sm">{batchProgress.file || 'Initialisiere…'}</span>
+                <span className="whitespace-nowrap ml-2">{batchProgress.i} / {batchProgress.total}</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-1.5">
+                <div className="bg-emerald-500 h-1.5 rounded-full transition-all"
+                  style={{ width: `${Math.round(100 * batchProgress.i / Math.max(batchProgress.total, 1))}%` }} />
+              </div>
+            </div>
+          )}
+          <div className="px-4 py-2 max-h-48 overflow-y-auto font-mono text-xs space-y-0.5">
+            {batchLog.map((line, i) => (
+              <div key={i} className={`${line.includes('✓') ? 'text-emerald-400' : line.includes('✗') || line.includes('Fehler') ? 'text-red-400' : line.includes('🔄') ? 'text-blue-400' : 'text-gray-400'}`}>{line}</div>
+            ))}
+          </div>
+        </div>
+      )}
       {/* Batch result */}
-      {batchResult && (
-        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">
-          Batch abgeschlossen: {batchResult.processed} Rechnungen verarbeitet, {batchResult.items_added} Artikel hinzugefügt
-          {batchResult.errors > 0 && `, ${batchResult.errors} Fehler`}
+      {batchResult && !batchRunning && (
+        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300 flex justify-between">
+          <span>Batch abgeschlossen: {batchResult.processed} verarbeitet, {batchResult.items_added} Artikel hinzugefügt{batchResult.errors > 0 ? `, ${batchResult.errors} Fehler` : ''}</span>
+          <button onClick={() => { setBatchResult(null); setBatchLog([]) }} className="text-emerald-500 hover:text-emerald-700 ml-4">✕</button>
         </div>
       )}
 

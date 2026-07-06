@@ -23,6 +23,9 @@ export default defineConfig({
       '/chat': 'http://localhost:8000',
       '/config': 'http://localhost:8000',
       '/collections': 'http://localhost:8000',
+      '/items': 'http://localhost:8000',
+      '/contracts': 'http://localhost:8000',
+      '/services': 'http://localhost:8000',
     },
   },
 })
