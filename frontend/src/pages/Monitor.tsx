@@ -155,18 +155,6 @@ export default function Monitor() {
     } finally { setThumbBusy(false) }
   }
 
-  const handleRestart = async () => {
-    setActionBusy(true)
-    try {
-      if (archiver.running) await axios.post('/monitor/archiver/stop')
-      await new Promise(r => setTimeout(r, 1200))
-      await axios.post('/monitor/archiver/start')
-      await fetchStatus()
-    } catch (e: any) {
-      alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
-    } finally { setActionBusy(false) }
-  }
-
   const handleOrphanScan = async () => {
     setOrphanBusy(true)
     try {
@@ -251,11 +239,6 @@ export default function Monitor() {
                 <Play size={13} /> Start
               </button>
             )}
-            <button onClick={handleRestart} disabled={actionBusy}
-              title="Archiver neu starten"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors">
-              <RefreshCw size={13} className={actionBusy ? 'animate-spin' : ''} /> Restart
-            </button>
             <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
               <input type="checkbox" checked={thumbForce} onChange={e => setThumbForce(e.target.checked)} className="accent-gray-600" />
               Alle
