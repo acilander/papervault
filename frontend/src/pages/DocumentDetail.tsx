@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked } from 'lucide-react'
+import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users } from 'lucide-react'
 import { getDocument, updateDocument, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
@@ -238,6 +238,14 @@ export default function DocumentDetail() {
             <Save size={14} />
             {saved ? 'Gespeichert ✓' : saving ? 'Speichert…' : 'Speichern'}
           </button>
+          {(edit.sender || doc.sender) && (
+            <button
+              onClick={() => navigate(`/documents?sender=${encodeURIComponent(edit.sender ?? doc.sender ?? '')}`)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-colors">
+              <Users size={14} />
+              Ähnliche: {edit.sender ?? doc.sender}
+            </button>
+          )}
           <button onClick={() => openInExplorer(doc.id)}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
             <FolderOpen size={14} />

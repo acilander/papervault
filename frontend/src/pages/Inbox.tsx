@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle, RefreshCw, Trash2, Eye, ChevronDown, ChevronUp, Square, CheckSquare } from 'lucide-react'
+import { CheckCircle, RefreshCw, Trash2, Eye, ChevronDown, ChevronUp, Square, CheckSquare, Users } from 'lucide-react'
 import { getDocuments, confirmDocument, reprocessDocument, deleteDocumentWithFile, updateDocument, pdfUrl, type Document } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
@@ -280,6 +280,14 @@ export default function Inbox() {
                   className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors">
                   <Eye size={16} />
                 </button>
+                {doc.sender && (
+                  <button
+                    onClick={() => navigate(`/documents?sender=${encodeURIComponent(doc.sender!)}`)}
+                    title={`Alle Dokumente von "${doc.sender}" anzeigen`}
+                    className="p-1.5 text-gray-400 hover:text-purple-600 transition-colors">
+                    <Users size={16} />
+                  </button>
+                )}
                 <button
                   onClick={() => { setReprocessHint(''); setReprocessDlg(doc.id) }}
                   title="Neu klassifizieren"
