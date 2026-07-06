@@ -82,3 +82,5 @@ def init_db():
     init_feedback_table()
     from db.collections_repo import init_collections_table
     init_collections_table()
+    from db.items_repo import init_items_table
+    init_items_table()

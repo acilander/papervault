@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, Copy, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import DocumentDetail from './pages/DocumentDetail'
@@ -12,6 +12,7 @@ import Duplicates from './pages/Duplicates'
 import Validation from './pages/Validation'
 import Collections from './pages/Collections'
 import Settings from './pages/Settings'
+import Inventory from './pages/Inventory'
 import axios from 'axios'
 import { ConfigProvider } from './ConfigContext'
 
@@ -23,6 +24,7 @@ const nav = [
   { to: '/chat', label: 'KI-Suche', icon: MessageSquare },
   { to: '/collections', label: 'Sammlungen', icon: FolderOpen },
   { to: '/duplicates', label: 'Duplikate', icon: ScanSearch },
+  { to: '/inventory', label: 'Inventar', icon: Package },
   { to: '/validation', label: 'Validierung', icon: ShieldCheck },
   { to: '/monitor', label: 'Monitor', icon: Activity },
   { to: '/settings', label: 'Einstellungen', icon: SettingsIcon },
@@ -44,8 +46,6 @@ interface SidebarBadges {
 function SidebarQuickLinks({ badges }: { badges: SidebarBadges }) {
   const navigate = useNavigate()
   const items = [
-    { label: 'Duplikate (DB)', icon: Copy, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20', count: badges.duplicates, filter: '?status=duplicate' },
-    { label: 'Ähnliche prüfen', icon: ScanSearch, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20', count: 0, filter: undefined, link: '/duplicates' },
     { label: 'Fehlgeschlagen', icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20', count: badges.failed, filter: '?status=classification_failed' },
     { label: 'Steuerrelevant', icon: Receipt, color: 'text-yellow-600', bg: 'bg-yellow-50 dark:bg-yellow-900/20', count: badges.tax, filter: '?tax=1' },
     { label: 'Läuft ab', icon: Clock, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20', count: badges.expiring, filter: '?expires=1' },
@@ -99,18 +99,22 @@ export default function App() {
         const inboxData = inbox.status === 'fulfilled' ? inbox.value.data : { files: [] }
         const statsData = stats.status === 'fulfilled' ? stats.value.data : { by_status: [] }
         const byStatus: { status: string; count: number }[] = statsData.by_status ?? []
-        setBadges({
+        setBadges(prev => ({
+          ...prev,
           unreviewed: Object.values(sendersData).filter((e: any) => e.reviewed === false).length,
           expiring: Array.isArray(expiringData) ? expiringData.length : 0,
           inbox: inboxData.files?.length ?? 0,
-          duplicates: byStatus.find(s => s.status === 'duplicate')?.count ?? 0,
           failed: byStatus.find(s => s.status === 'classification_failed')?.count ?? 0,
           tax: 0,
           missing: byStatus.find(s => s.status === 'missing')?.count ?? 0,
           review: byStatus.find(s => s.status === 'review')?.count ?? 0,
           noSender: statsData.no_sender ?? 0,
           lowValue: statsData.low_value ?? 0,
-        })
+        }))
+        // SimHash duplicate count is expensive (O(n²)) — load once separately, not on every poll
+        axios.get('/monitor/duplicates/count').then(r => {
+          setBadges(prev => ({ ...prev, duplicates: r.data.count ?? 0 }))
+        }).catch(() => {})
       } catch {}
     }
     load()
@@ -164,8 +168,8 @@ export default function App() {
                 {label === 'Inbox' && badges.review > 0 && (
                   <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400">{badges.review}</span>
                 )}
-                {label === 'Duplikate' && (
-                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">neu</span>
+                {label === 'Duplikate' && badges.duplicates > 0 && (
+                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">{badges.duplicates}</span>
                 )}
                 {label === 'Monitor' && badges.inbox > 0 && (
                   <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">{badges.inbox}</span>
@@ -191,6 +195,7 @@ export default function App() {
             <Route path="/validation" element={<Validation />} />
             <Route path="/collections" element={<Collections />} />
             <Route path="/collections/:id" element={<Collections />} />
+            <Route path="/inventory" element={<Inventory />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>

@@ -10,7 +10,7 @@ import db
 import storage
 import config
 from config import DB_PATH, CORS_ORIGINS
-from api.routes import documents, senders, stats, monitor, chat, collections, config as config_router
+from api.routes import documents, senders, stats, monitor, chat, collections, config as config_router, items
 
 
 @asynccontextmanager
@@ -63,6 +63,7 @@ app.include_router(monitor.router)
 app.include_router(chat.router)
 app.include_router(collections.router)
 app.include_router(config_router.router)
+app.include_router(items.router)
 
 
 @app.get("/health")

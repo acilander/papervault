@@ -295,6 +295,25 @@ def process_pdf(file_path, doc_id=None):
         if validated_kw:
             db.update_document(doc_id, keywords=validated_kw)
 
+    # Phase 8: Item extraction for invoices
+    if final_status == "ok" and data.get("document_type") == "Rechnung":
+        try:
+            from llm import extract_items_from_invoice
+            from db.items_repo import has_items_for_document, insert_items
+            from datetime import datetime as _dt
+            if not has_items_for_document(doc_id):
+                items = extract_items_from_invoice(
+                    text=safe_text,
+                    filename=os.path.basename(dest_pdf),
+                    vendor=sender or "",
+                    purchase_date=data.get("date") or "",
+                )
+                if items:
+                    n = insert_items(doc_id, items, extracted_at=_dt.now().isoformat(timespec="seconds"))
+                    log(f"[ITEMS] {n} Artikel in Inventar eingetragen.")
+        except Exception as e:
+            log(f"[ITEMS] Fehler bei Artikel-Extraktion (ignoriert): {e}")
+
 
 def reindex_from_archive():
     from storage import record_sender as _record
