@@ -539,6 +539,8 @@ def generate_thumbnails_job(force: bool = False):
     from pdf_utils import generate_thumbnail, get_thumbnail_path
 
     def _stream():
+        from utils import log as _log
+        _lf = ARCHIVER_STDOUT
         docs = db.search_documents(limit=99999)
         candidates = [
             d for d in docs
@@ -551,6 +553,7 @@ def generate_thumbnails_job(force: bool = False):
         skipped = 0
         failed = 0
 
+        _log(f"[THUMBNAILS] Starte: {total} Dokumente", log_file=_lf)
         yield f"data: {_json.dumps({'type': 'start', 'total': total})}\n\n"
 
         for i, doc in enumerate(candidates, 1):
@@ -562,11 +565,14 @@ def generate_thumbnails_job(force: bool = False):
             ok = generate_thumbnail(doc["file_path"], doc["id"])
             if ok:
                 done += 1
+                _log(f"[THUMBNAILS] [{i}/{total}] ✓ {doc['filename']}", log_file=_lf)
                 yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'failed': failed, 'file': doc['filename'], 'action': 'generated'})}\n\n"
             else:
                 failed += 1
+                _log(f"[THUMBNAILS] [{i}/{total}] ✗ {doc['filename']}", log_file=_lf)
                 yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'failed': failed, 'file': doc['filename'], 'action': 'failed'})}\n\n"
 
+        _log(f"[THUMBNAILS] Fertig: {done} generiert, {skipped} übersprungen, {failed} Fehler", log_file=_lf)
         yield f"data: {_json.dumps({'type': 'done', 'generated': done, 'skipped': skipped, 'failed': failed})}\n\n"
 
     return StreamingResponse(_stream(), media_type="text/event-stream")
