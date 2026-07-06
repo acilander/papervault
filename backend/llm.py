@@ -337,6 +337,77 @@ def check_sender_semantic(predicted_sender, raw_text):
     return False
 
 
+def _reconciliation_pass(data: dict, sender: str) -> dict:
+    """Second LLM pass: check consistency of document_type and category against existing
+    DB documents from the same sender. Only triggered when confidence != 'high' and
+    the sender has ≥3 documents in the DB with a clear majority type/category.
+    Returns updated data dict (may be unchanged)."""
+    try:
+        import db as _db
+        from collections import Counter
+        past = _db.search_documents(sender=sender, status="ok", limit=20)
+        if len(past) < 3:
+            return data
+
+        type_counts = Counter(d.get("document_type") for d in past if d.get("document_type"))
+        cat_counts = Counter(d.get("category") for d in past if d.get("category"))
+        if not type_counts and not cat_counts:
+            return data
+
+        majority_type, majority_type_n = type_counts.most_common(1)[0] if type_counts else (None, 0)
+        majority_cat, majority_cat_n = cat_counts.most_common(1)[0] if cat_counts else (None, 0)
+
+        # Only proceed if current result deviates from majority
+        type_ok = (data.get("document_type") == majority_type) or (majority_type_n < 3)
+        cat_ok = (data.get("category") == majority_cat) or (majority_cat_n < 3)
+        if type_ok and cat_ok:
+            return data
+
+        # Build reconciliation prompt
+        summary_lines = []
+        for dtype, cnt in type_counts.most_common(3):
+            summary_lines.append(f"  - Typ: {dtype} ({cnt}x)")
+        for cat, cnt in cat_counts.most_common(3):
+            summary_lines.append(f"  - Kategorie: {cat} ({cnt}x)")
+
+        reconcile_prompt = (
+            f"Du hast dieses Dokument klassifiziert als:\n"
+            f"  Absender: {sender}\n"
+            f"  Typ: {data.get('document_type')}, Kategorie: {data.get('category')}\n\n"
+            f"Im Archiv existieren bereits {len(past)} Dokumente von '{sender}':\n"
+            + "\n".join(summary_lines) +
+            f"\n\nIst deine Klassifizierung konsistent mit dem bisherigen Archiv?\n"
+            f"Falls das aktuelle Dokument wirklich abweicht (z.B. anderer Typ), behalte deine Klassifizierung.\n"
+            f"Falls es ein Fehler war, korrigiere. Antworte NUR mit JSON: "
+            f'{{\"document_type\": \"...\", \"category\": \"...\"}}'
+        )
+
+        with _llm_lock:
+            result = _llm.create_chat_completion(
+                messages=[{"role": "user", "content": reconcile_prompt}],
+                max_tokens=64,
+                temperature=0.0,
+            )
+        raw = result["choices"][0]["message"]["content"]
+        cleaned = raw.replace("```json", "").replace("```", "").strip()
+        patch = json.loads(cleaned)
+
+        changed = []
+        if patch.get("document_type") in DOCUMENT_TYPES and patch["document_type"] != data.get("document_type"):
+            changed.append(f"document_type: {data.get('document_type')} → {patch['document_type']}")
+            data["document_type"] = patch["document_type"]
+        if patch.get("category") in CATEGORIES and patch["category"] != data.get("category"):
+            changed.append(f"category: {data.get('category')} → {patch['category']}")
+            data["category"] = patch["category"]
+        if changed:
+            log(f"[RECONCILIATION] Korrigiert: {'; '.join(changed)}")
+        else:
+            log(f"[RECONCILIATION] Klassifizierung bestätigt (keine Änderung)")
+    except Exception as e:
+        log(f"[RECONCILIATION] Fehler (ignoriert): {e}")
+    return data
+
+
 def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=None, similar_docs=None, header_zone=None):
     from config import MOCK_LLM
     if MOCK_LLM:
@@ -548,6 +619,10 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
                 if confidence == "low" and data.get("sender"):
                     log(f"Absender '{data['sender']}' nicht im Text gefunden – setze null (Halluzination).")
                     data["sender"] = None
+
+                # Phase 5c: Reconciliation pass — only when confidence != high and sender known
+                if confidence != "high" and data.get("sender"):
+                    data = _reconciliation_pass(data, data["sender"])
 
                 log(f"LLM OK [{confidence.upper()}] in {time.time()-t0:.1f}s: {json.dumps(data, ensure_ascii=False)}")
                 return data
