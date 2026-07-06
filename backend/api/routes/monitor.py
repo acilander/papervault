@@ -25,6 +25,7 @@ ARCHIVER_STDOUT = os.path.join(TARGET_BASE, "archiver.log")
 
 # Global archiver process handle
 _archiver_proc: subprocess.Popen | None = None
+_ARCHIVER_PID_FILE = os.path.join(TARGET_BASE, "archiver.pid")
 
 
 async def _tail_file(path: str):
@@ -78,17 +79,58 @@ def get_buffer():
 
 # ── Archiver control ────────────────────────────────────────────────────────
 
+def _pid_is_alive(pid: int) -> bool:
+    """Check if a process with given PID is still running (Windows-compatible)."""
+    try:
+        import psutil
+        return psutil.pid_exists(pid)
+    except ImportError:
+        pass
+    # Fallback: Windows tasklist
+    try:
+        out = subprocess.check_output(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH"], text=True, stderr=subprocess.DEVNULL
+        )
+        return str(pid) in out
+    except Exception:
+        return False
+
+
 def _proc_running() -> bool:
     global _archiver_proc
-    if _archiver_proc is None:
-        return False
-    return _archiver_proc.poll() is None
+    # Fast path: in-memory handle
+    if _archiver_proc is not None:
+        if _archiver_proc.poll() is None:
+            return True
+        _archiver_proc = None
+    # Fallback: check PID file (survives backend restart)
+    if os.path.exists(_ARCHIVER_PID_FILE):
+        try:
+            pid = int(open(_ARCHIVER_PID_FILE).read().strip())
+            if _pid_is_alive(pid):
+                return True
+        except (ValueError, OSError):
+            pass
+        # Stale PID file — clean up
+        try:
+            os.remove(_ARCHIVER_PID_FILE)
+        except OSError:
+            pass
+    return False
 
 
 @router.get("/archiver/status")
 def archiver_status():
     running = _proc_running()
-    pid = _archiver_proc.pid if running else None
+    pid = None
+    if running:
+        if _archiver_proc is not None:
+            pid = _archiver_proc.pid
+        elif os.path.exists(_ARCHIVER_PID_FILE):
+            try:
+                pid = int(open(_ARCHIVER_PID_FILE).read().strip())
+            except (ValueError, OSError):
+                pass
     return {"running": running, "pid": pid}
 
 
@@ -107,6 +149,8 @@ def archiver_start():
         stderr=log_out,
         text=True,
     )
+    with open(_ARCHIVER_PID_FILE, "w") as f:
+        f.write(str(_archiver_proc.pid))
     return {"started": True, "pid": _archiver_proc.pid}
 
 
@@ -120,6 +164,10 @@ def archiver_stop():
         _archiver_proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         _archiver_proc.kill()
+    try:
+        os.remove(_ARCHIVER_PID_FILE)
+    except OSError:
+        pass
     return {"stopped": True}
 
 
