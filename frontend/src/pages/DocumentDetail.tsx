@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users } from 'lucide-react'
-import { getDocument, updateDocument, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, type Document, type DocumentUpdate } from '../api'
+import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
 
@@ -23,6 +23,8 @@ export default function DocumentDetail() {
   const [collectionDlg, setCollectionDlg] = useState(false)
   const [allCollections, setAllCollections] = useState<{id:number,name:string,color:string}[]>([])
   const [docCollections, setDocCollections] = useState<{id:number,name:string,color:string}[]>([])
+  const [pinRulePrompt, setPinRulePrompt] = useState<{ sender: string; category: string; document_type: string } | null>(null)
+  const [pinning, setPinning] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -78,6 +80,16 @@ export default function DocumentDetail() {
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+    // Prompt to pin rule if category or document_type was changed and sender is known
+    const changedCategory = edit.category && edit.category !== doc.category
+    const changedType = edit.document_type && edit.document_type !== doc.document_type
+    if ((changedCategory || changedType) && (edit.sender || doc.sender)) {
+      setPinRulePrompt({
+        sender: (edit.sender ?? doc.sender) as string,
+        category: (edit.category ?? doc.category) as string,
+        document_type: (edit.document_type ?? doc.document_type) as string,
+      })
+    }
   }
 
   const remove = async () => {
@@ -393,6 +405,49 @@ export default function DocumentDetail() {
               }}
               className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition-colors">
               {reprocessBusy ? 'Wird gestartet…' : 'Klassifizieren'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Pin rule prompt */}
+    {pinRulePrompt && (
+      <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-6 max-w-sm w-full space-y-4">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Regel für Absender festlegen?</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Du hast <strong>{pinRulePrompt.sender}</strong> korrigiert auf:
+          </p>
+          <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+            <li>Kategorie: <strong>{pinRulePrompt.category}</strong></li>
+            <li>Typ: <strong>{pinRulePrompt.document_type}</strong></li>
+          </ul>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Diese Regel wird für alle zukünftigen Dokumente dieses Absenders automatisch angewendet (höchste Priorität).
+          </p>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setPinRulePrompt(null)}
+              className="flex-1 px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+              Nein, nur dieses Dokument
+            </button>
+            <button
+              disabled={pinning}
+              onClick={async () => {
+                setPinning(true)
+                try {
+                  await updateSender(pinRulePrompt.sender, {
+                    pinned_category: pinRulePrompt.category,
+                    pinned_document_type: pinRulePrompt.document_type,
+                  })
+                  setPinRulePrompt(null)
+                } catch (e: any) {
+                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                } finally { setPinning(false) }
+              }}
+              className="flex-1 px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+              {pinning ? '…' : 'Ja, Regel speichern'}
             </button>
           </div>
         </div>

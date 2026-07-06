@@ -3,7 +3,7 @@ import os
 import threading
 from datetime import datetime
 
-from config import LOG_FILE, CATEGORIES
+from config import LOG_FILE, CATEGORIES, DOCUMENT_TYPES
 from utils import log
 import db
 import db.sender_repo as sender_repo
@@ -132,6 +132,7 @@ def apply_sender_overrides(data):
         return data
     entry = sender_registry[sender]
     pinned = entry.get("pinned_category")
+    pinned_type = entry.get("pinned_document_type")
     excluded = entry.get("excluded_categories", [])
     if pinned and pinned in CATEGORIES:
         if data.get("category") != pinned:
@@ -141,4 +142,8 @@ def apply_sender_overrides(data):
         fallback = next((c for c in entry.get("categories", []) if c not in excluded), "Sonstiges")
         log(f"Kategorie '{data['category']}' ist gesperrt fuer '{sender}', verwende '{fallback}'")
         data["category"] = fallback
+    if pinned_type and pinned_type in DOCUMENT_TYPES:
+        if data.get("document_type") != pinned_type:
+            log(f"Dokumenttyp durch Absender-Register ueberschrieben: '{data.get('document_type')}' -> '{pinned_type}' (Absender: {sender})")
+            data["document_type"] = pinned_type
     return data

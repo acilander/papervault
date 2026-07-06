@@ -78,6 +78,8 @@ def update_sender(name: str, body: SenderUpdate):
     entry = storage.sender_registry[name]
     if body.pinned_category is not None:
         entry["pinned_category"] = body.pinned_category or None
+    if body.pinned_document_type is not None:
+        entry["pinned_document_type"] = body.pinned_document_type or None
     if body.categories is not None:
         entry["categories"] = body.categories
     if body.reviewed is not None:

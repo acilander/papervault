@@ -63,6 +63,7 @@ class DocumentUpdate(BaseModel):
 class SenderEntry(BaseModel):
     categories: list[str]
     pinned_category: Optional[str]
+    pinned_document_type: Optional[str] = None
     reviewed: Optional[bool] = None
     excluded_categories: Optional[list[str]] = None
     aliases: Optional[list[str]] = None
@@ -70,6 +71,7 @@ class SenderEntry(BaseModel):
 
 class SenderUpdate(BaseModel):
     pinned_category: Optional[str] = None
+    pinned_document_type: Optional[str] = None
     categories: Optional[list[str]] = None
     reviewed: Optional[bool] = None
     excluded_categories: Optional[list[str]] = None

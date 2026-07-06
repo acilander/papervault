@@ -41,6 +41,7 @@ export interface DocumentUpdate {
 export interface SenderEntry {
   categories: string[]
   pinned_category: string | null
+  pinned_document_type: string | null
   reviewed: boolean | null
   excluded_categories?: string[]
   aliases?: string[]
@@ -115,7 +116,7 @@ export const getSenders = () =>
 export const getSenderCounts = () =>
   api.get<Record<string, number>>('/senders/counts').then(r => r.data)
 
-export const updateSender = (name: string, body: { pinned_category?: string | null; categories?: string[]; reviewed?: boolean; excluded_categories?: string[] }) =>
+export const updateSender = (name: string, body: { pinned_category?: string | null; pinned_document_type?: string | null; categories?: string[]; reviewed?: boolean; excluded_categories?: string[] }) =>
   api.patch<SenderEntry>(`/senders/${encodeURIComponent(name)}`, body).then(r => r.data)
 
 export const renameSender = (name: string, newName: string) =>
