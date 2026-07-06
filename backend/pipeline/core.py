@@ -295,6 +295,26 @@ def process_pdf(file_path, doc_id=None):
         if validated_kw:
             db.update_document(doc_id, keywords=validated_kw)
 
+    # Phase 8b: Contract extraction for contract documents
+    CONTRACT_TYPES = {"Vertrag", "Kündigung", "Mahnung", "Abonnement"}
+    if final_status == "ok" and data.get("document_type") in CONTRACT_TYPES:
+        try:
+            from llm import extract_contract_from_document
+            from db.contracts_repo import has_contract_for_document, insert_contract
+            from datetime import datetime as _dt2
+            if not has_contract_for_document(doc_id):
+                contract = extract_contract_from_document(
+                    text=safe_text,
+                    filename=os.path.basename(dest_pdf),
+                    sender=sender or "",
+                    doc_type=data.get("document_type") or "",
+                )
+                if contract:
+                    insert_contract(doc_id, contract, extracted_at=_dt2.now().isoformat(timespec="seconds"))
+                    log(f"[CONTRACTS] Vertragsdaten gespeichert: '{contract.get('partner')}'")
+        except Exception as e:
+            log(f"[CONTRACTS] Fehler bei Vertrags-Extraktion (ignoriert): {e}")
+
     # Phase 8: Item extraction for invoices
     if final_status == "ok" and data.get("document_type") == "Rechnung":
         try:
