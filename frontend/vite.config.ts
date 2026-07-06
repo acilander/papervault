@@ -11,7 +11,15 @@ export default defineConfig({
       '/senders': 'http://localhost:8000',
       '/stats': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
-      '/monitor': 'http://localhost:8000',
+      '/monitor': {
+        target: 'http://localhost:8000',
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            // Disable buffering for SSE streams
+            proxyRes.headers['x-accel-buffering'] = 'no'
+          })
+        },
+      },
       '/chat': 'http://localhost:8000',
       '/config': 'http://localhost:8000',
       '/collections': 'http://localhost:8000',

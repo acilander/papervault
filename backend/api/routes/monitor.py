@@ -560,7 +560,8 @@ def generate_thumbnails_job(force: bool = False):
             thumb = get_thumbnail_path(doc["id"])
             if not force and os.path.exists(thumb):
                 skipped += 1
-                yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'failed': failed, 'file': doc['filename'], 'action': 'skipped'})}\n\n"
+                if skipped % 10 == 0 or i == total:
+                    yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'failed': failed, 'file': doc['filename'], 'action': 'skipped'})}\n\n"
                 continue
             ok = generate_thumbnail(doc["file_path"], doc["id"])
             if ok:

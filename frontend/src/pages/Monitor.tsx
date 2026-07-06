@@ -150,7 +150,7 @@ export default function Monitor() {
     setThumbResult(null)
     setThumbProgress(null)
     try {
-      const response = await fetch(`/monitor/generate-thumbnails${thumbForce ? '?force=true' : ''}`, { method: 'POST' })
+      const response = await fetch(`http://localhost:8000/monitor/generate-thumbnails${thumbForce ? '?force=true' : ''}`, { method: 'POST' })
       const reader = response.body!.getReader()
       const decoder = new TextDecoder()
       let buf = ''
