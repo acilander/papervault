@@ -219,15 +219,20 @@ _INBOX_TTL = 10.0  # seconds
 def _scan_inbox() -> list:
     files = []
     try:
-        with os.scandir(SOURCE_DIR) as it:
-            for entry in it:
-                if entry.is_file() and entry.name.lower().endswith(".pdf"):
-                    stat = entry.stat()
-                    files.append({
-                        "filename": entry.name,
-                        "size_kb": round(stat.st_size / 1024, 1),
-                        "modified": time.strftime("%Y-%m-%d %H:%M", time.localtime(stat.st_mtime)),
-                    })
+        for root, dirs, fnames in os.walk(SOURCE_DIR):
+            dirs[:] = [d for d in dirs if not os.path.join(root, d).startswith(os.path.abspath(TARGET_BASE))]
+            for fname in fnames:
+                if fname.lower().endswith(".pdf"):
+                    fpath = os.path.join(root, fname)
+                    rel = os.path.relpath(fpath, SOURCE_DIR)
+                    try:
+                        st = os.stat(fpath)
+                        size_kb = round(st.st_size / 1024, 1)
+                        modified = time.strftime("%Y-%m-%d %H:%M", time.localtime(st.st_mtime))
+                    except OSError:
+                        size_kb = 0
+                        modified = ""
+                    files.append({"filename": rel, "size_kb": size_kb, "modified": modified})
     except PermissionError:
         return []
     files.sort(key=lambda f: f["filename"])
@@ -251,7 +256,12 @@ def inbox_preview(force: bool = False):
         return {"source_dir": SOURCE_DIR, "files": [], "error": "Inbox-Ordner nicht gefunden"}
 
     age = time.time() - _inbox_cache["ts"]
-    if force or age > _INBOX_TTL:
+    if _inbox_cache["ts"] == 0.0:
+        # First request ever — scan synchronously so we don't return empty list
+        result = _scan_inbox()
+        _inbox_cache["files"] = result
+        _inbox_cache["ts"] = time.time()
+    elif force or age > _INBOX_TTL:
         _refresh_inbox_cache()
 
     return {"source_dir": SOURCE_DIR, "files": _inbox_cache["files"]}

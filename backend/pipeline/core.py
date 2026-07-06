@@ -145,6 +145,18 @@ def process_pdf(file_path, doc_id=None):
         db.update_document(doc_id, status="failed", summary="FEHLER: Datei beim Start der Verarbeitung nicht gefunden.")
         return
 
+    if os.path.getsize(file_path) == 0:
+        os.makedirs(FAILED_DIR, exist_ok=True)
+        dest = unique_path(os.path.join(FAILED_DIR, os.path.basename(file_path)))
+        shutil.move(file_path, dest)
+        log(f"FEHLER: Datei ist leer (0 Bytes). Verschoben nach: {dest}")
+        log("--- Abgeschlossen (fehlgeschlagen) ---")
+        processing_log(os.path.basename(file_path), "empty_file")
+        db.update_document(doc_id, file_path=dest, filename=os.path.basename(dest),
+                           summary="FEHLER: Datei ist leer (0 Bytes) – keine gültige PDF.", status="empty_file")
+        cleanup_empty_inbox_folders(file_path)
+        return
+
     # Phase 2: Text extraction
     text, _ = _extract_text(file_path, doc_id)
     if text is None:
