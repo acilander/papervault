@@ -55,7 +55,9 @@ export default function Monitor() {
   const fetchStatus = useCallback(async () => {
     try {
       const res = await axios.get<ArchiverStatus>('/monitor/archiver/status')
-      setArchiver(res.data)
+      setArchiver(prev =>
+        prev.running === res.data.running && prev.pid === res.data.pid ? prev : res.data
+      )
     } catch {}
   }, [])
 
