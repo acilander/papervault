@@ -555,13 +555,29 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             if owner_error and len(errors) == 1:
                 data["sender"] = None
                 log("Absender ist Archivinhaber – setze sender=null und akzeptiere restliche Klassifizierung.")
-                
                 confidence = "medium" if passes_semantic or not data.get("sender") else "low"
                 reason = "Absender ist Archivinhaber, restliche Felder sind valide"
                 data["confidence"] = confidence
                 data["confidence_reason"] = reason
-                
                 return data
+
+            # Auto-fix sender errors that a retry cannot resolve:
+            # - too short (single char / garbage) → null
+            # - control characters → already stripped by sanitize, but guard anyway
+            # These are structural document issues, not LLM mistakes worth retrying.
+            non_retryable = [e for e in errors if "'sender' ist zu kurz" in e or "Steuerzeichen" in e]
+            if non_retryable:
+                log(f"Sender-Fehler nicht retry-wuerdig – setze sender=null: {'; '.join(non_retryable)}")
+                data["sender"] = None
+                errors = [e for e in errors if e not in non_retryable]
+                if not errors:
+                    passes_semantic = check_sender_semantic(data.get("sender"), safe_text)
+                    confidence = "low"
+                    reason = "Absender ungueltig oder nicht erkennbar – auf null gesetzt."
+                    data["confidence"] = confidence
+                    data["confidence_reason"] = reason
+                    log(f"LLM OK [LOW] in {time.time()-t0:.1f}s: {json.dumps(data, ensure_ascii=False)}")
+                    return data
 
             feedback = "; ".join(errors)
             log(f"Plausibilitaetsfehler (Versuch {attempt}): {feedback}")
