@@ -21,6 +21,7 @@ class DocumentListOut(BaseModel):
     expires_at: Optional[str] = None
     notes: Optional[str] = None
     low_value: Optional[int] = 0
+    confidence: Optional[str] = None
 
 
 class DocumentOut(BaseModel):
@@ -41,6 +42,7 @@ class DocumentOut(BaseModel):
     expires_at: Optional[str] = None
     notes: Optional[str] = None
     low_value: Optional[int] = 0
+    confidence: Optional[str] = None
 
 
 class DocumentUpdate(BaseModel):

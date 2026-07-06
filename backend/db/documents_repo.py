@@ -88,12 +88,12 @@ def update_document(doc_id, **fields):
 _LIST_COLS = """
     d.id, d.file_path, d.filename, d.sender, d.date, d.document_type, d.category,
     SUBSTR(d.summary, 1, 200) AS summary, d.content_hash, d.status, d.archived_at,
-    d.tags, d.tax_relevant, d.tax_year, d.expires_at, d.notes, d.low_value
+    d.tags, d.tax_relevant, d.tax_year, d.expires_at, d.notes, d.low_value, d.confidence
 """
 
 
 def search_documents(query=None, category=None, year=None, sender=None,
-                     status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None, limit=100, offset=0):
+                     status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None, confidence=None, limit=100, offset=0):
     """Full-text search + optional filters. Returns list of dicts (no full_text/sim_hash/keywords)."""
     with get_conn() as conn:
         if query:
@@ -133,6 +133,9 @@ def search_documents(query=None, category=None, year=None, sender=None,
         if low_value is not None:
             sql += " AND d.low_value = ?"
             params.append(int(low_value))
+        if confidence:
+            sql += " AND d.confidence = ?"
+            params.append(confidence)
 
         sql += " ORDER BY d.archived_at DESC LIMIT ? OFFSET ?"
         params += [limit, offset]
@@ -159,7 +162,7 @@ def bulk_update_documents(ids: list, fields: dict) -> int:
 
 
 def count_documents(query=None, category=None, year=None, sender=None,
-                    status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None):
+                    status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None, confidence=None):
     """Count matching documents (same filters as search_documents, no limit/offset)."""
     with get_conn() as conn:
         if query:
@@ -198,6 +201,9 @@ def count_documents(query=None, category=None, year=None, sender=None,
         if low_value is not None:
             sql += " AND d.low_value = ?"
             params.append(int(low_value))
+        if confidence:
+            sql += " AND d.confidence = ?"
+            params.append(confidence)
 
         return conn.execute(sql, params).fetchone()[0]
 

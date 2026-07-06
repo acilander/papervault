@@ -31,6 +31,7 @@ def list_documents(
     tag: Optional[str] = Query(None),
     no_sender: Optional[int] = Query(None),
     low_value: Optional[int] = Query(None),
+    confidence: Optional[str] = Query(None, description="Filter by confidence: low, medium, high"),
     limit: int = Query(100, le=500),
     offset: int = Query(0, ge=0),
     response: Response = None,
@@ -38,7 +39,7 @@ def list_documents(
     filter_kwargs = dict(
         query=q, category=category, year=year, sender=sender,
         status=status, tax_relevant=tax_relevant, tag=tag,
-        no_sender=bool(no_sender), low_value=low_value,
+        no_sender=bool(no_sender), low_value=low_value, confidence=confidence,
     )
     docs = db.search_documents(**filter_kwargs, limit=limit, offset=offset)
     total = db.count_documents(**filter_kwargs)

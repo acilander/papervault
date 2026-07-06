@@ -48,6 +48,7 @@ export default function Documents() {
   const sender = searchParams.get('sender') ?? ''
   const noSenderFilter = searchParams.get('no_sender') === '1'
   const lowValueFilter = searchParams.get('low_value') === '1'
+  const confidenceFilter = searchParams.get('confidence') ?? ''
 
   const setStatus = (v: string) => {
     const p = new URLSearchParams(searchParams)
@@ -83,6 +84,11 @@ export default function Documents() {
     next ? p.set('low_value', '1') : p.delete('low_value')
     setSearchParams(p, { replace: true })
   }
+  const setConfidenceFilter = (v: string) => {
+    const p = new URLSearchParams(searchParams)
+    v ? p.set('confidence', v) : p.delete('confidence')
+    setSearchParams(p, { replace: true })
+  }
 
   const resetAll = () => {
     setQ('')
@@ -101,8 +107,9 @@ export default function Documents() {
     tax_relevant: taxFilter ? 1 : undefined,
     no_sender: noSenderFilter ? 1 : undefined,
     low_value: lowValueFilter ? 1 : undefined,
+    confidence: confidenceFilter || undefined,
     tag: tagFilter || undefined,
-  }), [q, category, year, sender, status, taxFilter, noSenderFilter, lowValueFilter, tagFilter])
+  }), [q, category, year, sender, status, taxFilter, noSenderFilter, lowValueFilter, confidenceFilter, tagFilter])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -259,11 +266,18 @@ export default function Documents() {
           className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${lowValueFilter ? 'bg-gray-500 text-white border-gray-500' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
           ⚠️ Geringer Wert
         </button>
+        <select value={confidenceFilter} onChange={e => setConfidenceFilter(e.target.value)}
+          className="text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400">
+          <option value="">Alle Confidence</option>
+          <option value="low">🔴 Low</option>
+          <option value="medium">🟡 Medium</option>
+          <option value="high">🟢 High</option>
+        </select>
         <button onClick={load}
           className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
           Suchen
         </button>
-        {(status || taxFilter || expiresFilter || noSenderFilter || lowValueFilter || q || category || year || sender || tagFilter) && (
+        {(status || taxFilter || expiresFilter || noSenderFilter || lowValueFilter || confidenceFilter || q || category || year || sender || tagFilter) && (
           <button onClick={resetAll}
             className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             ✕ Zurücksetzen
@@ -289,7 +303,7 @@ export default function Documents() {
       )}
 
       {/* Active filter pills */}
-      {(status || taxFilter || expiresFilter || tagFilter) && (
+      {(status || taxFilter || expiresFilter || tagFilter || confidenceFilter) && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-gray-400">Aktive Filter:</span>
           {status && (
@@ -314,6 +328,12 @@ export default function Documents() {
             <span className="flex items-center gap-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs">
               #{tagFilter}
               <button onClick={() => setTagFilter('')} className="hover:text-indigo-900 leading-none">✕</button>
+            </span>
+          )}
+          {confidenceFilter && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs">
+              Confidence: {confidenceFilter === 'low' ? '🔴' : confidenceFilter === 'medium' ? '🟡' : '🟢'} {confidenceFilter}
+              <button onClick={() => setConfidenceFilter('')} className="hover:text-purple-900 leading-none">✕</button>
             </span>
           )}
           <button onClick={resetAll} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline ml-1">

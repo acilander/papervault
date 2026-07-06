@@ -20,6 +20,7 @@ export interface Document {
   expires_at: string | null
   notes: string | null
   low_value: number
+  confidence: string | null
 }
 
 export interface DocumentUpdate {
@@ -71,6 +72,7 @@ export const getDocuments = (params: {
   tag?: string
   no_sender?: number
   low_value?: number
+  confidence?: string
   limit?: number
   offset?: number
 }) => api.get<Document[]>('/documents/', { params }).then(r => r.data)
