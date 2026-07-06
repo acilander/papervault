@@ -193,11 +193,11 @@ def to_csv(items: list[dict]) -> str:
 
 
 def get_unprocessed_invoice_ids() -> list[int]:
-    """Return IDs of documents with document_type='Rechnung' that have no items yet."""
+    """Return IDs of documents with document_type 'Rechnung' or 'Warenrechnung' that have no items yet."""
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT d.id FROM documents d
-               WHERE d.document_type = 'Rechnung'
+               WHERE d.document_type IN ('Rechnung', 'Warenrechnung')
                AND d.status = 'ok'
                AND NOT EXISTS (SELECT 1 FROM items i WHERE i.document_id = d.id)
                ORDER BY d.archived_at DESC"""

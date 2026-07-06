@@ -54,7 +54,7 @@ def check_duplicate(file_path, text, doc_id):
         hash_type = "text"
     else:
         # [Fix: False-Collision Prevention]
-        # If text is too short or empty (e.g., OCR failed or broken PDF), 
+        # If text is too short or empty (e.g., OCR failed or broken PDF),
         # fall back to binary file hashing to prevent false duplicate collisions on generic text like "Page 1".
         try:
             with open(file_path, "rb") as f:

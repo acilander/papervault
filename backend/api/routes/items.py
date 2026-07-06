@@ -2,6 +2,9 @@
 Items API – inventory items extracted from invoices.
 """
 from datetime import datetime
+import asyncio
+import json
+import anyio
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 import io
@@ -63,46 +66,62 @@ def export_csv(
     )
 
 
-@router.post("/extract-all")
-def extract_all():
-    """Batch-process all invoices that have no items yet."""
+@router.get("/pending-count")
+def pending_count():
+    """Return count of invoices not yet processed."""
     ids = items_repo.get_unprocessed_invoice_ids()
-    total = len(ids)
-    processed = 0
-    errors = 0
-    items_added = 0
+    return {"pending": len(ids)}
 
-    for doc_id in ids:
-        try:
-            doc = get_document(doc_id)
-            if not doc:
-                continue
-            full_text = doc.get("full_text") or ""
-            if not full_text:
-                continue
-            extracted = extract_items_from_invoice(
-                text=full_text,
-                filename=doc.get("filename", ""),
-                vendor=doc.get("sender") or "",
-                purchase_date=doc.get("date") or "",
-            )
-            if extracted:
-                n = items_repo.insert_items(
-                    doc_id, extracted,
-                    extracted_at=datetime.now().isoformat(timespec="seconds"),
+
+@router.post("/extract-all")
+async def extract_all():
+    """Batch-process all invoices with SSE streaming progress."""
+    async def _stream():
+        ids = items_repo.get_unprocessed_invoice_ids()
+        total = len(ids)
+        processed = 0
+        errors = 0
+        items_added = 0
+
+        yield f"data: {json.dumps({'type': 'start', 'total': total})}\n\n"
+        await asyncio.sleep(0)
+
+        for i, doc_id in enumerate(ids, 1):
+            try:
+                doc = get_document(doc_id)
+                filename = doc.get("filename", f"doc#{doc_id}") if doc else f"doc#{doc_id}"
+                if not doc or not (doc.get("full_text") or ""):
+                    errors += 1
+                    yield f"data: {json.dumps({'type': 'progress', 'i': i, 'total': total, 'processed': processed, 'items_added': items_added, 'errors': errors, 'file': filename, 'action': 'skipped'})}\n\n"
+                    await asyncio.sleep(0)
+                    continue
+                yield f"data: {json.dumps({'type': 'progress', 'i': i, 'total': total, 'processed': processed, 'items_added': items_added, 'errors': errors, 'file': filename, 'action': 'running'})}\n\n"
+                await asyncio.sleep(0)
+                _text = doc["full_text"][:4000]
+                _vendor = doc.get("sender") or ""
+                _date = doc.get("date") or ""
+                _fname = filename
+                extracted = await anyio.to_thread.run_sync(
+                    lambda: extract_items_from_invoice(text=_text, filename=_fname, vendor=_vendor, purchase_date=_date)
                 )
-                items_added += n
-            processed += 1
-        except Exception as e:
-            log(f"[ITEMS] Batch-Fehler für doc_id={doc_id}: {e}")
-            errors += 1
+                n = 0
+                if extracted:
+                    n = items_repo.insert_items(doc_id, extracted,
+                        extracted_at=datetime.now().isoformat(timespec="seconds"))
+                    items_added += n
+                processed += 1
+                log(f"[ITEMS] [{i}/{total}] {filename} → {n} Artikel")
+                yield f"data: {json.dumps({'type': 'progress', 'i': i, 'total': total, 'processed': processed, 'items_added': items_added, 'errors': errors, 'file': filename, 'action': 'done', 'n': n})}\n\n"
+            except Exception as e:
+                errors += 1
+                log(f"[ITEMS] Batch-Fehler doc_id={doc_id}: {e}")
+                yield f"data: {json.dumps({'type': 'progress', 'i': i, 'total': total, 'processed': processed, 'items_added': items_added, 'errors': errors, 'file': filename, 'action': 'error', 'msg': str(e)[:80]})}\n\n"
+            await asyncio.sleep(0)
 
-    return {
-        "total_invoices": total,
-        "processed": processed,
-        "errors": errors,
-        "items_added": items_added,
-    }
+        yield f"data: {json.dumps({'type': 'done', 'total': total, 'processed': processed, 'items_added': items_added, 'errors': errors})}\n\n"
+
+    return StreamingResponse(_stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @router.post("/extract/{document_id}")
@@ -113,7 +132,7 @@ def extract_single(document_id: int):
     doc = get_document(document_id)
     if not doc:
         return {"error": "Document not found"}
-    if doc.get("document_type") != "Rechnung":
+    if doc.get("document_type") not in ("Rechnung", "Warenrechnung"):
         return {"error": "Not an invoice"}
     full_text = doc.get("full_text") or ""
     if not full_text:

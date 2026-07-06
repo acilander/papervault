@@ -12,8 +12,10 @@ JSON-Schema (alle Felder sind Pflicht):
   "low_value": true oder false
 }
 
-Erlaubte Werte fuer document_type (NUR diese 11, keine anderen erfinden):
-- Rechnung       – Zahlungsaufforderung fuer Waren oder Dienstleistungen (du schuldest Geld)
+Erlaubte Werte fuer document_type (NUR diese 13, keine anderen erfinden):
+- Warenrechnung         – Rechnung die ausschliesslich physische Produkte/Waren enthaelt (Elektronik, Moebel, Kleidung, Lebensmittel, Ersatzteile, etc.)
+- Dienstleistungsrechnung – Rechnung fuer Dienstleistungen ohne physische Waren (Handwerker-Arbeitsleistung, Arztbehandlung, Reise, Reinigung, Reparaturarbeit, Beratung, Montage, etc.)
+- Rechnung       – Gemischte Rechnung mit Waren UND Dienstleistungen, oder wenn eine Unterscheidung nicht moeglich ist
 - Abrechnung     – Periodische Aufstellung ohne direkte Zahlungsaufforderung: Lohnabrechnung, Entgeltabrechnung, Gehaltsnachweis, Nebenkostenabrechnung, Jahresabrechnung, Kreditkartenabrechnung
 - Vertrag        – Vereinbarungen, Vertraege, AGB, Mietvertraege, Arbeitsvertraege
 - Versicherungsschein – Police, Versicherungsbestaetigung, Deckungsbestaetigung

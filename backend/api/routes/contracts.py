@@ -1,6 +1,9 @@
 """
 Contracts API – contracts and subscriptions extracted from documents.
 """
+import asyncio
+import anyio
+import json
 from datetime import datetime
 from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import StreamingResponse
@@ -88,46 +91,61 @@ def delete_contract(contract_id: int):
     return {"deleted": True}
 
 
-@router.post("/extract-all")
-def extract_all():
-    """Batch-process all contract documents that have no extracted contract yet."""
+@router.get("/pending-count")
+def pending_count():
+    """Return count of contract documents not yet processed."""
     ids = contracts_repo.get_unprocessed_contract_doc_ids()
-    total = len(ids)
-    processed = 0
-    errors = 0
-    added = 0
+    return {"pending": len(ids)}
 
-    for doc_id in ids:
-        try:
-            doc = get_document(doc_id)
-            if not doc:
-                continue
-            full_text = doc.get("full_text") or ""
-            if not full_text:
-                continue
-            contract = extract_contract_from_document(
-                text=full_text,
-                filename=doc.get("filename", ""),
-                sender=doc.get("sender") or "",
-                doc_type=doc.get("document_type") or "",
-            )
-            if contract:
-                contracts_repo.insert_contract(
-                    doc_id, contract,
-                    extracted_at=datetime.now().isoformat(timespec="seconds"),
+
+@router.post("/extract-all")
+async def extract_all():
+    """Batch-process all contract documents with SSE streaming progress."""
+    async def _stream():
+        ids = contracts_repo.get_unprocessed_contract_doc_ids()
+        total = len(ids)
+        processed = 0
+        errors = 0
+        added = 0
+
+        yield f"data: {json.dumps({'type': 'start', 'total': total})}\n\n"
+        await asyncio.sleep(0)
+
+        for i, doc_id in enumerate(ids, 1):
+            try:
+                doc = get_document(doc_id)
+                filename = doc.get("filename", f"doc#{doc_id}") if doc else f"doc#{doc_id}"
+                if not doc or not (doc.get("full_text") or ""):
+                    errors += 1
+                    yield f"data: {json.dumps({'type': 'progress', 'i': i, 'total': total, 'processed': processed, 'added': added, 'errors': errors, 'file': filename, 'action': 'skipped'})}\n\n"
+                    await asyncio.sleep(0)
+                    continue
+                yield f"data: {json.dumps({'type': 'progress', 'i': i, 'total': total, 'processed': processed, 'added': added, 'errors': errors, 'file': filename, 'action': 'running'})}\n\n"
+                await asyncio.sleep(0)
+                _text = doc["full_text"][:4000]
+                _sender = doc.get("sender") or ""
+                _dtype = doc.get("document_type") or ""
+                _fname = filename
+                contract = await anyio.to_thread.run_sync(
+                    lambda: extract_contract_from_document(text=_text, filename=_fname, sender=_sender, doc_type=_dtype)
                 )
-                added += 1
-            processed += 1
-        except Exception as e:
-            log(f"[CONTRACTS] Batch-Fehler für doc_id={doc_id}: {e}")
-            errors += 1
+                if contract:
+                    contracts_repo.insert_contract(doc_id, contract,
+                        extracted_at=datetime.now().isoformat(timespec="seconds"))
+                    added += 1
+                processed += 1
+                log(f"[CONTRACTS] [{i}/{total}] {filename} → {contract.get('partner','?') if contract else 'kein Ergebnis'}")
+                yield f"data: {json.dumps({'type': 'progress', 'i': i, 'total': total, 'processed': processed, 'added': added, 'errors': errors, 'file': filename, 'action': 'done', 'partner': contract.get('partner','') if contract else ''})}\n\n"
+            except Exception as e:
+                errors += 1
+                log(f"[CONTRACTS] Batch-Fehler doc_id={doc_id}: {e}")
+                yield f"data: {json.dumps({'type': 'progress', 'i': i, 'total': total, 'processed': processed, 'added': added, 'errors': errors, 'file': filename, 'action': 'error', 'msg': str(e)[:80]})}\n\n"
+            await asyncio.sleep(0)
 
-    return {
-        "total_docs": total,
-        "processed": processed,
-        "added": added,
-        "errors": errors,
-    }
+        yield f"data: {json.dumps({'type': 'done', 'total': total, 'processed': processed, 'added': added, 'errors': errors})}\n\n"
+
+    return StreamingResponse(_stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @router.post("/extract/{document_id}")

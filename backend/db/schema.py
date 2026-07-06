@@ -88,3 +88,5 @@ def init_db():
     init_items_table()
     from db.contracts_repo import init_contracts_table
     init_contracts_table()
+    from db.services_repo import init_services_table
+    init_services_table()

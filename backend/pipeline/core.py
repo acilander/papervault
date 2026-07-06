@@ -315,24 +315,39 @@ def process_pdf(file_path, doc_id=None):
         except Exception as e:
             log(f"[CONTRACTS] Fehler bei Vertrags-Extraktion (ignoriert): {e}")
 
-    # Phase 8: Item extraction for invoices
-    if final_status == "ok" and data.get("document_type") == "Rechnung":
+    # Phase 8: Extraction pipeline – routed by document_type
+    doc_type = data.get("document_type")
+    INVOICE_TYPES = {"Warenrechnung", "Dienstleistungsrechnung", "Rechnung"}
+    if final_status == "ok" and doc_type in INVOICE_TYPES:
         try:
-            from llm import extract_items_from_invoice
+            from llm import extract_items_from_invoice, extract_services_from_invoice
             from db.items_repo import has_items_for_document, insert_items
+            from db.services_repo import has_services_for_document, insert_services
             from datetime import datetime as _dt
-            if not has_items_for_document(doc_id):
+            fname = os.path.basename(dest_pdf)
+            inv_date = data.get("date") or ""
+
+            # Route: Warenrechnung or Rechnung (mixed/unknown) → try Items
+            if doc_type in ("Warenrechnung", "Rechnung") and not has_items_for_document(doc_id):
                 items = extract_items_from_invoice(
-                    text=safe_text,
-                    filename=os.path.basename(dest_pdf),
-                    vendor=sender or "",
-                    purchase_date=data.get("date") or "",
+                    text=safe_text, filename=fname,
+                    vendor=sender or "", purchase_date=inv_date,
                 )
                 if items:
                     n = insert_items(doc_id, items, extracted_at=_dt.now().isoformat(timespec="seconds"))
                     log(f"[ITEMS] {n} Artikel in Inventar eingetragen.")
+
+            # Route: Dienstleistungsrechnung or Rechnung (mixed/unknown) → try Services
+            if doc_type in ("Dienstleistungsrechnung", "Rechnung") and not has_services_for_document(doc_id):
+                services = extract_services_from_invoice(
+                    text=safe_text, filename=fname,
+                    vendor=sender or "", invoice_date=inv_date,
+                )
+                if services:
+                    n = insert_services(doc_id, services, extracted_at=_dt.now().isoformat(timespec="seconds"))
+                    log(f"[SERVICES] {n} Dienstleistungen in Ausgaben eingetragen.")
         except Exception as e:
-            log(f"[ITEMS] Fehler bei Artikel-Extraktion (ignoriert): {e}")
+            log(f"[PIPELINE] Fehler bei Extraktion (ignoriert): {e}")
 
 
 def reindex_from_archive():
