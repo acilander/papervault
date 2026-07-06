@@ -1,9 +1,16 @@
 import asyncio
+import hashlib
 import os
+import shutil
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
+
+import anyio
+
+_import_cancel = threading.Event()
 
 aiofiles = None
 try:
@@ -17,6 +24,7 @@ from fastapi.responses import StreamingResponse
 
 from config import TARGET_BASE, SOURCE_DIR
 import db
+from pdf_utils import extract_text, compute_simhash, unique_path
 
 router = APIRouter(prefix="/monitor", tags=["monitor"])
 
@@ -141,12 +149,12 @@ def archiver_start():
         raise HTTPException(status_code=409, detail="Archiver läuft bereits")
     python = sys.executable
     project_root = os.path.join(os.path.dirname(__file__), "..", "..")
-    log_out = open(ARCHIVER_STDOUT, "a", encoding="utf-8")
+    log_err = open(ARCHIVER_STDOUT, "a", encoding="utf-8")
     _archiver_proc = subprocess.Popen(
         [python, "archiver.py"],
         cwd=os.path.abspath(project_root),
-        stdout=log_out,
-        stderr=log_out,
+        stdout=subprocess.DEVNULL,
+        stderr=log_err,
         text=True,
     )
     with open(_ARCHIVER_PID_FILE, "w") as f:
@@ -406,27 +414,40 @@ def find_duplicates(min_score: int = 60):
 
 
 @router.get("/duplicates/count")
-def duplicates_count(min_score: int = 70):
-    """Lightweight endpoint: returns only the count of similar pairs (for sidebar badge).
-    Uses the same SimHash logic as /duplicates but skips building full pair objects."""
-    from pdf_utils import simhash_distance
+def duplicates_count(min_score: int = 90):
+    """Lightweight endpoint: returns count of near-duplicate pairs for sidebar badge.
+    Uses LSH (8 bands × 8 bits) for O(n) candidate generation, then verifies score."""
     from db.connection import get_conn
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT id, sim_hash FROM documents WHERE sim_hash IS NOT NULL AND status IN ('ok', 'review')"
+            "SELECT id, sim_hash FROM documents "
+            "WHERE sim_hash IS NOT NULL AND sim_hash != 0 AND status IN ('ok', 'review')"
         ).fetchall()
     docs = [(r["id"], r["sim_hash"]) for r in rows]
+    if not docs:
+        return {"count": 0}
+
+    # LSH: 8 bands × 8 bits — collisions capture pairs with Hamming distance ≤ ~8
+    NUM_BANDS, BITS = 8, 8
+    buckets: dict = {}
+    for doc_id, h in docs:
+        for band in range(NUM_BANDS):
+            key = (band, (h >> (band * BITS)) & 0xFF)
+            buckets.setdefault(key, []).append((doc_id, h))
+
     seen: set = set()
     count = 0
-    for i in range(len(docs)):
-        for j in range(i + 1, len(docs)):
-            aid, ah = docs[i]
-            bid, bh = docs[j]
-            dist = simhash_distance(ah, bh)
-            if round((1.0 - dist / 64) * 100) >= min_score:
-                key = (min(aid, bid), max(aid, bid))
-                if key not in seen:
-                    seen.add(key)
+    for candidates in buckets.values():
+        for i in range(len(candidates)):
+            for j in range(i + 1, len(candidates)):
+                aid, ah = candidates[i]
+                bid, bh = candidates[j]
+                pair = (min(aid, bid), max(aid, bid))
+                if pair in seen:
+                    continue
+                seen.add(pair)
+                dist = bin(ah ^ bh).count("1")
+                if round((1.0 - dist / 64) * 100) >= min_score:
                     count += 1
     return {"count": count}
 
@@ -532,14 +553,13 @@ def validation_report(min_docs: int = 2):
 
 
 @router.post("/generate-thumbnails")
-def generate_thumbnails_job(force: bool = False):
-    """Generate thumbnails with SSE streaming progress.
-    Streams 'data: {...}\\n\\n' lines so the frontend can show live progress."""
+async def generate_thumbnails_job(force: bool = False):
+    """Generate thumbnails with SSE streaming progress."""
     import json as _json
     from pdf_utils import generate_thumbnail, get_thumbnail_path
+    from utils import log as _log
 
-    def _stream():
-        from utils import log as _log
+    async def _stream():
         _lf = ARCHIVER_STDOUT
         docs = db.search_documents(limit=99999)
         candidates = [
@@ -555,6 +575,7 @@ def generate_thumbnails_job(force: bool = False):
 
         _log(f"[THUMBNAILS] Starte: {total} Dokumente", log_file=_lf)
         yield f"data: {_json.dumps({'type': 'start', 'total': total})}\n\n"
+        await asyncio.sleep(0)
 
         for i, doc in enumerate(candidates, 1):
             thumb = get_thumbnail_path(doc["id"])
@@ -562,21 +583,23 @@ def generate_thumbnails_job(force: bool = False):
                 skipped += 1
                 if skipped % 10 == 0 or i == total:
                     yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'failed': failed, 'file': doc['filename'], 'action': 'skipped'})}\n\n"
+                    await asyncio.sleep(0)
                 continue
             ok = generate_thumbnail(doc["file_path"], doc["id"])
             if ok:
                 done += 1
                 _log(f"[THUMBNAILS] [{i}/{total}] ✓ {doc['filename']}", log_file=_lf)
-                yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'failed': failed, 'file': doc['filename'], 'action': 'generated'})}\n\n"
             else:
                 failed += 1
                 _log(f"[THUMBNAILS] [{i}/{total}] ✗ {doc['filename']}", log_file=_lf)
-                yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'failed': failed, 'file': doc['filename'], 'action': 'failed'})}\n\n"
+            yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'failed': failed, 'file': doc['filename'], 'action': 'generated' if ok else 'failed'})}\n\n"
+            await asyncio.sleep(0)
 
         _log(f"[THUMBNAILS] Fertig: {done} generiert, {skipped} übersprungen, {failed} Fehler", log_file=_lf)
         yield f"data: {_json.dumps({'type': 'done', 'generated': done, 'skipped': skipped, 'failed': failed})}\n\n"
 
-    return StreamingResponse(_stream(), media_type="text/event-stream")
+    return StreamingResponse(_stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @router.post("/scan-missing")
@@ -735,3 +758,283 @@ def import_orphans(body: dict):
             errors.append(f"{fname}: {e}")
 
     return {"imported": imported, "skipped": skipped, "errors": errors}
+
+
+@router.get("/reclassify-pending")
+def reclassify_pending():
+    from db.connection import get_conn
+    with get_conn() as conn:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM documents WHERE document_type = 'Rechnung' AND status IN ('ok','review')"
+        ).fetchone()[0]
+    return {"pending": count}
+
+
+@router.post("/reclassify-invoices")
+async def reclassify_invoices():
+    """One-time backlog job: Re-classify documents with document_type='Rechnung'
+    into 'Warenrechnung' or 'Dienstleistungsrechnung' using a short LLM call.
+    Streams SSE progress."""
+    import json as _json
+    import asyncio as _asyncio
+    from utils import log as _rlog
+
+    async def _stream():
+        from db.connection import get_conn
+        with get_conn() as conn:
+            rows = conn.execute(
+                "SELECT id, filename, full_text, sender, date, category FROM documents "
+                "WHERE document_type = 'Rechnung' AND status IN ('ok','review') "
+                "AND full_text IS NOT NULL AND full_text != '' "
+                "ORDER BY date DESC"
+            ).fetchall()
+        candidates = [dict(r) for r in rows]
+        total = len(candidates)
+        done = 0
+        skipped = 0
+        errors = 0
+
+        unclear = []  # collect docs that couldn't be classified
+
+        yield f"data: {_json.dumps({'type': 'start', 'total': total})}\n\n"
+        await _asyncio.sleep(0)
+
+        for i, doc in enumerate(candidates, 1):
+            try:
+                text = (doc["full_text"] or "")[:1500]
+                import anyio
+                from llm import get_llm, _llm_lock
+
+                # Category-based heuristic as fallback (no LLM needed)
+                _cat = (doc.get("category") or "").lower()
+                _sender = (doc.get("sender") or "").lower()
+                _heuristic = None
+                SERVICE_CATS = {"gesundheit", "fahrzeug & werkstatt", "wohnen & eigentum",
+                                "vermieter", "energie & versorgung", "kommunikation",
+                                "ausbildung & verein", "arbeit & rente"}
+                GOODS_CATS = {"einkauf & bestellungen", "geräte & garantie", "kassenbon & quittung"}
+                if _cat in SERVICE_CATS:
+                    _heuristic = "Dienstleistungsrechnung"
+                elif _cat in GOODS_CATS:
+                    _heuristic = "Warenrechnung"
+
+                if _heuristic:
+                    raw = _heuristic
+                else:
+                    prompt = (
+                        f"Ist diese Rechnung eine Warenrechnung oder Dienstleistungsrechnung?\n"
+                        f"Antworte mit GENAU einem Wort: 'Warenrechnung' oder 'Dienstleistungsrechnung'.\n"
+                        f"Warenrechnung = physische Produkte (Elektronik, Kleidung, Lebensmittel, Teile).\n"
+                        f"Dienstleistungsrechnung = Arbeit/Service (Handwerker, Arzt, Reise, Reinigung).\n"
+                        f"Absender: {doc['sender'] or 'unbekannt'}\n\n"
+                        f"--- TEXT (Auszug) ---\n{text[:800]}"
+                    )
+
+                    def _classify():
+                        with _llm_lock:
+                            r = get_llm().create_chat_completion(
+                                messages=[
+                                    {"role": "system", "content": "Antworte mit NUR einem Wort: 'Warenrechnung' oder 'Dienstleistungsrechnung'."},
+                                    {"role": "user", "content": prompt},
+                                ],
+                                max_tokens=8,
+                                temperature=0.0,
+                            )
+                        return r["choices"][0]["message"]["content"].strip()
+
+                    raw = await anyio.to_thread.run_sync(_classify)
+
+                new_type = None
+                raw_lower = raw.lower()
+                if "dienstleistung" in raw_lower:
+                    new_type = "Dienstleistungsrechnung"
+                elif "waren" in raw_lower or "produkt" in raw_lower or "artikel" in raw_lower:
+                    new_type = "Warenrechnung"
+
+                if new_type:
+                    with get_conn() as conn:
+                        conn.execute(
+                            "UPDATE documents SET document_type = ? WHERE id = ?",
+                            (new_type, doc["id"])
+                        )
+                    done += 1
+                    _rlog(f"[RECLASSIFY] {doc['filename']} → {new_type}")
+                    yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'errors': errors, 'file': doc['filename'], 'new_type': new_type})}\n\n"
+                else:
+                    skipped += 1
+                    unclear.append({'file': doc['filename'], 'sender': doc.get('sender') or '', 'category': doc.get('category') or '', 'raw': raw[:80]})
+                    _rlog(f"[RECLASSIFY] {doc['filename']} → unklar (raw: {raw[:60]!r})")
+                    yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'errors': errors, 'file': doc['filename'], 'new_type': 'Rechnung', 'raw': raw[:80]})}\n\n"
+            except Exception as e:
+                errors += 1
+                _rlog(f"[RECLASSIFY] Fehler bei doc_id={doc['id']}: {e}")
+                yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'done': done, 'skipped': skipped, 'errors': errors, 'file': doc['filename'], 'action': 'error'})}\n\n"
+            await _asyncio.sleep(0)
+
+        by_sender: dict = {}
+        for u in unclear:
+            key = u['sender'] or 'Unbekannt'
+            by_sender.setdefault(key, []).append(u)
+        unclear_grouped = [
+            {'sender': k, 'count': len(v), 'category': v[0]['category'], 'examples': [x['file'] for x in v[:3]]}
+            for k, v in sorted(by_sender.items(), key=lambda x: -len(x[1]))
+        ]
+        yield f"data: {_json.dumps({'type': 'done', 'total': total, 'done': done, 'skipped': skipped, 'errors': errors, 'unclear_grouped': unclear_grouped[:20]})}\n\n"
+
+    return StreamingResponse(_stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.get("/import-candidates")
+async def import_candidates(folder_path: str):
+    """Scan an external folder for PDFs and compare them against the archive.
+    Streams SSE progress events and returns the final candidate list as the last event.
+    """
+    folder = os.path.normpath(folder_path)
+    if not os.path.isdir(folder):
+        raise HTTPException(status_code=400, detail=f"Kein Ordner: {folder}")
+
+    async def _stream():
+        import json as _json
+        import asyncio as _asyncio
+        all_files = []
+        for root, dirs, files in os.walk(folder):
+            for fname in files:
+                if fname.lower().endswith(".pdf"):
+                    all_files.append(os.path.normpath(os.path.join(root, fname)))
+        total = len(all_files)
+        yield f"data: {_json.dumps({'type': 'start', 'total': total})}\n\n"
+        await _asyncio.sleep(0)
+
+        _import_cancel.clear()
+        candidates = []
+        for i, fpath in enumerate(all_files, 1):
+            if _import_cancel.is_set():
+                yield f"data: {_json.dumps({'type': 'stopped', 'i': i - 1, 'total': total})}\n\n"
+                break
+            rel = os.path.relpath(fpath, folder)
+            try:
+                stat = os.stat(fpath)
+                size_kb = round(stat.st_size / 1024, 1)
+            except Exception:
+                size_kb = 0
+            try:
+                status, reason, existing_path = await anyio.to_thread.run_sync(_candidate_status, fpath)
+            except Exception as e:
+                status, reason, existing_path = "error", str(e), None
+            candidates.append({
+                "file_path": fpath,
+                "rel_path": rel,
+                "filename": os.path.basename(fpath),
+                "size_kb": size_kb,
+                "status": status,
+                "reason": reason,
+                "existing_path": existing_path,
+            })
+            yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'file': os.path.basename(fpath), 'status': status})}\n\n"
+            await _asyncio.sleep(0)
+
+        yield f"data: {_json.dumps({'type': 'done', 'folder': folder, 'total': total, 'candidates': candidates})}\n\n"
+
+    return StreamingResponse(_stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+def _candidate_status(fpath: str):
+    """Return (status, reason, existing_path) for a candidate file.
+    status: new, duplicate, likely_duplicate, error
+    """
+    norm_path = os.path.normpath(fpath)
+    existing = db.get_document_by_path(norm_path)
+    if existing:
+        return "duplicate", "path", existing["file_path"]
+
+    text, pdf_status = extract_text(fpath)
+    if pdf_status == "encrypted":
+        return "error", "encrypted", None
+    if pdf_status == "corrupt":
+        return "error", "corrupt", None
+
+    cleaned = (text or "").strip()
+    if len(cleaned) >= 100:
+        content_hash = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:16]
+    else:
+        try:
+            with open(fpath, "rb") as f:
+                content_hash = hashlib.sha256(f.read()).hexdigest()[:16]
+        except Exception:
+            content_hash = None
+
+    if content_hash:
+        with db.get_conn() as conn:
+            row = conn.execute(
+                "SELECT id, file_path FROM documents WHERE content_hash = ? LIMIT 1",
+                (content_hash,)
+            ).fetchone()
+        if row:
+            return "duplicate", "hash", row["file_path"]
+
+    sim_hash = compute_simhash(cleaned) if cleaned else 0
+    if sim_hash:
+        matches = db.get_similar_by_simhash(sim_hash, -1, max_distance=8, limit=3)
+        if matches:
+            best = matches[0]
+            return "likely_duplicate", f"simhash {best['simhash_distance']}/64", best["file_path"]
+    return "new", None, None
+
+
+def _copy_file_to_inbox(fpath: str) -> str:
+    """Copy a single file into the inbox and return the target path."""
+    fpath = os.path.normpath(fpath)
+    if not os.path.exists(fpath):
+        raise FileNotFoundError(f"Nicht gefunden: {fpath}")
+    fname = os.path.basename(fpath)
+    target = unique_path(os.path.join(SOURCE_DIR, fname))
+    shutil.copy2(fpath, target)
+    return target
+
+
+@router.post("/import-copy")
+async def import_copy(body: dict):
+    """Copy selected candidate files into the Inbox. Streams SSE progress events."""
+    paths = body.get("paths", [])
+    if not paths:
+        raise HTTPException(status_code=400, detail="Keine Pfade angegeben")
+    os.makedirs(SOURCE_DIR, exist_ok=True)
+
+    async def _stream():
+        import json as _json
+        import asyncio as _asyncio
+        total = len(paths)
+        yield f"data: {_json.dumps({'type': 'start', 'total': total})}\n\n"
+        await _asyncio.sleep(0)
+
+        _import_cancel.clear()
+        copied, errors = [], []
+        for i, fpath in enumerate(paths, 1):
+            if _import_cancel.is_set():
+                yield f"data: {_json.dumps({'type': 'stopped', 'i': i - 1, 'total': total})}\n\n"
+                break
+            status = "ok"
+            detail = None
+            try:
+                target = await anyio.to_thread.run_sync(_copy_file_to_inbox, fpath)
+                copied.append(target)
+            except Exception as e:
+                status = "error"
+                detail = str(e)
+                errors.append(f"{os.path.basename(fpath)}: {e}")
+            yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'file': os.path.basename(fpath), 'status': status, 'detail': detail})}\n\n"
+            await _asyncio.sleep(0)
+
+        yield f"data: {_json.dumps({'type': 'done', 'copied': len(copied), 'targets': copied, 'errors': errors})}\n\n"
+
+    return StreamingResponse(_stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.post("/import-cancel")
+def import_cancel():
+    """Signal a running import scan or copy to stop as soon as the current file is finished."""
+    _import_cancel.set()
+    return {"cancelled": True}
