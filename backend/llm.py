@@ -439,11 +439,12 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
     hint_instruction = f"\n\n!!! WICHTIGE ANWEISUNG DES BENUTZERS (hat hoechste Prioritaet, ignoriere nichts davon): {user_hint} !!!" if user_hint else ""
     user_content = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text}{hint_instruction}"
 
-    # Emergency char-count guard (n_ctx=4096 ≈ 12000 chars; keep total prompt under 10000 chars)
-    # Strips all optional blocks and truncates text aggressively to prevent token overflow.
-    _CHAR_LIMIT = 10000
+    # Emergency char-count guard
+    # n_ctx=4096 tokens; German text averages ~3 chars/token.
+    # System prompt ≈ 800 tokens → ~3200 tokens left ≈ 9600 chars, but with safety margin: 7500.
+    _CHAR_LIMIT = 7500
     if len(system_prompt) + len(user_content) > _CHAR_LIMIT:
-        # Calculate how many chars are available for safe_text after fixed overhead
+        # Strip all optional blocks, calculate budget for safe_text only
         _overhead = len(system_prompt) + len(sender_hint) + len(filename_hint) + len(header_block) + len(hint_instruction) + 200
         _text_budget = max(500, _CHAR_LIMIT - _overhead)
         user_content = f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:_text_budget]}{hint_instruction}"
@@ -586,6 +587,15 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             log(f"LLM antwortete kein valides JSON (Versuch {attempt}): {raw[:200]!r}")
             feedback = None
         except Exception as e:
+            err_str = str(e)
+            if "exceed context window" in err_str:
+                # Token overflow: aggressively halve the text budget and rebuild prompt
+                _overhead = len(system_prompt) + len(sender_hint) + len(filename_hint) + len(header_block) + len(hint_instruction) + 200
+                _new_budget = max(300, (len(user_content) - _overhead) // 2)
+                user_content = f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:_new_budget]}{hint_instruction}"
+                base_messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_content}]
+                feedback = None
+                log(f"Token-Overflow – kuerze Text auf {_new_budget} Zeichen fuer naechsten Versuch.")
             log(f"LLM Fehler nach {time.time()-t0:.1f}s (Versuch {attempt}): {e}")
             if attempt < MAX_RETRIES:
                 time.sleep(2)
