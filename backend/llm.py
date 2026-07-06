@@ -93,6 +93,28 @@ def normalize_sender(sender):
     return sender
 
 
+def _looks_like_ocr_garbage(text: str) -> bool:
+    """Return True if the string contains too many OCR-typical artifacts to be a valid sender name.
+    Heuristic: >25% of chars are digits/uppercase-only-noise or non-latin characters after stripping
+    common German chars, OR the string contains typical OCR substitution patterns."""
+    if not text or len(text) < 2:
+        return False
+    # OCR artifact patterns: mixed-case garbage, runs of uppercase with digits
+    ocr_patterns = [
+        r'[A-Z]{2,}[0-9][A-Z]{2,}',   # e.g. "UMPNU", "airektJperviceW"
+        r'[a-z][A-Z][a-z][A-Z]',        # alternating case: e.g. "jüncÜen"
+        r'\b[A-Z][a-z]+[A-Z][a-z]+\b',  # CamelCase garbage: "mostfacÜ"
+    ]
+    for pat in ocr_patterns:
+        if re.search(pat, text):
+            return True
+    # High ratio of uppercase consonant clusters (OCR noise)
+    upper_consonants = re.findall(r'[BCDFGHJKLMNPQRSTVWXYZ]{3,}', text)
+    if upper_consonants and sum(len(c) for c in upper_consonants) > len(text) * 0.3:
+        return True
+    return False
+
+
 def sanitize_llm_output(data: dict) -> dict:
     """Strip control characters (newlines, tabs) from all string fields.
     Must be called immediately after json.loads before any further processing."""
@@ -103,6 +125,11 @@ def sanitize_llm_output(data: dict) -> dict:
             val = re.sub(r'[\r\n\t]+', ' ', val)
             val = re.sub(r' {2,}', ' ', val).strip()
             data[field] = val if val else None
+    # Nullify sender if it looks like OCR garbage
+    sender = data.get("sender")
+    if isinstance(sender, str) and _looks_like_ocr_garbage(sender):
+        log(f"Absender sieht nach OCR-Artefakt aus – setze null: '{sender}'")
+        data["sender"] = None
     return data
 
 
@@ -514,6 +541,12 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
 
                 data["confidence"] = confidence
                 data["confidence_reason"] = reason
+
+                # If sender was hallucinated (not found in text), clear it rather than
+                # archiving with a made-up name. Document still gets processed correctly.
+                if confidence == "low" and data.get("sender"):
+                    log(f"Absender '{data['sender']}' nicht im Text gefunden – setze null (Halluzination).")
+                    data["sender"] = None
 
                 log(f"LLM OK [{confidence.upper()}] in {time.time()-t0:.1f}s: {json.dumps(data, ensure_ascii=False)}")
                 return data
