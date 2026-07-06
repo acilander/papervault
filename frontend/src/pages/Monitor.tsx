@@ -92,9 +92,11 @@ export default function Monitor() {
   useEffect(() => { connectRef.current = connect }, [connect])
 
   useEffect(() => {
+    const hasVisited = sessionStorage.getItem('monitor-visited')
+    sessionStorage.setItem('monitor-visited', '1')
     axios.get<ArchiverStatus>('/monitor/archiver/status').then(res => {
       setArchiver(res.data)
-      if (res.data.running) {
+      if (res.data.running && hasVisited) {
         axios.get<{ lines: string[] }>('/monitor/buffer').then(buf => {
           setLines(buf.data.lines.map(text => {
             const m = text.match(/\[(\d{2}:\d{2}:\d{2})\]/)
