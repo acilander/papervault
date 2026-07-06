@@ -134,11 +134,13 @@ def validate_classification(data):
     # Check 3 & 7: sender not empty or placeholder
     sender = str(data.get("sender") or "").strip()
     sender_is_null = data.get("sender") is None
-    _sender_placeholders = ("null", "unbekannt", "unknown", "n/a", "???", "absender", "keine angabe", "")
+    _sender_placeholders = ("null", "unbekannt", "unknown", "n/a", "???", "absender", "keine angabe", "nicht definiert", "nicht angegeben", "")
     if not sender_is_null and sender.lower() in _sender_placeholders:
         # Normalize to null instead of erroring — sender genuinely unknown is valid
         data["sender"] = None
         sender_is_null = True
+    elif not sender_is_null and len(sender) < 2:
+        errors.append(f"'sender' ist zu kurz ('{sender}') – Einzelbuchstaben oder Sonderzeichen sind kein gueltiger Absender. Bitte den vollstaendigen Namen angeben oder null setzen.")
 
     # Check 4: sender is not the archive owner
     elif not sender_is_null and any(owner in sender.lower() for owner in OWNER_NAMES):
@@ -410,11 +412,15 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
     hint_instruction = f"\n\n!!! WICHTIGE ANWEISUNG DES BENUTZERS (hat hoechste Prioritaet, ignoriere nichts davon): {user_hint} !!!" if user_hint else ""
     user_content = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text}{hint_instruction}"
 
-    # Emergency char-count guard (n_ctx=8192 ≈ 24000 chars; prompt should always fit with safe_text=3500)
-    # Only kicks in if overhead blocks (few_shot, similar) are unexpectedly large.
+    # Emergency char-count guard (n_ctx=4096 ≈ 12000 chars; keep total prompt under 10000 chars)
+    # Strips all optional blocks and truncates text aggressively to prevent token overflow.
     _CHAR_LIMIT = 10000
     if len(system_prompt) + len(user_content) > _CHAR_LIMIT:
-        user_content = f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:1000]}{hint_instruction}"
+        # Calculate how many chars are available for safe_text after fixed overhead
+        _overhead = len(system_prompt) + len(sender_hint) + len(filename_hint) + len(header_block) + len(hint_instruction) + 200
+        _text_budget = max(500, _CHAR_LIMIT - _overhead)
+        user_content = f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:_text_budget]}{hint_instruction}"
+        log(f"Prompt zu lang – kuerze Text auf {_text_budget} Zeichen.")
 
     base_messages = [
         {"role": "system", "content": system_prompt},
@@ -440,7 +446,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             with _llm_lock:
                 result = _llm.create_chat_completion(
                     messages=current_messages,
-                    max_tokens=256,
+                    max_tokens=384,
                     temperature=0.0
                 )
             raw = result["choices"][0]["message"]["content"]
