@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS documents (
     notes         TEXT,
     keywords      TEXT DEFAULT '',
     low_value     INTEGER DEFAULT 0,
-    full_text     TEXT DEFAULT ''
+    full_text     TEXT DEFAULT '',
+    confidence    TEXT DEFAULT NULL
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
@@ -63,6 +64,7 @@ MIGRATIONS = [
     "ALTER TABLE documents ADD COLUMN sim_hash INTEGER DEFAULT NULL",
     "CREATE INDEX IF NOT EXISTS idx_documents_archived_at ON documents(archived_at DESC)",
     "INSERT INTO documents_fts(documents_fts) VALUES('rebuild')",
+    "ALTER TABLE documents ADD COLUMN confidence TEXT DEFAULT NULL",
 ]
 
 def init_db():
