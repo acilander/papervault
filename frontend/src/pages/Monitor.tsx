@@ -61,13 +61,13 @@ export default function Monitor() {
     } catch {}
   }, [])
 
-  const fetchInbox = useCallback(async () => {
-    setInboxLoading(true)
+  const fetchInbox = useCallback(async (showLoading = false) => {
+    if (showLoading) setInboxLoading(true)
     try {
       const res = await axios.get<InboxData>('/monitor/inbox')
       setInbox(res.data)
     } catch {}
-    finally { setInboxLoading(false) }
+    finally { if (showLoading) setInboxLoading(false) }
   }, [])
 
   const connect = useCallback(() => {
@@ -109,7 +109,7 @@ export default function Monitor() {
       }
     }).catch(() => {})
     connect()
-    fetchInbox()
+    fetchInbox(true)
     const interval = setInterval(() => { fetchStatus(); fetchInbox() }, 5000)
     return () => {
       esRef.current?.close()
