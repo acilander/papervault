@@ -27,6 +27,7 @@ export default function Monitor() {
   const [thumbResult, setThumbResult] = useState<{ done: number; skipped: number } | null>(null)
   const [processingBusy, setProcessingBusy] = useState(false)
   const [processingFile, setProcessingFile] = useState<string | null>(null)
+  const [inboxLoading, setInboxLoading] = useState(true)
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const esRef = useRef<EventSource | null>(null)
@@ -59,10 +60,12 @@ export default function Monitor() {
   }, [])
 
   const fetchInbox = useCallback(async () => {
+    setInboxLoading(true)
     try {
       const res = await axios.get<InboxData>('/monitor/inbox')
       setInbox(res.data)
     } catch {}
+    finally { setInboxLoading(false) }
   }, [])
 
   const connect = useCallback(() => {
@@ -72,7 +75,8 @@ export default function Monitor() {
     esRef.current = es
     es.onopen = () => setConnected(true)
     es.onmessage = (e) => {
-      const ts = new Date().toLocaleTimeString('de-DE')
+      const m = e.data.match(/\[(\d{2}:\d{2}:\d{2})\]/)
+      const ts = m ? m[1] : new Date().toLocaleTimeString('de-DE')
       setLines(prev => [...prev.slice(-499), { id: counterRef.current++, text: e.data, ts }])
     }
     es.onerror = () => {
@@ -88,12 +92,19 @@ export default function Monitor() {
   useEffect(() => { connectRef.current = connect }, [connect])
 
   useEffect(() => {
-    axios.get<{ lines: string[] }>('/monitor/buffer').then(res => {
-      const ts = new Date().toLocaleTimeString('de-DE')
-      setLines(res.data.lines.map(text => ({ id: counterRef.current++, text, ts })))
+    axios.get<ArchiverStatus>('/monitor/archiver/status').then(res => {
+      setArchiver(res.data)
+      if (res.data.running) {
+        axios.get<{ lines: string[] }>('/monitor/buffer').then(buf => {
+          setLines(buf.data.lines.map(text => {
+            const m = text.match(/\[(\d{2}:\d{2}:\d{2})\]/)
+            const ts = m ? m[1] : '–'
+            return { id: counterRef.current++, text, ts }
+          }))
+        }).catch(() => {})
+      }
     }).catch(() => {})
     connect()
-    fetchStatus()
     fetchInbox()
     const interval = setInterval(() => { fetchStatus(); fetchInbox() }, 5000)
     return () => {
@@ -230,7 +241,8 @@ export default function Monitor() {
                 <Square size={13} /> Stop
               </button>
             ) : (
-              <button onClick={handleStart} disabled={actionBusy}
+              <button onClick={handleStart} disabled={actionBusy || inboxLoading}
+                title={inboxLoading ? 'Warte auf Inbox-Scan…' : undefined}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors">
                 <Play size={13} /> Start
               </button>
