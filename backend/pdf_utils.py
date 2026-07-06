@@ -55,33 +55,42 @@ def _extract_page_blocks(page):
 def extract_text(file_path):
     """Open PDF and extract embedded text. Returns (text, status) where status is
     'ok', 'encrypted', or 'corrupt'."""
+    import io
+    import sys
     try:
-        doc = fitz.open(file_path)
+        # Suppress MuPDF warnings printed to stderr (non-fatal parse errors)
+        _stderr = sys.stderr
+        sys.stderr = io.StringIO()
+        try:
+            doc = fitz.open(file_path)
+        finally:
+            sys.stderr = _stderr
+
         if doc.is_encrypted:
             doc.close()
             return "", "encrypted"
-            
-        # [Smart Chunking] 
-        # For long docs (>2 pages), extract first and last page only 
+
+        # [Smart Chunking]
+        # For long docs (>2 pages), extract first and last page only
         # to preserve context limits without losing crucial sender/signature/total info.
         num_pages = len(doc)
         if num_pages <= 2:
-            pages_to_read = range(num_pages)
+            pages_to_read = list(range(num_pages))
         else:
             pages_to_read = [0, num_pages - 1]
-            
+
         parts = []
         for i in pages_to_read:
             page = doc[i]
-            # Use block extraction to maintain multi-column layout structure
             text = _extract_page_blocks(page)
             if i > 0 and num_pages > 2:
                 parts.append("\n\n[... WEITERE SEITEN ÜBERSPRUNGEN ...]\n\n")
             parts.append(text)
-            
+
         doc.close()
         return "\n".join(parts), "ok"
     except Exception as e:
+        log(f"PDF-Lesefehler ({os.path.basename(file_path)}): {e}")
         return "", "corrupt"
 
 
@@ -92,13 +101,21 @@ def ocr_pdf(file_path):
     log("Kein eingebetteter Text – starte OCR (kann einige Sekunden dauern)...")
     try:
         t0 = time.time()
-        pages = convert_from_path(file_path, dpi=300)
-        log(f"PDF in {len(pages)} Seite(n) gerendert. Starte Texterkennung...")
+        all_pages = convert_from_path(file_path, dpi=300)
+        num_pages = len(all_pages)
+        # Consistent with extract_text: only first + last page for long docs
+        if num_pages <= 2:
+            pages_to_ocr = list(enumerate(all_pages, 1))
+        else:
+            pages_to_ocr = [(1, all_pages[0]), (num_pages, all_pages[-1])]
+        log(f"PDF in {num_pages} Seite(n) gerendert. Starte Texterkennung ({len(pages_to_ocr)} Seite(n))...")
         parts = []
-        for i, page in enumerate(pages, 1):
-            log(f"  OCR Seite {i}/{len(pages)}...")
+        for i, page in pages_to_ocr:
+            log(f"  OCR Seite {i}/{num_pages}...")
             parts.append(pytesseract.image_to_string(page, lang="deu+eng"))
-        text = " ".join(parts)
+        if num_pages > 2:
+            parts.insert(1, "[... WEITERE SEITEN ÜBERSPRUNGEN ...]")
+        text = "\n".join(parts)
         log(f"OCR abgeschlossen in {time.time()-t0:.1f}s – {len(text)} Zeichen extrahiert.")
         return text
     except Exception as e:
@@ -106,7 +123,15 @@ def ocr_pdf(file_path):
         return ""
 
 
-def prepare_text_for_llm(text, max_chars=3500):
+# Lines matching these patterns are always kept regardless of noise filter
+_PRESERVE_PATTERNS = [
+    re.compile(r'\bDE\d{2}[\s\d]{15,}'),           # IBAN
+    re.compile(r'\d{1,2}[./]\d{1,2}[./]\d{2,4}'),  # Datum
+    re.compile(r'\d+[.,]\d{2}\s*€'),               # Betrag
+    re.compile(r'\bBIC\b|\bIBAN\b|\bUSt', re.I),   # Finanz-Keywords
+]
+
+def prepare_text_for_llm(text, max_chars=2000):
     """Compress text for LLM: remove duplicate lines, collapse whitespace, strip noise lines."""
     # Collapse excessive whitespace within lines
     lines = [re.sub(r'[ \t]{2,}', ' ', line).strip() for line in text.splitlines()]
@@ -116,8 +141,10 @@ def prepare_text_for_llm(text, max_chars=3500):
     for line in lines:
         if not line:
             continue
-        # Skip lines that are purely numbers, separators, or single chars
-        if re.fullmatch(r'[\d\s.,;:\-–/|\\%€$]{0,40}', line):
+        # Always keep lines with financial/date information
+        preserve = any(p.search(line) for p in _PRESERVE_PATTERNS)
+        # Skip lines that are purely numbers, separators, or single chars (unless preserved)
+        if not preserve and re.fullmatch(r'[\d\s.,;:\-–/|\\%€$]{0,40}', line):
             continue
         # Deduplicate: skip lines already seen (case-insensitive, stripped)
         key = line.lower()
@@ -127,9 +154,8 @@ def prepare_text_for_llm(text, max_chars=3500):
         result.append(line)
 
     compressed = "\n".join(result)
-    # Hard cap
+    # Hard cap: keep first 2/3 + last 1/3 to preserve header and footer
     if len(compressed) > max_chars:
-        # Keep first 2/3 + last 1/3 to preserve header and footer
         cut = int(max_chars * 2 / 3)
         tail = max_chars - cut
         compressed = compressed[:cut] + "\n[...]\n" + compressed[-tail:]
