@@ -113,6 +113,20 @@ export const rebuildSenders = () =>
 export const cleanupSenders = () =>
   api.post<{ deleted: number; names: string[] }>('/senders/~cleanup').then(r => r.data)
 
+export interface AuditEntry { name: string; reason: string; doc_count: number }
+export const auditSenders = () =>
+  api.get<AuditEntry[]>('/senders/~audit').then(r => r.data)
+
+export interface AmbiguousEntry { name: string; categories: Record<string, number>; doc_count: number; majority_category: string; majority_pct: number }
+export const ambiguousSenders = (minCategories = 3) =>
+  api.get<AmbiguousEntry[]>(`/senders/~ambiguous?min_categories=${minCategories}`).then(r => r.data)
+
+export const reclassifySender = (name: string, targetCategory: string, dryRun = false) =>
+  api.post<{ dry_run: boolean; queued: number; preview?: { id: number; filename: string; category: string }[]; errors?: { id: number; error: string }[] }>(
+    `/senders/${encodeURIComponent(name)}/reclassify`,
+    { target_category: targetCategory, dry_run: dryRun }
+  ).then(r => r.data)
+
 export const getSenders = () =>
   api.get<Record<string, SenderEntry>>('/senders/').then(r => r.data)
 

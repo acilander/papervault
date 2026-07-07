@@ -73,6 +73,149 @@ def cleanup_senders():
     return {"deleted": len(deleted_names), "names": deleted_names}
 
 
+@router.get("/~audit")
+def audit_senders():
+    """Return senders that fail plausibility checks (too short, stopwords, generic terms, etc.)."""
+    import re as _re
+    from config import DOCUMENT_TYPES, CATEGORIES
+    from categories import OWNER_NAMES
+
+    _STOPWORDS = {"und", "der", "die", "das", "von", "bei", "für", "mit", "an", "am", "im", "zu", "zur", "zum"}
+    _GENERIC = {
+        "versicherung", "wohnung", "bank", "finanzen", "energie", "strom", "gas",
+        "wasser", "rechnung", "abrechnung", "sonstiges", "unbekannt", "dokument",
+        "brief", "schreiben", "mitteilung", "information", "anfrage", "angebot",
+        "vertrag", "behörde", "behoerde", "amt", "verwaltung",
+    }
+    _ABBREV_RE = _re.compile(r'^(DE|AG|GmbH|UG|KG|eV|e\.V\.|Inc|Ltd|Corp|LLC)$', _re.IGNORECASE)
+    _PLACEHOLDERS = {"null", "unbekannt", "unknown", "n/a", "???", "absender", "keine angabe", "nicht definiert", "nicht angegeben"}
+
+    with db.get_conn() as conn:
+        count_rows = conn.execute(
+            "SELECT sender, COUNT(*) as cnt FROM documents WHERE status='ok' AND sender IS NOT NULL GROUP BY sender"
+        ).fetchall()
+    doc_counts = {r["sender"]: r["cnt"] for r in count_rows}
+
+    results = []
+    for name in list(storage.sender_registry.keys()):
+        s = name.strip()
+        sl = s.lower()
+        reason = None
+        if len(s) <= 2:
+            reason = "zu_kurz"
+        elif sl in _PLACEHOLDERS:
+            reason = "platzhalter"
+        elif sl in _STOPWORDS:
+            reason = "stoppwort"
+        elif s in DOCUMENT_TYPES:
+            reason = "dokumenttyp_als_absender"
+        elif sl in _GENERIC:
+            reason = "generischer_Begriff"
+        elif _ABBREV_RE.match(s):
+            reason = "nur_kuerzel"
+        elif any(owner in sl for owner in OWNER_NAMES):
+            reason = "archivinhaber"
+        if reason:
+            results.append({
+                "name": name,
+                "reason": reason,
+                "doc_count": doc_counts.get(name, 0),
+            })
+
+    results.sort(key=lambda x: x["doc_count"], reverse=True)
+    return results
+
+
+@router.get("/~ambiguous")
+def ambiguous_senders(min_categories: int = 3):
+    """Return senders with >= min_categories categories, with majority category stats."""
+    with db.get_conn() as conn:
+        count_rows = conn.execute(
+            "SELECT sender, category, COUNT(*) as cnt FROM documents "
+            "WHERE status='ok' AND sender IS NOT NULL AND category IS NOT NULL "
+            "GROUP BY sender, category"
+        ).fetchall()
+
+    from collections import defaultdict
+    sender_cats: dict[str, dict[str, int]] = defaultdict(dict)
+    for row in count_rows:
+        sender_cats[row["sender"]][row["category"]] = row["cnt"]
+
+    results = []
+    for name, cat_counts in sender_cats.items():
+        if len(cat_counts) < min_categories:
+            continue
+        total = sum(cat_counts.values())
+        majority_cat = max(cat_counts, key=lambda c: cat_counts[c])
+        majority_n = cat_counts[majority_cat]
+        results.append({
+            "name": name,
+            "categories": cat_counts,
+            "doc_count": total,
+            "majority_category": majority_cat,
+            "majority_pct": round(majority_n / total * 100) if total else 0,
+        })
+    results.sort(key=lambda x: len(x["categories"]), reverse=True)
+    return results
+
+
+@router.post("/{name}/reclassify")
+def reclassify_sender(name: str, body: dict):
+    """Queue documents of a sender for reprocessing with a category hint.
+
+    Body: { "target_category": str, "dry_run": bool (default false) }
+    Only documents whose category != target_category are queued.
+    """
+    if name not in storage.sender_registry:
+        raise HTTPException(status_code=404, detail="Absender nicht gefunden")
+
+    target_category = (body.get("target_category") or "").strip()
+    dry_run = bool(body.get("dry_run", False))
+
+    if not target_category:
+        raise HTTPException(status_code=400, detail="target_category ist erforderlich")
+
+    docs = db.search_documents(sender=name, status="ok", limit=1000)
+    affected = [d for d in docs if d.get("category") != target_category]
+
+    if dry_run:
+        return {
+            "dry_run": True,
+            "queued": 0,
+            "preview": [{"id": d["id"], "filename": d.get("filename"), "category": d.get("category")} for d in affected],
+        }
+
+    queued = 0
+    errors = []
+    hint = (
+        f"Dieser Absender ist bekannt als '{name}'. "
+        f"Die überwiegende Mehrheit seiner Dokumente gehört zur Kategorie '{target_category}'. "
+        f"Klassifiziere dieses Dokument erneut und bevorzuge diese Kategorie, "
+        f"sofern der Dokumentinhalt dies rechtfertigt."
+    )
+    for doc in affected:
+        path = doc.get("file_path") or ""
+        if not os.path.exists(path):
+            errors.append({"id": doc["id"], "error": "Datei nicht gefunden"})
+            continue
+        os.makedirs(SOURCE_DIR, exist_ok=True)
+        inbox_path = unique_path(os.path.join(SOURCE_DIR, os.path.basename(path)))
+        try:
+            shutil.move(path, inbox_path)
+            existing = db.get_document_by_path(inbox_path)
+            if existing and existing["id"] != doc["id"]:
+                db.delete_document(existing["id"])
+            db.update_document(doc["id"], status="pending", file_path=inbox_path)
+            hint_path = os.path.splitext(inbox_path)[0] + ".hint"
+            with open(hint_path, "w", encoding="utf-8") as f:
+                f.write(hint)
+            queued += 1
+        except Exception as e:
+            errors.append({"id": doc["id"], "error": str(e)})
+
+    return {"dry_run": False, "queued": queued, "errors": errors}
+
+
 @router.get("/counts")
 def sender_counts():
     """Return document count per sender in one query."""

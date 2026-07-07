@@ -189,6 +189,29 @@ def validate_classification(data):
     if sender and summary and sender.lower() == summary.lower():
         errors.append("'sender' und 'summary' sind identisch – die Felder wurden verwechselt.")
 
+    # Check 11: sender is a document type name
+    if not sender_is_null and sender in DOCUMENT_TYPES:
+        errors.append(f"'sender' ist '{sender}' – das ist ein Dokumenttyp, kein Absendername. Bitte die ausstellende Firma angeben.")
+
+    # Check 12: sender is a generic category/domain word
+    _GENERIC_SENDER_WORDS = {
+        "versicherung", "wohnung", "bank", "finanzen", "energie", "strom", "gas",
+        "wasser", "rechnung", "abrechnung", "sonstiges", "unbekannt", "dokument",
+        "brief", "schreiben", "mitteilung", "information", "anfrage", "angebot",
+        "vertrag", "behörde", "behoerde", "amt", "verwaltung",
+    }
+    if not sender_is_null and sender.lower().strip() in _GENERIC_SENDER_WORDS:
+        errors.append(f"'sender' ist '{sender}' – das ist ein generischer Begriff, kein konkreter Absendername. Bitte die spezifische Firma oder Behörde angeben.")
+
+    # Check 13: sender is a stopword or single conjunction
+    _STOPWORDS = {"und", "der", "die", "das", "von", "bei", "für", "mit", "an", "am", "im", "zu", "zur", "zum"}
+    if not sender_is_null and sender.lower().strip() in _STOPWORDS:
+        errors.append(f"'sender' ist '{sender}' – das ist kein gültiger Absendername.")
+
+    # Check 14: sender is only an abbreviation/legal suffix
+    if not sender_is_null and re.match(r'^(DE|AG|GmbH|UG|KG|eV|e\.V\.|Inc|Ltd|Corp|LLC)$', sender.strip(), re.IGNORECASE):
+        errors.append(f"'sender' ist nur ein Kürzel oder Rechtsform: '{sender}'. Bitte den vollständigen Firmennamen angeben.")
+
     return errors
 
 

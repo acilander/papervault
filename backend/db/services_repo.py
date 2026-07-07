@@ -142,6 +142,15 @@ def insert_services(document_id: int, services: list[dict], extracted_at: str) -
     return count
 
 
+def update_provider_for_document(document_id: int, provider: str) -> int:
+    """Update provider on all services for a document. Returns number of updated rows."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE services SET provider = ? WHERE document_id = ?", (provider, document_id)
+        )
+        return cur.rowcount
+
+
 def has_services_for_document(document_id: int) -> bool:
     with get_conn() as conn:
         n = conn.execute(

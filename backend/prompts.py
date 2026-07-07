@@ -50,6 +50,7 @@ Wichtige Regeln:
 - Der Archivinhaber ist Alexander Staiger oder Sonja Staiger. Diese sind EMPFAENGER, niemals Absender.
 - 'sender' muss eine Firma, Behoerde oder Organisation sein, nicht eine Privatperson.
 - Bei Kontoauszuegen, Kreditkartenabrechnungen und Bankdokumenten is der Absender die BANK (z.B. "Advanzia Bank", "Sparkasse", "DKB"), nicht der Kontoinhaber.
+- Bei Bedienungsanleitungen, Garantieurkunden und Produktdokumentationen ist der Absender die HERSTELLERMARKE (z.B. "Bosch", "Samsung", "Miele", "Siemens") – auch wenn kein klassischer Briefkopf vorhanden ist. Die Marke ist meist prominent auf der Titelseite oder im Logo erkennbar.
 - Bei Rechnungen ist der Absender das UNTERNEHMEN das die Rechnung ausgestellt hat, nicht der Kaeufer.
 - Bei Bescheiden ist der Absender die BEHOERDE (z.B. "Finanzamt", "Krankenkasse"), nicht der Empfaenger.
 - Suche den Absender im Briefkopf, Logo-Bereich oder in der Zeile "Von:", "Aussteller:", "Ihre Bank:" – nicht in der Adresszeile des Empfaengers.

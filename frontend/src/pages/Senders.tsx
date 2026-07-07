@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
-import { getSenders, getSenderCounts, reloadSenders, rebuildSenders, cleanupSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, type SenderEntry } from '../api'
+import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, ShieldAlert, AlertTriangle } from 'lucide-react'
+import { getSenders, getSenderCounts, reloadSenders, rebuildSenders, cleanupSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, auditSenders, ambiguousSenders, reclassifySender, type SenderEntry, type AuditEntry, type AmbiguousEntry } from '../api'
 import { useConfig } from '../ConfigContext'
 import Pagination from '../components/Pagination'
 
@@ -24,6 +24,14 @@ export default function Senders() {
   const [renameDlg, setRenameDlg] = useState<{ name: string } | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [renameBusy, setRenameBusy] = useState(false)
+  const [auditResults, setAuditResults] = useState<AuditEntry[] | null>(null)
+  const [auditBusy, setAuditBusy] = useState(false)
+  const [showAmbiguous, setShowAmbiguous] = useState(false)
+  const [ambiguousResults, setAmbiguousResults] = useState<AmbiguousEntry[] | null>(null)
+  const [reclassifyDlg, setReclassifyDlg] = useState<{ name: string; majority: string } | null>(null)
+  const [reclassifyTarget, setReclassifyTarget] = useState('')
+  const [reclassifyPreview, setReclassifyPreview] = useState<{ id: number; filename: string; category: string }[] | null>(null)
+  const [reclassifyBusy, setReclassifyBusy] = useState(false)
 
   type SortCol = 'name' | 'count' | 'categories' | 'pinned'
   type SortDir = 'asc' | 'desc'
@@ -177,6 +185,36 @@ export default function Senders() {
             <Trash2 size={12} /> Verwaiste bereinigen
           </button>
           <button
+            onClick={async () => {
+              setAuditBusy(true)
+              try {
+                const res = await auditSenders()
+                setAuditResults(res)
+              } catch (e: any) {
+                alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+              }
+              setAuditBusy(false)
+            }}
+            title="Absender auf Plausibilität prüfen"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          >
+            <ShieldAlert size={12} /> {auditBusy ? 'Prüfe…' : 'Audit'}
+          </button>
+          <button
+            onClick={async () => {
+              if (showAmbiguous) { setShowAmbiguous(false); return }
+              const res = await ambiguousSenders(3)
+              setAmbiguousResults(res)
+              setShowAmbiguous(true)
+            }}
+            title="Absender mit ≥3 Kategorien anzeigen"
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+              showAmbiguous ? 'bg-amber-500 text-white border-amber-500' : 'border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+            }`}
+          >
+            <AlertTriangle size={12} /> Mehrdeutig
+          </button>
+          <button
             onClick={() => setShowUnreviewed(v => !v)}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
               showUnreviewed
@@ -200,6 +238,103 @@ export default function Senders() {
       {problematic.length > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-sm text-orange-700">
           ⚠️ <strong>{problematic.length} Absender</strong> haben mehr als 2 Kategorien ohne feste Zuweisung – bitte <code>pinned_category</code> setzen.
+        </div>
+      )}
+
+      {auditResults !== null && (
+        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-xl p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-red-700 dark:text-red-400">
+              🔍 Audit: {auditResults.length === 0 ? 'Keine unplausiblen Absender gefunden ✅' : `${auditResults.length} unplausible Absender`}
+            </span>
+            <button onClick={() => setAuditResults(null)} className="text-xs text-red-400 hover:text-red-600">✕</button>
+          </div>
+          {auditResults.map(a => (
+            <div key={a.name} className="flex items-center gap-3 text-xs text-red-700 dark:text-red-300">
+              <span className="font-mono font-bold">{a.name}</span>
+              <span className="px-1.5 py-0.5 bg-red-100 dark:bg-red-900/40 rounded text-red-600">{a.reason}</span>
+              <span className="text-red-400">{a.doc_count} Dok.</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showAmbiguous && ambiguousResults !== null && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+              ⚠️ {ambiguousResults.length} Absender mit ≥3 Kategorien
+            </span>
+            <button onClick={() => setShowAmbiguous(false)} className="text-xs text-amber-400 hover:text-amber-600">✕</button>
+          </div>
+          {ambiguousResults.map(a => (
+            <div key={a.name} className="flex flex-wrap items-center gap-2 text-xs border-t border-amber-100 dark:border-amber-900 pt-2">
+              <span className="font-semibold text-amber-800 dark:text-amber-300 min-w-[120px]">{a.name}</span>
+              <span className="text-amber-600">{a.doc_count} Dok.</span>
+              <span className="text-amber-500">Mehrheit: <strong>{a.majority_category}</strong> ({a.majority_pct}%)</span>
+              <div className="flex flex-wrap gap-1">
+                {Object.entries(a.categories).map(([cat, cnt]) => (
+                  <span key={cat} className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/40 rounded text-amber-700">{cat} ({cnt})</span>
+                ))}
+              </div>
+              <button
+                onClick={() => { setReclassifyDlg({ name: a.name, majority: a.majority_category }); setReclassifyTarget(a.majority_category); setReclassifyPreview(null) }}
+                className="ml-auto px-2 py-1 text-xs bg-amber-500 hover:bg-amber-600 text-white rounded"
+              >Neu klassifizieren</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {reclassifyDlg && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-6 w-full max-w-lg space-y-4">
+            <h3 className="text-base font-semibold">Neu klassifizieren: {reclassifyDlg.name}</h3>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">Zielkategorie:</label>
+              <select value={reclassifyTarget} onChange={e => { setReclassifyTarget(e.target.value); setReclassifyPreview(null) }}
+                className="text-sm border border-gray-200 rounded px-2 py-1">
+                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            {reclassifyPreview !== null && (
+              <div className="text-xs text-gray-500 max-h-40 overflow-y-auto space-y-1">
+                <p className="font-semibold">{reclassifyPreview.length} Dokumente betroffen:</p>
+                {reclassifyPreview.map(p => <div key={p.id}>{p.filename} <span className="text-gray-400">({p.category})</span></div>)}
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { setReclassifyDlg(null); setReclassifyPreview(null) }}
+                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg">Abbrechen</button>
+              <button
+                disabled={reclassifyBusy}
+                onClick={async () => {
+                  setReclassifyBusy(true)
+                  try {
+                    const res = await reclassifySender(reclassifyDlg.name, reclassifyTarget, true)
+                    setReclassifyPreview(res.preview ?? [])
+                  } catch (e: any) { alert('Fehler: ' + (e?.response?.data?.detail ?? e.message)) }
+                  setReclassifyBusy(false)
+                }}
+                className="px-3 py-1.5 text-sm border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-50"
+              >Vorschau</button>
+              <button
+                disabled={reclassifyBusy || reclassifyPreview === null}
+                onClick={async () => {
+                  if (!confirm(`${reclassifyPreview?.length} Dokumente werden zurück in die Inbox verschoben und neu klassifiziert. Fortfahren?`)) return
+                  setReclassifyBusy(true)
+                  try {
+                    const res = await reclassifySender(reclassifyDlg.name, reclassifyTarget, false)
+                    alert(`${res.queued} Dokumente wurden zur Neu-Klassifizierung eingereiht.`)
+                    setReclassifyDlg(null); setReclassifyPreview(null)
+                    const amb = await ambiguousSenders(3); setAmbiguousResults(amb)
+                  } catch (e: any) { alert('Fehler: ' + (e?.response?.data?.detail ?? e.message)) }
+                  setReclassifyBusy(false)
+                }}
+                className="px-3 py-1.5 text-sm bg-amber-500 hover:bg-amber-600 text-white rounded-lg disabled:opacity-40"
+              >{reclassifyBusy ? 'Bitte warten…' : 'Neu klassifizieren'}</button>
+            </div>
+          </div>
         </div>
       )}
 

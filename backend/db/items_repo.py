@@ -52,6 +52,15 @@ def _row_to_dict(row) -> dict:
     }
 
 
+def update_vendor_for_document(document_id: int, vendor: str) -> int:
+    """Update vendor on all items for a document. Returns number of updated rows."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE items SET vendor = ? WHERE document_id = ?", (vendor, document_id)
+        )
+        return cur.rowcount
+
+
 def has_items_for_document(document_id: int) -> bool:
     with get_conn() as conn:
         row = conn.execute(

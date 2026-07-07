@@ -103,7 +103,54 @@ def update_document(doc_id: int, body: DocumentUpdate):
 
     if updates:
         db.update_document(doc_id, **updates)
-    return db.get_document(doc_id)
+
+    updated_doc = db.get_document(doc_id)
+
+    # --- Cascade effects ---
+    old_sender = doc.get("sender")
+    new_sender = updates.get("sender")
+    sender_changed = "sender" in updates and new_sender != old_sender
+
+    new_category = updates.get("category") or updated_doc.get("category")
+    effective_sender = updated_doc.get("sender")
+
+    # 1. Sender-Registry: record new sender/category, cleanup old if orphaned
+    if updated_doc.get("status") == "ok" and effective_sender:
+        if sender_changed or "category" in updates:
+            storage.record_sender(new_category, effective_sender)
+    if sender_changed and old_sender:
+        import db.sender_repo as _sr
+        if _sr.cleanup_if_orphaned(old_sender):
+            storage._refresh_cache()
+
+    # 2. Sync items.vendor, services.provider, contracts.partner when sender changed
+    if sender_changed and new_sender:
+        from db.items_repo import update_vendor_for_document
+        from db.services_repo import update_provider_for_document
+        from db.contracts_repo import update_partner_for_document
+        update_vendor_for_document(doc_id, new_sender)
+        update_provider_for_document(doc_id, new_sender)
+        update_partner_for_document(doc_id, new_sender)
+
+    # 3. Rename file on disk for ok-documents when sender, date or document_type changed
+    filename_fields = {"sender", "date", "document_type"}
+    if updated_doc.get("status") == "ok" and filename_fields & set(updates.keys()):
+        from pdf_utils import build_filename
+        current_path = updated_doc.get("file_path")
+        if current_path and os.path.exists(current_path):
+            current_name = os.path.basename(current_path)
+            new_name = build_filename(updated_doc, current_name)
+            if new_name != current_name:
+                new_path = os.path.join(os.path.dirname(current_path), new_name)
+                new_path = unique_path(new_path)
+                try:
+                    os.rename(current_path, new_path)
+                    db.update_document(doc_id, file_path=new_path, filename=os.path.basename(new_path))
+                    updated_doc = db.get_document(doc_id)
+                except OSError:
+                    pass
+
+    return updated_doc
 
 
 @router.delete("/{doc_id}", status_code=204)

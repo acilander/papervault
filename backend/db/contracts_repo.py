@@ -96,6 +96,15 @@ def insert_contract(document_id: int, contract: dict, extracted_at: str) -> int:
         return cur.lastrowid
 
 
+def update_partner_for_document(document_id: int, partner: str) -> int:
+    """Update partner on all contracts for a document. Returns number of updated rows."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE contracts SET partner = ? WHERE document_id = ?", (partner, document_id)
+        )
+        return cur.rowcount
+
+
 def update_contract(contract_id: int, **fields):
     allowed = {"partner", "description", "category", "status", "amount", "amount_interval",
                "start_date", "end_date", "next_due_date", "cancellation_deadline",
