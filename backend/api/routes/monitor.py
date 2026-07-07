@@ -149,13 +149,16 @@ def archiver_start():
         raise HTTPException(status_code=409, detail="Archiver läuft bereits")
     python = sys.executable
     project_root = os.path.join(os.path.dirname(__file__), "..", "..")
-    log_err = open(ARCHIVER_STDOUT, "a", encoding="utf-8")
+    log_out = open(ARCHIVER_STDOUT, "a", encoding="utf-8")
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
     _archiver_proc = subprocess.Popen(
-        [python, "archiver.py"],
+        [python, "-u", "archiver.py"],
         cwd=os.path.abspath(project_root),
-        stdout=subprocess.DEVNULL,
-        stderr=log_err,
+        stdout=log_out,
+        stderr=log_out,
         text=True,
+        env=env,
     )
     with open(_ARCHIVER_PID_FILE, "w") as f:
         f.write(str(_archiver_proc.pid))
