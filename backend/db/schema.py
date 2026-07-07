@@ -65,6 +65,7 @@ MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_documents_archived_at ON documents(archived_at DESC)",
     "INSERT INTO documents_fts(documents_fts) VALUES('rebuild')",
     "ALTER TABLE documents ADD COLUMN confidence TEXT DEFAULT NULL",
+    "ALTER TABLE documents ADD COLUMN iban TEXT DEFAULT NULL",
 ]
 
 def init_db():

@@ -119,6 +119,71 @@ def test_archive_file_on_disk_without_sender_subfolders(monkeypatch, tmp_path):
     assert "Bank & Finanzen" in dest
 
 
+def test_archive_file_on_disk_bank_with_iban_kontoauszug(monkeypatch, tmp_path):
+    src = tmp_path / "inbox" / "konto.pdf"
+    src.parent.mkdir()
+    src.write_bytes(b"%PDF")
+    monkeypatch.setattr(config, "TARGET_BASE", str(tmp_path / "target"))
+    monkeypatch.setattr(config, "SENDER_SUBFOLDERS", True)
+    dest = steps.archive_file_on_disk(
+        str(src), "Bank & Finanzen", "Postbank", "2025-03-15",
+        document_type="Kontoauszug", iban="DE89370400440532013000"
+    )
+    assert os.path.exists(dest)
+    assert "Postbank" in dest
+    assert "DE89370400440532013000" in dest
+    assert "Kontoauszüge" in dest
+    assert "2025" in dest
+
+
+def test_archive_file_on_disk_bank_with_iban_dokument(monkeypatch, tmp_path):
+    src = tmp_path / "inbox" / "bankbrief.pdf"
+    src.parent.mkdir()
+    src.write_bytes(b"%PDF")
+    monkeypatch.setattr(config, "TARGET_BASE", str(tmp_path / "target"))
+    monkeypatch.setattr(config, "SENDER_SUBFOLDERS", True)
+    dest = steps.archive_file_on_disk(
+        str(src), "Bank & Finanzen", "Sparkasse", "2025-01-10",
+        document_type="Vertrag", iban="DE89370400440532013000"
+    )
+    assert os.path.exists(dest)
+    assert "DE89370400440532013000" in dest
+    assert "Dokumente" in dest
+
+
+def test_archive_file_on_disk_bank_without_iban_fallback(monkeypatch, tmp_path):
+    src = tmp_path / "inbox" / "brief.pdf"
+    src.parent.mkdir()
+    src.write_bytes(b"%PDF")
+    monkeypatch.setattr(config, "TARGET_BASE", str(tmp_path / "target"))
+    monkeypatch.setattr(config, "SENDER_SUBFOLDERS", True)
+    dest = steps.archive_file_on_disk(
+        str(src), "Bank & Finanzen", "DKB", "2025-06-01",
+        document_type="Sonstiges", iban=None
+    )
+    assert os.path.exists(dest)
+    assert "DKB" in dest
+    assert "Dokumente" in dest
+    # No IBAN folder level
+    parts = dest.replace("\\", "/").split("/")
+    assert not any(p.startswith("DE") and len(p) == 22 for p in parts)
+
+
+def test_archive_file_on_disk_bank_no_sender_subfolders(monkeypatch, tmp_path):
+    src = tmp_path / "inbox" / "doc.pdf"
+    src.parent.mkdir()
+    src.write_bytes(b"%PDF")
+    monkeypatch.setattr(config, "TARGET_BASE", str(tmp_path / "target"))
+    monkeypatch.setattr(config, "SENDER_SUBFOLDERS", False)
+    dest = steps.archive_file_on_disk(
+        str(src), "Bank & Finanzen", "Postbank", "2025-03-15",
+        document_type="Kontoauszug", iban="DE89370400440532013000"
+    )
+    # Without SENDER_SUBFOLDERS the Bank special path should NOT apply
+    assert os.path.exists(dest)
+    assert "DE89370400440532013000" not in dest
+
+
 def test_cleanup_empty_inbox_folders(monkeypatch, tmp_path):
     inbox = tmp_path / "inbox"
     empty = inbox / "empty"

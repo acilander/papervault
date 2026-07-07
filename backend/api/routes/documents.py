@@ -347,7 +347,8 @@ def confirm_document(doc_id: int):
                 path = renamed_path
 
         # Call centralized archiving helper
-        dest_pdf = archive_file_on_disk(path, category, sender, doc.get("date"))
+        dest_pdf = archive_file_on_disk(path, category, sender, doc.get("date"),
+                                        document_type=doc.get("document_type"), iban=doc.get("iban"))
 
         db.update_document(doc_id, status="ok", file_path=dest_pdf, filename=os.path.basename(dest_pdf))
         storage.record_sender(category, sender)
@@ -403,6 +404,54 @@ def export_csv(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=\"dokumente.csv\""},
     )
+
+
+@router.post("/~migrate-bank-folders")
+def migrate_bank_folders():
+    """One-time migration: extract IBAN from full_text for Bank & Finanzen docs
+    and move them into the new IBAN subfolder structure."""
+    import re as _re
+    from pipeline.steps import archive_file_on_disk as _archive
+    from db.connection import get_conn as _get_conn
+
+    _IBAN_RE = _re.compile(r'\b(DE\d{2}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{2})\b')
+
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM documents WHERE category = 'Bank & Finanzen' AND status = 'ok'"
+        ).fetchall()
+    docs = [dict(r) for r in rows]
+
+    migrated, skipped, errors = 0, 0, []
+
+    for doc in docs:
+        existing_iban = doc.get("iban")
+        if not existing_iban:
+            full_text = doc.get("full_text") or ""
+            match = _IBAN_RE.search(full_text)
+            if match:
+                iban_raw = _re.sub(r'\s+', '', match.group(1)).upper()
+                if _re.match(r'^DE\d{20}$', iban_raw):
+                    existing_iban = iban_raw
+                    db.update_document(doc["id"], iban=existing_iban)
+
+        src = doc.get("file_path") or ""
+        if not os.path.exists(src):
+            skipped += 1
+            continue
+
+        try:
+            dest = _archive(src, "Bank & Finanzen", doc.get("sender"), doc.get("date"),
+                            document_type=doc.get("document_type"), iban=existing_iban)
+            if os.path.abspath(dest) != os.path.abspath(src):
+                db.update_document(doc["id"], file_path=dest, filename=os.path.basename(dest))
+                migrated += 1
+            else:
+                skipped += 1
+        except Exception as e:
+            errors.append({"id": doc["id"], "filename": doc.get("filename"), "error": str(e)})
+
+    return {"migrated": migrated, "skipped": skipped, "errors": errors}
 
 
 @router.delete("/{doc_id}/delete-file", status_code=204)

@@ -120,7 +120,7 @@ def _stage_or_archive(file_path: str, new_name: str, confidence: str, data: dict
         log("[AUTO-ARCHIV] Hohes Vertrauen verifiziert. Archiviere Dokument direkt...")
         from pipeline.steps import archive_file_on_disk
         try:
-            dest_pdf = archive_file_on_disk(file_path, data.get("category") or "Sonstiges", data.get("sender"), data.get("date"))
+            dest_pdf = archive_file_on_disk(file_path, data.get("category") or "Sonstiges", data.get("sender"), data.get("date"), document_type=data.get("document_type"), iban=data.get("iban"))
         except FileNotFoundError:
             return None, None, None, None, None
         return dest_pdf, "ok", "auto_archived", f"[AUTO-ARCHIV] Erfolgreich einsortiert nach: {dest_pdf}", "--- Abgeschlossen (automatisch archiviert) ---"
@@ -263,6 +263,7 @@ def process_pdf(file_path, doc_id=None):
             status=final_status,
             low_value=data.get("low_value", 0),
             full_text=safe_text,
+            iban=data.get("iban"),
         )
         log(log_msg)
         log(log_fin)

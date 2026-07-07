@@ -118,7 +118,7 @@ def _looks_like_ocr_garbage(text: str) -> bool:
 def sanitize_llm_output(data: dict) -> dict:
     """Strip control characters (newlines, tabs) from all string fields.
     Must be called immediately after json.loads before any further processing."""
-    STRING_FIELDS = ("sender", "date", "document_type", "category", "summary", "keywords", "confidence_reason")
+    STRING_FIELDS = ("sender", "date", "document_type", "category", "summary", "keywords", "confidence_reason", "iban")
     for field in STRING_FIELDS:
         val = data.get(field)
         if isinstance(val, str):
@@ -130,6 +130,14 @@ def sanitize_llm_output(data: dict) -> dict:
     if isinstance(sender, str) and _looks_like_ocr_garbage(sender):
         log(f"Absender sieht nach OCR-Artefakt aus – setze null: '{sender}'")
         data["sender"] = None
+    # Normalize IBAN: strip spaces, uppercase, validate DE-IBAN format
+    iban = data.get("iban")
+    if isinstance(iban, str):
+        iban_clean = re.sub(r'\s+', '', iban).upper()
+        if re.match(r'^DE\d{20}$', iban_clean):
+            data["iban"] = iban_clean
+        else:
+            data["iban"] = None
     return data
 
 
@@ -577,7 +585,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             data = json.loads(cleaned)
             data = sanitize_llm_output(data)
 
-            known_fields = {"sender", "date", "document_type", "category", "summary", "keywords", "low_value"}
+            known_fields = {"sender", "date", "document_type", "category", "summary", "keywords", "low_value", "iban"}
             data = {k: v for k, v in data.items() if k in known_fields}
 
             # Normalize low_value to int (LLM may return bool or string)

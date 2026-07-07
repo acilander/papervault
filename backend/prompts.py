@@ -9,7 +9,8 @@ JSON-Schema (alle Felder sind Pflicht):
   "category": "eine der erlaubten Kategorien (s.u.)",
   "summary": "Ein Satz auf Deutsch worum es in dem Dokument geht",
   "keywords": "5-15 relevante Suchbegriffe aus dem Dokument, kommagetrennt (z.B. Betraege, Vertragsnummern, Produktnamen, Orte, spezifische Begriffe)",
-  "low_value": true oder false
+  "low_value": true oder false,
+  "iban": "DE-IBAN des Kontos (nur Buchstaben und Ziffern, kein Leerzeichen, z.B. DE89370400440532013000) oder null"
 }
 
 Erlaubte Werte fuer document_type (NUR diese 13, keine anderen erfinden):
@@ -58,5 +59,6 @@ Wichtige Regeln:
 - 'date' muss ein reales Datum sein. Das aktuelle Jahr ist {current_year}. Zukuenftige Jahre sind ungueltig.
 - 'summary' muss mindestens einen vollstaendigen Satz enthalten.
 - 'keywords' sollen spezifische, durchsuchbare Begriffe sein (keine allgemeinen Woerter wie 'Dokument' oder 'Brief').
+- 'iban': Extrahiere die IBAN nur wenn sie eindeutig im Dokument steht (Format DE + 20 Ziffern). Bei Kontoauszügen: die eigene Konto-IBAN. Bei Rechnungen: die IBAN des Absenders/Empfängers. Entferne alle Leerzeichen. Wenn keine DE-IBAN vorhanden: null.
 - 'low_value': Setze true wenn das Dokument langfristig kaum Archivwert hat. Typische Faelle: Kassenbons unter ca. 10 EUR, reine Versandbenachrichtigungen ohne Bestelldetails, Marketing-Newsletter, automatische Bestellbestaetigung ohne Rechnungsnummer, Parkscheine. Setze false fuer Rechnungen, Vertraege, Abrechnungen, Bescheide, Versicherungsscheine und alle Dokumente mit rechtlicher oder finanzieller Relevanz.
 - Der extrahierte Text kann OCR-Fehler enthalten (z.B. 'Bodan-Württemberg' statt 'Baden-Württemberg', 'Telecon' statt 'Telekom', '0' statt 'O', 'rn' statt 'm'). Korrigiere offensichtliche Fehler in Absender, Keywords und anderen Feldern, wenn die korrekte Schreibweise eindeutig ist. Erfinde dabei keine Informationen, die nicht im Dokument enthalten sind."""

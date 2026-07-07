@@ -474,6 +474,8 @@ def remove_category(name: str, body: dict):
 @router.post("/{name}/reorganize")
 def reorganize_sender(name: str):
     """Move all PDFs of a sender into the folder matching their current category."""
+    from pipeline.steps import archive_file_on_disk as _archive
+
     if name not in storage.sender_registry:
         raise HTTPException(status_code=404, detail="Absender nicht gefunden")
 
@@ -484,15 +486,9 @@ def reorganize_sender(name: str):
     if target_category not in CATEGORY_FOLDER_MAP:
         raise HTTPException(status_code=400, detail=f"Unbekannte Kategorie: {target_category}")
 
-    cat_folder = os.path.join(TARGET_BASE, CATEGORY_FOLDER_MAP[target_category])
-    if SENDER_SUBFOLDERS:
-        dest_dir = os.path.join(cat_folder, name)
-    else:
-        dest_dir = cat_folder
-    os.makedirs(dest_dir, exist_ok=True)
-
     docs = db.search_documents(sender=name, limit=500)
     moved, skipped, errors = 0, 0, []
+    dest_dir = None
 
     for doc in docs:
         if doc["status"] != "ok":
@@ -502,20 +498,14 @@ def reorganize_sender(name: str):
         if not os.path.exists(src):
             skipped += 1
             continue
-        # Already in the right place?
-        if os.path.abspath(os.path.dirname(src)) == os.path.abspath(dest_dir):
-            skipped += 1
-            continue
-        dest = os.path.join(dest_dir, os.path.basename(src))
-        # Avoid overwrite
-        if os.path.exists(dest):
-            base, ext = os.path.splitext(os.path.basename(src))
-            dest = os.path.join(dest_dir, f"{base}_1{ext}")
         try:
-            shutil.move(src, dest)
-            db.update_document(doc["id"], file_path=dest, category=target_category)
+            dest = _archive(src, target_category, name, doc.get("date"),
+                            document_type=doc.get("document_type"), iban=doc.get("iban"))
+            db.update_document(doc["id"], file_path=dest, category=target_category,
+                               filename=os.path.basename(dest))
+            dest_dir = os.path.dirname(dest)
             moved += 1
         except Exception as e:
             errors.append(f"{os.path.basename(src)}: {e}")
 
-    return {"moved": moved, "skipped": skipped, "errors": errors, "dest_dir": dest_dir}
+    return {"moved": moved, "skipped": skipped, "errors": errors, "dest_dir": dest_dir or ""}
