@@ -110,6 +110,9 @@ export const reloadSenders = () =>
 export const rebuildSenders = () =>
   api.post<{ rebuilt: boolean; count: number; added: number }>('/senders/~rebuild').then(r => r.data)
 
+export const cleanupSenders = () =>
+  api.post<{ deleted: number; names: string[] }>('/senders/~cleanup').then(r => r.data)
+
 export const getSenders = () =>
   api.get<Record<string, SenderEntry>>('/senders/').then(r => r.data)
 

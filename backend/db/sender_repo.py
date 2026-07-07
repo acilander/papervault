@@ -157,6 +157,20 @@ def delete(name: str):
         conn.execute("DELETE FROM senders WHERE name = ?", (name,))
 
 
+def cleanup_if_orphaned(name: str) -> bool:
+    """Delete sender if no ok-documents reference it. Returns True if deleted."""
+    if not name:
+        return False
+    with get_conn() as conn:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM documents WHERE sender = ? AND status = 'ok'", (name,)
+        ).fetchone()[0]
+        if count == 0:
+            conn.execute("DELETE FROM senders WHERE name = ?", (name,))
+            return True
+    return False
+
+
 # ── Bulk import (from senders.json) ───────────────────────────────────────────
 
 def import_from_dict(data: dict):

@@ -111,7 +111,12 @@ def delete_document(doc_id: int):
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    sender_name = doc.get("sender")
     db.delete_document(doc_id)
+    if sender_name:
+        import db.sender_repo as _sr
+        if _sr.cleanup_if_orphaned(sender_name):
+            storage._refresh_cache()
 
 
 @router.get("/{doc_id}/file")
@@ -360,6 +365,11 @@ def delete_document_with_file(doc_id: int):
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
     path = doc["file_path"]
+    sender_name = doc.get("sender")
     db.delete_document(doc_id)
     if path and os.path.exists(path):
         os.remove(path)
+    if sender_name:
+        import db.sender_repo as _sr
+        if _sr.cleanup_if_orphaned(sender_name):
+            storage._refresh_cache()

@@ -284,8 +284,10 @@ def process_pdf(file_path, doc_id=None):
     finally:
         if dest_pdf:
             generate_thumbnail(dest_pdf, doc_id)
-            record_sender(category, sender)
             cleanup_empty_inbox_folders(file_path)
+
+    if final_status == "ok" and sender:
+        record_sender(category, sender)
 
     # Phase 7: Post-processing (confidence notes, keyword validation)
     notes = f"[Vertrauen: {confidence.upper()}] {confidence_reason}"

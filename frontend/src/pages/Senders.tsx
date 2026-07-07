@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
-import { getSenders, getSenderCounts, reloadSenders, rebuildSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, type SenderEntry } from '../api'
+import { getSenders, getSenderCounts, reloadSenders, rebuildSenders, cleanupSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, type SenderEntry } from '../api'
 import { useConfig } from '../ConfigContext'
 import Pagination from '../components/Pagination'
 
@@ -164,6 +164,17 @@ export default function Senders() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <RefreshCw size={12} /> Neu aufbauen
+          </button>
+          <button
+            onClick={async () => {
+              const res = await cleanupSenders()
+              alert(`Bereinigung abgeschlossen: ${res.deleted} verwaiste Absender gelöscht.${res.deleted > 0 ? '\n\n' + res.names.join('\n') : ''}`)
+              await load()
+            }}
+            title="Absender ohne Dokumente (status=ok) löschen"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-orange-200 dark:border-orange-700 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+          >
+            <Trash2 size={12} /> Verwaiste bereinigen
           </button>
           <button
             onClick={() => setShowUnreviewed(v => !v)}
