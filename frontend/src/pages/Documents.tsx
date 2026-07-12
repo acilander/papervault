@@ -41,6 +41,7 @@ export default function Documents() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>((searchParams.get('sort_dir') as 'asc' | 'desc') || 'desc')
   // Fix 18: Undo bulk edit
   const [undoSnapshot, setUndoSnapshot] = useState<{ docs: Document[]; label: string } | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   // Fix 19: Bulk-add to collection
   const [collections, setCollections] = useState<Collection[]>([])
   const [addToColId, setAddToColId] = useState('')
@@ -122,6 +123,7 @@ export default function Documents() {
     setLoading(true)
     setDocs([])
     setTotal(0)
+    setLoadError(null)
     try {
       if (expiresFilter) {
         const data = await getExpiring(60)
@@ -132,6 +134,8 @@ export default function Documents() {
         setDocs(data)
         setTotal(t)
       }
+    } catch (err: any) {
+      setLoadError(err?.message || 'Fehler beim Laden der Dokumente')
     } finally {
       setLoading(false)
     }
@@ -319,7 +323,7 @@ export default function Documents() {
       )}
 
       {/* Active filter pills */}
-      {(status || taxFilter || expiresFilter || tagFilter || confidenceFilter) && (
+      {(status || taxFilter || expiresFilter || tagFilter || confidenceFilter || lowValueFilter || noSenderFilter) && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-gray-400">Aktive Filter:</span>
           {status && (
@@ -352,9 +356,27 @@ export default function Documents() {
               <button onClick={() => setConfidenceFilter('')} className="hover:text-purple-900 leading-none">✕</button>
             </span>
           )}
+          {lowValueFilter && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-full text-xs">
+              ⚠️ Geringer Wert
+              <button onClick={() => setLowValueFilter(() => false)} className="hover:text-gray-900 leading-none">✕</button>
+            </span>
+          )}
+          {noSenderFilter && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-full text-xs">
+              👤 Kein Absender
+              <button onClick={() => setNoSenderFilter(() => false)} className="hover:text-gray-900 leading-none">✕</button>
+            </span>
+          )}
           <button onClick={resetAll} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline ml-1">
             Alle löschen
           </button>
+        </div>
+      )}
+
+      {loadError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl px-4 py-3 text-sm text-red-700 dark:text-red-200">
+          {loadError}
         </div>
       )}
 
