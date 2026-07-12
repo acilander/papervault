@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, ShieldAlert, AlertTriangle } from 'lucide-react'
-import { getSenders, getSenderCounts, reloadSenders, rebuildSenders, cleanupSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, auditSenders, ambiguousSenders, reclassifySender, type SenderEntry, type AuditEntry, type AmbiguousEntry } from '../api'
+import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, ShieldAlert, AlertTriangle, MailCheck } from 'lucide-react'
+import { getSenders, getSenderCounts, reloadSenders, rebuildSenders, cleanupSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, auditSenders, ambiguousSenders, reclassifySender, confirmPendingSender, type SenderEntry, type AuditEntry, type AmbiguousEntry } from '../api'
 import { useConfig } from '../ConfigContext'
 import Pagination from '../components/Pagination'
 
@@ -11,7 +11,7 @@ export default function Senders() {
   const { categories: CATEGORIES } = useConfig()
   const navigate = useNavigate()
   const [senders, setSenders] = useState<Record<string, SenderEntry>>({})
-  const [counts, setCounts] = useState<Record<string, number>>({})
+  const [counts, setCounts] = useState<Record<string, { ok: number; review: number }>>({})
   const [q, setQ] = useState('')
   const [showUnreviewed, setShowUnreviewed] = useState(false)
   const [mergeTarget, setMergeTarget] = useState<Record<string, string>>({})
@@ -84,7 +84,7 @@ export default function Senders() {
     .sort(([nameA, entryA], [nameB, entryB]) => {
       let cmp = 0
       if (sortCol === 'name') cmp = nameA.localeCompare(nameB)
-      else if (sortCol === 'count') cmp = (counts[nameA] ?? 0) - (counts[nameB] ?? 0)
+      else if (sortCol === 'count') cmp = ((counts[nameA]?.ok ?? 0) + (counts[nameA]?.review ?? 0)) - ((counts[nameB]?.ok ?? 0) + (counts[nameB]?.review ?? 0))
       else if (sortCol === 'categories') cmp = entryA.categories.length - entryB.categories.length
       else if (sortCol === 'pinned') cmp = (entryA.pinned_category ?? '').localeCompare(entryB.pinned_category ?? '')
       return sortDir === 'asc' ? cmp : -cmp
@@ -411,17 +411,27 @@ export default function Senders() {
                   </div>
                 </td>
                 <td className="px-4 py-2 text-center">
-                  {counts[name] != null ? (
-                    <button
-                      onClick={() => navigate(`/documents?sender=${encodeURIComponent(name)}`)}
-                      className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
-                      title={`${counts[name]} Dokumente von ${name} anzeigen`}
-                    >
-                      {counts[name]}
-                    </button>
-                  ) : (
-                    <span className="text-xs text-gray-300 dark:text-gray-600">–</span>
-                  )}
+                  <div className="inline-flex items-center gap-1 justify-center">
+                    {counts[name] != null ? (
+                      <button
+                        onClick={() => navigate(`/documents?sender=${encodeURIComponent(name)}`)}
+                        className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                        title={`${counts[name].ok} archivierte Dokumente von ${name}`}
+                      >
+                        {counts[name].ok}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-300 dark:text-gray-600">–</span>
+                    )}
+                    {counts[name]?.review > 0 && (
+                      <span
+                        className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
+                        title={`${counts[name].review} Dokumente warten auf Bestätigung`}
+                      >
+                        +{counts[name].review}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-2">
                   <div className="flex flex-wrap gap-1">
@@ -544,6 +554,26 @@ export default function Senders() {
                     className="p-1 text-green-500 hover:text-green-700"
                   >
                     <FolderSync size={14} />
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Alle offenen Inbox-Dokumente von "${name}" bestätigen und archivieren?`)) return
+                      try {
+                        const res = await confirmPendingSender(name)
+                        if (res.confirmed === 0) {
+                          alert('Keine offenen Review-Dokumente gefunden.')
+                        } else {
+                          alert(`✓ ${res.confirmed} bestätigt${res.skipped ? ', ' + res.skipped + ' übersprungen' : ''}${res.errors.length ? '\n\nFehler:\n' + res.errors.map(e => e.filename + ': ' + e.error).join('\n') : ''}`)
+                          await load()
+                        }
+                      } catch (e: any) {
+                        alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                      }
+                    }}
+                    title="Offene Inbox-Dokumente bestätigen & archivieren"
+                    className="p-1 text-amber-500 hover:text-amber-700"
+                  >
+                    <MailCheck size={14} />
                   </button>
                 </td>
                 <td className="px-4 py-2">

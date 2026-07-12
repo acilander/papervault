@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
-import { HardDrive, CheckCircle, AlertCircle, Loader, RefreshCw } from 'lucide-react'
+import { HardDrive, CheckCircle, AlertCircle, Loader, RefreshCw, FolderX } from 'lucide-react'
+import { cleanupEmptyFolders } from '../api'
 
 interface ModelInfo {
   name: string
@@ -21,6 +22,7 @@ export default function Settings() {
   const [switching, setSwitching] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [cleaningFolders, setCleaningFolders] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -175,6 +177,39 @@ export default function Settings() {
             })}
           </div>
         )}
+      </section>
+
+      <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 space-y-4">
+        <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100 font-medium">
+          <FolderX size={16} />
+          Wartung
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">Leere Ordner bereinigen</p>
+            <p className="text-xs text-gray-400 mt-0.5">Entfernt leere Unterordner im Archiv (z.B. nach Datei-Migrationen)</p>
+          </div>
+          <button
+            onClick={async () => {
+              setCleaningFolders(true)
+              setError(null)
+              setSuccess(null)
+              try {
+                const res = await cleanupEmptyFolders()
+                setSuccess(`${res.removed} leere Ordner entfernt.`)
+              } catch {
+                setError('Fehler beim Bereinigen der Ordner.')
+              } finally {
+                setCleaningFolders(false)
+              }
+            }}
+            disabled={cleaningFolders}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white transition-colors"
+          >
+            {cleaningFolders ? <Loader size={12} className="animate-spin" /> : <FolderX size={12} />}
+            {cleaningFolders ? 'Bereinige…' : 'Jetzt bereinigen'}
+          </button>
+        </div>
       </section>
     </div>
   )

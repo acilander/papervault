@@ -131,7 +131,7 @@ export const getSenders = () =>
   api.get<Record<string, SenderEntry>>('/senders/').then(r => r.data)
 
 export const getSenderCounts = () =>
-  api.get<Record<string, number>>('/senders/counts').then(r => r.data)
+  api.get<Record<string, { ok: number; review: number }>>('/senders/counts').then(r => r.data)
 
 export const updateSender = (name: string, body: { pinned_category?: string | null; pinned_document_type?: string | null; categories?: string[]; reviewed?: boolean; excluded_categories?: string[] }) =>
   api.patch<SenderEntry>(`/senders/${encodeURIComponent(name)}`, body).then(r => r.data)
@@ -166,6 +166,11 @@ export const reorganizeSender = (name: string) =>
     `/senders/${encodeURIComponent(name)}/reorganize`
   ).then(r => r.data)
 
+export const confirmPendingSender = (name: string) =>
+  api.post<{ confirmed: number; skipped: number; errors: { id: number; filename: string; error: string }[] }>(
+    `/senders/${encodeURIComponent(name)}/confirm-pending`
+  ).then(r => r.data)
+
 export const deleteMissing = () =>
   api.delete<{ deleted: number }>('/monitor/missing').then(r => r.data)
 
@@ -188,6 +193,9 @@ export const importOrphans = (paths: string[]) =>
   api.post<{ imported: number; skipped: number; errors: string[] }>(
     '/monitor/orphans/import', { paths }
   ).then(r => r.data)
+
+export const cleanupEmptyFolders = () =>
+  api.post<{ removed: number; folders: string[] }>('/monitor/cleanup-empty-folders').then(r => r.data)
 
 export interface ImportCandidate {
   file_path: string

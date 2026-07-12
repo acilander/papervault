@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users } from 'lucide-react'
-import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, type Document, type DocumentUpdate } from '../api'
+import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users, CheckCircle } from 'lucide-react'
+import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
 
@@ -25,6 +25,7 @@ export default function DocumentDetail() {
   const [docCollections, setDocCollections] = useState<{id:number,name:string,color:string}[]>([])
   const [pinRulePrompt, setPinRulePrompt] = useState<{ sender: string; category: string; document_type: string } | null>(null)
   const [pinning, setPinning] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -250,6 +251,26 @@ export default function DocumentDetail() {
             <Save size={14} />
             {saved ? 'Gespeichert ✓' : saving ? 'Speichert…' : 'Speichern'}
           </button>
+          {doc.status === 'review' && (
+            <button
+              onClick={async () => {
+                setConfirming(true)
+                try {
+                  await confirmDocument(doc.id)
+                  const updated = await getDocument(doc.id)
+                  if (updated) setDoc(updated)
+                } catch (e: any) {
+                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                } finally {
+                  setConfirming(false)
+                }
+              }}
+              disabled={confirming}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
+              <CheckCircle size={14} />
+              {confirming ? 'Wird archiviert…' : 'Bestätigen & Archivieren'}
+            </button>
+          )}
           {(edit.sender || doc.sender) && (
             <button
               onClick={() => navigate(`/documents?sender=${encodeURIComponent(edit.sender ?? doc.sender ?? '')}`)}
