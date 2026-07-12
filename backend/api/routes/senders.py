@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 import db
 import storage
 import db.sender_repo as sender_repo
-from config import TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS
+from config import TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, SOURCE_DIR
 from utils import log
 from api.models import SenderEntry, SenderUpdate
 from pdf_utils import build_filename, unique_path
@@ -218,12 +218,18 @@ def reclassify_sender(name: str, body: dict):
 
 @router.get("/counts")
 def sender_counts():
-    """Return document count per sender in one query."""
+    """Return document count per sender (ok + review) in one query."""
     with db.get_conn() as conn:
-        rows = conn.execute(
+        ok_rows = conn.execute(
             "SELECT sender, COUNT(*) as cnt FROM documents WHERE status='ok' GROUP BY sender"
         ).fetchall()
-    return {row["sender"]: row["cnt"] for row in rows if row["sender"]}
+        review_rows = conn.execute(
+            "SELECT sender, COUNT(*) as cnt FROM documents WHERE status='review' GROUP BY sender"
+        ).fetchall()
+    ok = {row["sender"]: row["cnt"] for row in ok_rows if row["sender"]}
+    review = {row["sender"]: row["cnt"] for row in review_rows if row["sender"]}
+    all_senders = set(ok) | set(review)
+    return {s: {"ok": ok.get(s, 0), "review": review.get(s, 0)} for s in all_senders}
 
 
 @router.get("/{name}", response_model=SenderEntry)
@@ -469,6 +475,56 @@ def remove_category(name: str, body: dict):
         "moved": moved,
         "errors": errors,
     }
+
+
+@router.post("/{name}/confirm-pending")
+def confirm_pending(name: str):
+    """Confirm and archive all review-status documents of a sender.
+    Uses pinned_category (or first category) to override category if needed.
+    Returns count of confirmed, skipped, and errors."""
+    from pipeline.steps import archive_file_on_disk as _archive
+    from pdf_utils import build_filename
+
+    if name not in storage.sender_registry:
+        raise HTTPException(status_code=404, detail="Absender nicht gefunden")
+
+    entry = storage.sender_registry[name]
+    pinned_cat = entry.get("pinned_category")
+
+    docs = db.search_documents(sender=name, status="review", limit=500)
+    confirmed, skipped, errors = 0, 0, []
+
+    for doc in docs:
+        path = doc.get("file_path") or ""
+        if not os.path.exists(path):
+            skipped += 1
+            continue
+
+        category = pinned_cat or doc.get("category") or "Sonstiges"
+        doc_id = doc["id"]
+
+        try:
+            db.update_document(doc_id, status="processing")
+            current_name = os.path.basename(path)
+            merged = {**doc, "category": category}
+            new_name = build_filename(merged, current_name)
+            if new_name != current_name:
+                renamed_path = os.path.join(os.path.dirname(path), new_name)
+                if not os.path.exists(renamed_path):
+                    os.rename(path, renamed_path)
+                    path = renamed_path
+
+            dest = _archive(path, category, name, doc.get("date"),
+                            document_type=doc.get("document_type"), iban=doc.get("iban"))
+            db.update_document(doc_id, status="ok", file_path=dest,
+                               filename=os.path.basename(dest), category=category)
+            storage.record_sender(category, name)
+            confirmed += 1
+        except Exception as e:
+            db.update_document(doc_id, status="review")
+            errors.append({"id": doc_id, "filename": doc.get("filename"), "error": str(e)})
+
+    return {"confirmed": confirmed, "skipped": skipped, "errors": errors}
 
 
 @router.post("/{name}/reorganize")

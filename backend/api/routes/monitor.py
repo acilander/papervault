@@ -1041,3 +1041,33 @@ def import_cancel():
     """Signal a running import scan or copy to stop as soon as the current file is finished."""
     _import_cancel.set()
     return {"cancelled": True}
+
+
+@router.post("/cleanup-empty-folders")
+def cleanup_empty_folders():
+    """Remove empty directories inside TARGET_BASE (bottom-up).
+    Skips TARGET_BASE itself and top-level special dirs (duplicates, failed, encrypted, review).
+    Returns count of removed folders."""
+    SKIP_TOPLEVEL = {"duplicates", "failed", "encrypted", "review"}
+    target = os.path.abspath(TARGET_BASE)
+    removed = []
+
+    # Walk bottom-up so inner empty dirs are removed before their parents are checked
+    for root, dirs, files in os.walk(target, topdown=False):
+        # Never remove TARGET_BASE itself
+        if os.path.abspath(root) == target:
+            continue
+        # Never remove top-level special dirs
+        rel = os.path.relpath(root, target)
+        top = rel.split(os.sep)[0]
+        if top in SKIP_TOPLEVEL:
+            continue
+        # Remove if empty (no files, no subdirs left)
+        try:
+            if not os.listdir(root):
+                os.rmdir(root)
+                removed.append(rel)
+        except OSError:
+            pass
+
+    return {"removed": len(removed), "folders": removed}
