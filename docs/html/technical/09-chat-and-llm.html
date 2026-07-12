@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Technisch: KI-Suche und Chat – PaperVault Doku</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --border: #e2e8f0;
+      --code-bg: #f1f5f9;
+      --nav-bg: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #60a5fa;
+        --border: #334155;
+        --code-bg: #0f172a;
+        --nav-bg: #1e293b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      display: flex;
+      min-height: 100vh;
+    }
+    aside {
+      width: 280px;
+      background: var(--nav-bg);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+    }
+    aside h1 {
+      font-size: 1.25rem;
+      margin: 0 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .nav-link {
+      display: block;
+      padding: .45rem .6rem;
+      border-radius: .4rem;
+      color: var(--text);
+      text-decoration: none;
+      font-size: .92rem;
+      margin-bottom: .15rem;
+    }
+    .nav-link:hover { background: var(--bg); }
+    .nav-link.active { background: var(--accent); color: #fff; }
+    main {
+      margin-left: 280px;
+      flex: 1;
+      max-width: 900px;
+      padding: 2.5rem;
+    }
+    h1 { font-size: 2rem; margin-top: 0; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: .35rem; margin-top: 2.2rem; }
+    h3 { margin-top: 1.6rem; }
+    a { color: var(--accent); }
+    code, pre {
+      background: var(--code-bg);
+      border-radius: .35rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .9em;
+    }
+    code { padding: .15rem .35rem; }
+    pre {
+      padding: 1rem;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code { padding: 0; background: transparent; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: .55rem .75rem;
+      text-align: left;
+    }
+    th { background: var(--surface); }
+    blockquote {
+      border-left: 4px solid var(--accent);
+      margin: 1rem 0;
+      padding: .5rem 1rem;
+      background: var(--surface);
+      border-radius: 0 .4rem .4rem 0;
+    }
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .mermaid svg { max-width: 100%; }
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .toc ul { padding-left: 1.2rem; }
+    .toc > ul { padding-left: 0; list-style: none; }
+    footer {
+      margin-top: 4rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .875rem;
+    }
+    @media (max-width: 900px) {
+      aside { display: none; }
+      main { margin-left: 0; padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>📚 PaperVault Doku</h1>
+    <nav>
+<a class="nav-link" href="../ARCHITECTURE.html">Architecture</a>
+<a class="nav-link" href="../blueprints/blueprint_tax_module.html">Steuer-Modul Blueprint</a>
+<a class="nav-link" href="../blueprints/cline_blueprint_kv_extraction.html">KV-Extraction Blueprint</a>
+<a class="nav-link" href="../blueprints/cline_blueprint_vision_logo.html">Vision/Logo Blueprint</a>
+<a class="nav-link" href="../DOCUMENTATION_STRUCTURE.html">Documentation Structure</a>
+<a class="nav-link" href="../feature-ignore-lock.html">Feature Ignore Lock</a>
+<a class="nav-link" href="../feature-low-value-rules.html">Feature Low Value Rules</a>
+<a class="nav-link" href="../FEATURES.html">Features</a>
+<a class="nav-link" href="../index.html">Übersicht</a>
+<a class="nav-link" href="../llm-cascade-scenarios.html">Llm Cascade Scenarios</a>
+<a class="nav-link" href="../technical/01-pipeline-and-import.html">01 Pipeline And Import</a>
+<a class="nav-link" href="../technical/02-documents-search-and-filter.html">02 Documents Search And Filter</a>
+<a class="nav-link" href="../technical/03-ignore-lock.html">03 Ignore Lock</a>
+<a class="nav-link" href="../technical/04-low-value-rules.html">04 Low Value Rules</a>
+<a class="nav-link" href="../technical/05-duplicates.html">05 Duplicates</a>
+<a class="nav-link" href="../technical/06-senders.html">06 Senders</a>
+<a class="nav-link" href="../technical/07-tax-module.html">07 Tax Module</a>
+<a class="nav-link" href="../technical/08-collections.html">08 Collections</a>
+<a class="nav-link active" href="../technical/09-chat-and-llm.html">09 Chat And Llm</a>
+<a class="nav-link" href="../technical/10-monitor.html">10 Monitor</a>
+<a class="nav-link" href="../technical/11-feedback.html">11 Feedback</a>
+<a class="nav-link" href="../technical/12-settings-and-config.html">12 Settings And Config</a>
+<a class="nav-link" href="../technical/13-inventory-contracts-services.html">13 Inventory Contracts Services</a>
+<a class="nav-link" href="../USER_GUIDE.html">User Guide</a>
+    </nav>
+  </aside>
+  <main>
+    <h1>Technisch: KI-Suche und Chat</h1>
+<h1 id="technisch-ki-suche-und-chat">Technisch: KI-Suche und Chat</h1>
+<h2 id="1-ziel">1. Ziel</h2>
+<p>Nutzer können Fragen an das lokale LLM stellen. Die Antworten basieren auf den im Archiv indexierten Dokumenteninhalten.</p>
+<h2 id="2-komponenten">2. Komponenten</h2>
+<table>
+<thead>
+<tr>
+<th>Datei</th>
+<th>Rolle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend/llm.py</code></td>
+<td>LLM-Initialisierung, Prompting, JSON-Parsing</td>
+</tr>
+<tr>
+<td><code>backend/api/routes/chat.py</code></td>
+<td>Chat-Endpunkte</td>
+</tr>
+<tr>
+<td><code>backend/tax/chat.py</code></td>
+<td>Steuer-spezifischer Chat</td>
+</tr>
+<tr>
+<td><code>frontend/src/pages/Chat.tsx</code></td>
+<td>Allgemeiner Chat</td>
+</tr>
+<tr>
+<td><code>frontend/src/pages/tax/TaxChat.tsx</code></td>
+<td>Steuer-Chat</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3-llm-initialisierung">3. LLM-Initialisierung</h2>
+<pre><code class="language-python">load_model(model_path)
+</code></pre>
+<ul>
+<li>Lädt GGUF-Modell über <code>llama-cpp-python</code>.</li>
+<li>Optional GPU-beschleunigt (CUDA).</li>
+<li>Startet im Hintergrund-Thread beim Backend-Start.</li>
+</ul>
+<h2 id="4-chat-ablauf">4. Chat-Ablauf</h2>
+<h3 id="41-allgemeiner-chat">4.1 Allgemeiner Chat</h3>
+<ol>
+<li>Nutzer stellt Frage.</li>
+<li>Backend sucht relevante Dokumente (FTS5 oder Filter).</li>
+<li>Kontext wird aus <code>full_text</code>, <code>summary</code>, <code>keywords</code> gebaut.</li>
+<li>Prompt an LLM:</li>
+</ol>
+<pre><code>Du bist ein Assistent für ein Dokumentenarchiv.
+Kontext:
+- Dokument A: Rechnung Musterfirma, 123 EUR, Büromaterial
+- Dokument B: ...
+
+Frage: Wie viel habe ich 2024 für Büromaterial ausgegeben?
+</code></pre>
+<ol>
+<li>LLM generiert Antwort.</li>
+<li>Antwort wird als SSE-Stream oder JSON zurückgegeben.</li>
+</ol>
+<h3 id="42-steuer-chat">4.2 Steuer-Chat</h3>
+<ul>
+<li>Zusätzlicher Kontext aus <code>tax_years</code>, <code>tax_positions</code>, <code>tax_documents</code>.</li>
+<li>Eingeschränkt auf steuerliche Fragen.</li>
+</ul>
+<h2 id="5-architektur">5. Architektur</h2>
+<h3 id="prompt-engineering">Prompt Engineering</h3>
+<ul>
+<li>System-Prompt definiert Rolle und Ausgabeformat.</li>
+<li>Few-shot-Beispiele je nach Modul.</li>
+<li>JSON-Modus für strukturierte Extraktionen.</li>
+</ul>
+<h3 id="token-management">Token-Management</h3>
+<ul>
+<li>Lange Dokumententexte werden gekürzt (<code>prepare_text_long_trimmed</code>).</li>
+<li>Chunking oder Top-K-Auswahl relevanter Dokumente.</li>
+</ul>
+<h2 id="6-fehlerbehandlung">6. Fehlerbehandlung</h2>
+<ul>
+<li>Modell nicht geladen → Fehlermeldung.</li>
+<li>JSON nicht parsebar → Retry oder Fallback auf Textantwort.</li>
+</ul>
+<h2 id="7-tests">7. Tests</h2>
+<ul>
+<li><code>tests/test_chat_api.py</code></li>
+</ul>
+    <footer>
+      PaperVault Dokumentation · Generiert aus Markdown
+    </footer>
+  </main>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    // Toggle highlight.js theme based on dark mode
+    const darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.getElementById('light-hljs').disabled = darkMode;
+    document.getElementById('dark-hljs').disabled = !darkMode;
+  </script>
+</body>
+</html>

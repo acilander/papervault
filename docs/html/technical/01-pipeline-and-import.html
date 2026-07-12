@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Technisch: Pipeline und Import – PaperVault Doku</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --border: #e2e8f0;
+      --code-bg: #f1f5f9;
+      --nav-bg: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #60a5fa;
+        --border: #334155;
+        --code-bg: #0f172a;
+        --nav-bg: #1e293b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      display: flex;
+      min-height: 100vh;
+    }
+    aside {
+      width: 280px;
+      background: var(--nav-bg);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+    }
+    aside h1 {
+      font-size: 1.25rem;
+      margin: 0 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .nav-link {
+      display: block;
+      padding: .45rem .6rem;
+      border-radius: .4rem;
+      color: var(--text);
+      text-decoration: none;
+      font-size: .92rem;
+      margin-bottom: .15rem;
+    }
+    .nav-link:hover { background: var(--bg); }
+    .nav-link.active { background: var(--accent); color: #fff; }
+    main {
+      margin-left: 280px;
+      flex: 1;
+      max-width: 900px;
+      padding: 2.5rem;
+    }
+    h1 { font-size: 2rem; margin-top: 0; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: .35rem; margin-top: 2.2rem; }
+    h3 { margin-top: 1.6rem; }
+    a { color: var(--accent); }
+    code, pre {
+      background: var(--code-bg);
+      border-radius: .35rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .9em;
+    }
+    code { padding: .15rem .35rem; }
+    pre {
+      padding: 1rem;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code { padding: 0; background: transparent; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: .55rem .75rem;
+      text-align: left;
+    }
+    th { background: var(--surface); }
+    blockquote {
+      border-left: 4px solid var(--accent);
+      margin: 1rem 0;
+      padding: .5rem 1rem;
+      background: var(--surface);
+      border-radius: 0 .4rem .4rem 0;
+    }
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .mermaid svg { max-width: 100%; }
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .toc ul { padding-left: 1.2rem; }
+    .toc > ul { padding-left: 0; list-style: none; }
+    footer {
+      margin-top: 4rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .875rem;
+    }
+    @media (max-width: 900px) {
+      aside { display: none; }
+      main { margin-left: 0; padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>📚 PaperVault Doku</h1>
+    <nav>
+<a class="nav-link" href="../ARCHITECTURE.html">Architecture</a>
+<a class="nav-link" href="../blueprints/blueprint_tax_module.html">Steuer-Modul Blueprint</a>
+<a class="nav-link" href="../blueprints/cline_blueprint_kv_extraction.html">KV-Extraction Blueprint</a>
+<a class="nav-link" href="../blueprints/cline_blueprint_vision_logo.html">Vision/Logo Blueprint</a>
+<a class="nav-link" href="../DOCUMENTATION_STRUCTURE.html">Documentation Structure</a>
+<a class="nav-link" href="../feature-ignore-lock.html">Feature Ignore Lock</a>
+<a class="nav-link" href="../feature-low-value-rules.html">Feature Low Value Rules</a>
+<a class="nav-link" href="../FEATURES.html">Features</a>
+<a class="nav-link" href="../index.html">Übersicht</a>
+<a class="nav-link" href="../llm-cascade-scenarios.html">Llm Cascade Scenarios</a>
+<a class="nav-link active" href="../technical/01-pipeline-and-import.html">01 Pipeline And Import</a>
+<a class="nav-link" href="../technical/02-documents-search-and-filter.html">02 Documents Search And Filter</a>
+<a class="nav-link" href="../technical/03-ignore-lock.html">03 Ignore Lock</a>
+<a class="nav-link" href="../technical/04-low-value-rules.html">04 Low Value Rules</a>
+<a class="nav-link" href="../technical/05-duplicates.html">05 Duplicates</a>
+<a class="nav-link" href="../technical/06-senders.html">06 Senders</a>
+<a class="nav-link" href="../technical/07-tax-module.html">07 Tax Module</a>
+<a class="nav-link" href="../technical/08-collections.html">08 Collections</a>
+<a class="nav-link" href="../technical/09-chat-and-llm.html">09 Chat And Llm</a>
+<a class="nav-link" href="../technical/10-monitor.html">10 Monitor</a>
+<a class="nav-link" href="../technical/11-feedback.html">11 Feedback</a>
+<a class="nav-link" href="../technical/12-settings-and-config.html">12 Settings And Config</a>
+<a class="nav-link" href="../technical/13-inventory-contracts-services.html">13 Inventory Contracts Services</a>
+<a class="nav-link" href="../USER_GUIDE.html">User Guide</a>
+    </nav>
+  </aside>
+  <main>
+    <h1>Technisch: Pipeline und Import</h1>
+<h1 id="technisch-pipeline-und-import">Technisch: Pipeline und Import</h1>
+<h2 id="1-ziel">1. Ziel</h2>
+<p>PDFs aus dem Inbox-Ordner automatisch klassifizieren, Metadaten extrahieren und strukturiert im Dateisystem ablegen.</p>
+<h2 id="2-beteiligte-komponenten">2. Beteiligte Komponenten</h2>
+<table>
+<thead>
+<tr>
+<th>Datei</th>
+<th>Rolle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend/pipeline/core.py</code></td>
+<td>Koordiniert die Verarbeitungsschritte</td>
+</tr>
+<tr>
+<td><code>backend/pipeline/steps.py</code></td>
+<td>Einzelne Schritte: Hash, OCR, Duplikat, Klassifikation, Archivierung</td>
+</tr>
+<tr>
+<td><code>backend/archiver.py</code></td>
+<td>Höherer Einstiegspunkt für Batch-Verarbeitung</td>
+</tr>
+<tr>
+<td><code>backend/llm.py</code></td>
+<td>LLM-Abstraktion und Prompting</td>
+</tr>
+<tr>
+<td><code>backend/storage.py</code></td>
+<td>Dateisystem-Operationen, Pfadaufbau, Sender-Registry</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3-ablauf">3. Ablauf</h2>
+<h3 id="31-datei-erkennen">3.1 Datei erkennen</h3>
+<ul>
+<li><strong>Automatisch</strong>: <code>Monitor</code>-Seite startet SSE-Stream; Backend prüft INBOX_DIR.</li>
+<li><strong>Manuell</strong>: Nutzer startet Archiver über Monitor oder Inbox.</li>
+<li><strong>Skript</strong>: <code>python -m archiver</code> oder ähnlich.</li>
+</ul>
+<h3 id="32-textextraktion">3.2 Textextraktion</h3>
+<pre><code>PDF ──► pdfplumber / PyPDF2 ──► nativer Text
+      └──► pdf2image ──► Tesseract OCR ──► gescannter Text
+</code></pre>
+<ul>
+<li>Zuerst wird versucht, nativen Text zu extrahieren.</li>
+<li>Falls wenig oder kein Text → OCR mit Tesseract.</li>
+<li>Ergebnis: <code>full_text</code> wird in der Datenbank gespeichert.</li>
+</ul>
+<h3 id="33-hash-berechnung">3.3 Hash-Berechnung</h3>
+<pre><code class="language-python">content_hash = sha256(text.encode(&quot;utf-8&quot;)).hexdigest()[:16]
+</code></pre>
+<ul>
+<li>16 Zeichen reichen für die Duplikat-Erkennung und reduzieren Speicher.</li>
+<li>Der Hash basiert auf dem <strong>extrahierten Text</strong>, nicht auf der Datei (damit identische Inhalte trotz unterschiedlicher Dateien erkannt werden).</li>
+</ul>
+<h3 id="34-duplikat-check">3.4 Duplikat-Check</h3>
+<pre><code>1. Prüfe protected_document_hashes:
+   - ignored  → Datei nach ignored/ verschieben, status = ignored
+   - locked   → Datei nach duplicates/ verschieben, status = duplicate
+2. Prüfe documents-Tabelle auf existierenden Hash:
+   → Datei nach duplicates/ verschieben, status = duplicate
+3. Kein Duplikat → weiter zur Klassifikation
+</code></pre>
+<h3 id="35-llm-klassifikation">3.5 LLM-Klassifikation</h3>
+<p>Der Text wird an ein lokales GGUF-Modell geschickt. Das Modell liefert JSON:</p>
+<pre><code class="language-json">{
+  &quot;sender&quot;: &quot;Musterfirma GmbH&quot;,
+  &quot;date&quot;: &quot;2024-03-15&quot;,
+  &quot;document_type&quot;: &quot;Rechnung&quot;,
+  &quot;category&quot;: &quot;Sonstiges&quot;,
+  &quot;summary&quot;: &quot;Rechnung für Büromaterial&quot;,
+  &quot;amount&quot;: 123.45,
+  &quot;tax_relevant&quot;: false,
+  &quot;confidence&quot;: &quot;high&quot;
+}
+</code></pre>
+<p>Prompts sind typischerweise in <code>backend/prompts.py</code> oder modulspezifisch (z. B. <code>backend/tax/prompts.py</code>).</p>
+<h3 id="36-archivierung">3.6 Archivierung</h3>
+<p>Zielpfad wird aus Kategorie, Sender, Jahr und Monat gebaut:</p>
+<pre><code>TARGET_BASE/&lt;category&gt;/&lt;sender&gt;/&lt;year&gt;/&lt;month&gt;/&lt;filename&gt;
+</code></pre>
+<ul>
+<li>Sonderzeichen werden bereinigt.</li>
+<li>Kollisionsvermeidung durch eindeutige Dateinamen.</li>
+<li><code>archived_at</code> wird auf aktuellen Zeitstempel gesetzt.</li>
+</ul>
+<h2 id="4-zustande-status">4. Zustände (Status)</h2>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Bedeutung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pending</code></td>
+<td>Warte auf Verarbeitung</td>
+</tr>
+<tr>
+<td><code>processing</code></td>
+<td>Wird gerade verarbeitet</td>
+</tr>
+<tr>
+<td><code>ok</code></td>
+<td>Erfolgreich archiviert und geprüft</td>
+</tr>
+<tr>
+<td><code>review</code></td>
+<td>Bitte manuell prüfen</td>
+</tr>
+<tr>
+<td><code>duplicate</code></td>
+<td>Duplikat erkannt</td>
+</tr>
+<tr>
+<td><code>ignored</code></td>
+<td>Vom Nutzer ignoriert</td>
+</tr>
+<tr>
+<td><code>locked</code></td>
+<td>Vom Nutzer gesperrt</td>
+</tr>
+<tr>
+<td><code>missing</code></td>
+<td>Datei existiert nicht mehr auf dem Datenträger</td>
+</tr>
+<tr>
+<td><code>encrypted</code></td>
+<td>PDF ist passwortgeschützt</td>
+</tr>
+<tr>
+<td><code>corrupt</code></td>
+<td>PDF kann nicht gelesen werden</td>
+</tr>
+<tr>
+<td><code>no_text</code></td>
+<td>Kein Text extrahierbar</td>
+</tr>
+<tr>
+<td><code>classification_failed</code></td>
+<td>LLM-Klassifikation fehlgeschlagen</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-mathematik-algorithmik">5. Mathematik &amp; Algorithmik</h2>
+<h3 id="51-hash-kollisionswahrscheinlichkeit">5.1 Hash-Kollisionswahrscheinlichkeit</h3>
+<ul>
+<li>SHA256 liefert 256 Bit.</li>
+<li>Verwendung von 16 Hex-Zeichen = 64 Bit.</li>
+<li>Kollisionswahrscheinlichkeit bei 1 Million Dokumenten: ca. (10^{-10}) (vernachlässigbar für diesen Anwendungsfall).</li>
+</ul>
+<h3 id="52-ocr-entscheidung">5.2 OCR-Entscheidung</h3>
+<p>Typische Heuristik:</p>
+<pre><code class="language-python">if len(extracted_text.strip()) &lt; MIN_TEXT_LENGTH:
+    use_ocr()
+</code></pre>
+<p><code>MIN_TEXT_LENGTH</code> liegt oft bei 50–100 Zeichen.</p>
+<h3 id="53-confidence-score">5.3 Confidence-Score</h3>
+<p>Das LLM liefert kategorische Confidence (<code>low</code>, <code>medium</code>, <code>high</code>).
+Diese wird später für Filter und Review-Priorisierung genutzt.</p>
+<h2 id="6-fehlerbehandlung">6. Fehlerbehandlung</h2>
+<p>Fehler in einem Schritt setzen den Status:</p>
+<ul>
+<li>OCR-Fehler → <code>no_text</code> oder <code>corrupt</code></li>
+<li>LLM-Fehler → <code>classification_failed</code></li>
+<li>Duplikat → <code>duplicate</code></li>
+<li>Geschützter Hash → <code>ignored</code> oder <code>duplicate</code></li>
+</ul>
+<h2 id="7-tests">7. Tests</h2>
+<ul>
+<li><code>tests/test_pipeline_steps.py</code></li>
+<li><code>tests/test_archiver.py</code></li>
+</ul>
+<h2 id="8-konfiguration">8. Konfiguration</h2>
+<p>Wichtige Pfade in <code>backend/config.py</code>:</p>
+<ul>
+<li><code>SOURCE_DIR</code> / <code>INBOX_DIR</code>: Eingangsordner</li>
+<li><code>TARGET_BASE</code>: Archiv-Ordner</li>
+<li><code>DUPLICATES_DIR</code>: Duplikat-Ordner</li>
+<li><code>IGNORED_DIR</code>: Ignorierte Dateien</li>
+<li><code>DB_PATH</code>: SQLite-Datenbank</li>
+</ul>
+    <footer>
+      PaperVault Dokumentation · Generiert aus Markdown
+    </footer>
+  </main>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    // Toggle highlight.js theme based on dark mode
+    const darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.getElementById('light-hljs').disabled = darkMode;
+    document.getElementById('dark-hljs').disabled = !darkMode;
+  </script>
+</body>
+</html>

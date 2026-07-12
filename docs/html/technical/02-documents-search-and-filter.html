@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Technisch: Dokumentenliste, Suche und Filter – PaperVault Doku</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --border: #e2e8f0;
+      --code-bg: #f1f5f9;
+      --nav-bg: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #60a5fa;
+        --border: #334155;
+        --code-bg: #0f172a;
+        --nav-bg: #1e293b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      display: flex;
+      min-height: 100vh;
+    }
+    aside {
+      width: 280px;
+      background: var(--nav-bg);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+    }
+    aside h1 {
+      font-size: 1.25rem;
+      margin: 0 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .nav-link {
+      display: block;
+      padding: .45rem .6rem;
+      border-radius: .4rem;
+      color: var(--text);
+      text-decoration: none;
+      font-size: .92rem;
+      margin-bottom: .15rem;
+    }
+    .nav-link:hover { background: var(--bg); }
+    .nav-link.active { background: var(--accent); color: #fff; }
+    main {
+      margin-left: 280px;
+      flex: 1;
+      max-width: 900px;
+      padding: 2.5rem;
+    }
+    h1 { font-size: 2rem; margin-top: 0; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: .35rem; margin-top: 2.2rem; }
+    h3 { margin-top: 1.6rem; }
+    a { color: var(--accent); }
+    code, pre {
+      background: var(--code-bg);
+      border-radius: .35rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .9em;
+    }
+    code { padding: .15rem .35rem; }
+    pre {
+      padding: 1rem;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code { padding: 0; background: transparent; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: .55rem .75rem;
+      text-align: left;
+    }
+    th { background: var(--surface); }
+    blockquote {
+      border-left: 4px solid var(--accent);
+      margin: 1rem 0;
+      padding: .5rem 1rem;
+      background: var(--surface);
+      border-radius: 0 .4rem .4rem 0;
+    }
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .mermaid svg { max-width: 100%; }
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .toc ul { padding-left: 1.2rem; }
+    .toc > ul { padding-left: 0; list-style: none; }
+    footer {
+      margin-top: 4rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .875rem;
+    }
+    @media (max-width: 900px) {
+      aside { display: none; }
+      main { margin-left: 0; padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>📚 PaperVault Doku</h1>
+    <nav>
+<a class="nav-link" href="../ARCHITECTURE.html">Architecture</a>
+<a class="nav-link" href="../blueprints/blueprint_tax_module.html">Steuer-Modul Blueprint</a>
+<a class="nav-link" href="../blueprints/cline_blueprint_kv_extraction.html">KV-Extraction Blueprint</a>
+<a class="nav-link" href="../blueprints/cline_blueprint_vision_logo.html">Vision/Logo Blueprint</a>
+<a class="nav-link" href="../DOCUMENTATION_STRUCTURE.html">Documentation Structure</a>
+<a class="nav-link" href="../feature-ignore-lock.html">Feature Ignore Lock</a>
+<a class="nav-link" href="../feature-low-value-rules.html">Feature Low Value Rules</a>
+<a class="nav-link" href="../FEATURES.html">Features</a>
+<a class="nav-link" href="../index.html">Übersicht</a>
+<a class="nav-link" href="../llm-cascade-scenarios.html">Llm Cascade Scenarios</a>
+<a class="nav-link" href="../technical/01-pipeline-and-import.html">01 Pipeline And Import</a>
+<a class="nav-link active" href="../technical/02-documents-search-and-filter.html">02 Documents Search And Filter</a>
+<a class="nav-link" href="../technical/03-ignore-lock.html">03 Ignore Lock</a>
+<a class="nav-link" href="../technical/04-low-value-rules.html">04 Low Value Rules</a>
+<a class="nav-link" href="../technical/05-duplicates.html">05 Duplicates</a>
+<a class="nav-link" href="../technical/06-senders.html">06 Senders</a>
+<a class="nav-link" href="../technical/07-tax-module.html">07 Tax Module</a>
+<a class="nav-link" href="../technical/08-collections.html">08 Collections</a>
+<a class="nav-link" href="../technical/09-chat-and-llm.html">09 Chat And Llm</a>
+<a class="nav-link" href="../technical/10-monitor.html">10 Monitor</a>
+<a class="nav-link" href="../technical/11-feedback.html">11 Feedback</a>
+<a class="nav-link" href="../technical/12-settings-and-config.html">12 Settings And Config</a>
+<a class="nav-link" href="../technical/13-inventory-contracts-services.html">13 Inventory Contracts Services</a>
+<a class="nav-link" href="../USER_GUIDE.html">User Guide</a>
+    </nav>
+  </aside>
+  <main>
+    <h1>Technisch: Dokumentenliste, Suche und Filter</h1>
+<h1 id="technisch-dokumentenliste-suche-und-filter">Technisch: Dokumentenliste, Suche und Filter</h1>
+<h2 id="1-ziel">1. Ziel</h2>
+<p>Schnelles Durchsuchen, Filtern, Sortieren und Massenbearbeiten aller archivierten Dokumente.</p>
+<h2 id="2-datenquelle">2. Datenquelle</h2>
+<ul>
+<li>Backend: <code>GET /documents/</code></li>
+<li>Repo: <code>backend/db/documents_repo.py</code></li>
+<li>Tabelle: <code>documents</code></li>
+<li>Volltextindex: <code>documents_fts</code> (FTS5)</li>
+</ul>
+<h2 id="3-api-parameter">3. API-Parameter</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Typ</th>
+<th>Bedeutung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>q</code></td>
+<td>string</td>
+<td>Volltextsuche</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td>string</td>
+<td>Kategorie exakt</td>
+</tr>
+<tr>
+<td><code>year</code></td>
+<td>string</td>
+<td>Archivierungsjahr (YYYY)</td>
+</tr>
+<tr>
+<td><code>sender</code></td>
+<td>string</td>
+<td>Sender exakt</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>Dokumentenstatus</td>
+</tr>
+<tr>
+<td><code>tax_relevant</code></td>
+<td>0/1</td>
+<td>Steuerrelevanz</td>
+</tr>
+<tr>
+<td><code>no_sender</code></td>
+<td>0/1</td>
+<td>Dokumente ohne Sender</td>
+</tr>
+<tr>
+<td><code>low_value</code></td>
+<td>0/1</td>
+<td>Geringer-Wert-Markierung</td>
+</tr>
+<tr>
+<td><code>confidence</code></td>
+<td>string</td>
+<td><code>low</code>, <code>medium</code>, <code>high</code></td>
+</tr>
+<tr>
+<td><code>tag</code></td>
+<td>string</td>
+<td>Tag enthält</td>
+</tr>
+<tr>
+<td><code>sort_by</code></td>
+<td>string</td>
+<td>Sortierspalte</td>
+</tr>
+<tr>
+<td><code>sort_dir</code></td>
+<td>string</td>
+<td><code>asc</code> / <code>desc</code></td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>int</td>
+<td>Seitengröße</td>
+</tr>
+<tr>
+<td><code>offset</code></td>
+<td>int</td>
+<td>Offset</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-sql-query-logik">4. SQL-Query-Logik</h2>
+<h3 id="41-volltextsuche">4.1 Volltextsuche</h3>
+<pre><code class="language-sql">SELECT d.* FROM documents d
+WHERE d.id IN (
+  SELECT rowid FROM documents_fts WHERE documents_fts MATCH ?
+)
+ORDER BY d.archived_at DESC
+LIMIT ? OFFSET ?
+</code></pre>
+<h3 id="42-kombinierte-filter">4.2 Kombinierte Filter</h3>
+<p>Filter werden als <code>AND</code>-Bedingungen an den WHERE-Clause angehängt:</p>
+<pre><code class="language-sql">SELECT d.* FROM documents d
+WHERE d.id IN (SELECT rowid FROM documents_fts WHERE documents_fts MATCH ?)
+  AND d.category = ?
+  AND d.sender = ?
+  AND d.status = ?
+  AND d.low_value = ?
+ORDER BY d.archived_at DESC
+LIMIT ? OFFSET ?
+</code></pre>
+<h3 id="43-standard-filter-fur-ignorierte-dokumente">4.3 Standard-Filter für ignorierte Dokumente</h3>
+<p>Wenn kein <code>status</code>-Filter gesetzt ist, werden <code>ignored</code>-Dokumente ausgeschlossen:</p>
+<pre><code class="language-sql">AND d.status != 'ignored'
+</code></pre>
+<h2 id="5-fts5-index">5. FTS5-Index</h2>
+<p>Der FTS5-Index synchronisiert sich automatisch über Trigger:</p>
+<pre><code class="language-sql">CREATE TRIGGER documents_ai AFTER INSERT ON documents BEGIN
+  INSERT INTO documents_fts(rowid, filename, sender, summary, keywords, full_text)
+  VALUES (new.id, new.filename, new.sender, new.summary, new.keywords, new.full_text);
+END;
+</code></pre>
+<p>Äquivalente Trigger existieren für UPDATE und DELETE.</p>
+<h2 id="6-sortierung">6. Sortierung</h2>
+<p>Mögliche Sortierspalten:</p>
+<ul>
+<li><code>archived_at</code> (Standard, absteigend)</li>
+<li><code>filename</code></li>
+<li><code>sender</code></li>
+<li><code>date</code></li>
+<li><code>category</code></li>
+<li><code>status</code></li>
+</ul>
+<h2 id="7-pagination">7. Pagination</h2>
+<ul>
+<li>Frontend: <code>PAGE_SIZE = 50</code></li>
+<li>Backend liefert <code>X-Total-Count</code> Header.</li>
+<li>Berechnung der Seitenanzahl: <code>ceil(total / PAGE_SIZE)</code>.</li>
+</ul>
+<h2 id="8-bulk-edit">8. Bulk-Edit</h2>
+<h3 id="ablauf">Ablauf</h3>
+<ol>
+<li>Nutzer wählt Dokumente über Checkboxen.</li>
+<li>Wählt Feld und neuen Wert.</li>
+<li>Frontend sendet <code>PATCH /documents/bulk</code> mit <code>{ ids, field, value }</code>.</li>
+<li>Backend aktualisiert alle Dokumente in einer Transaktion.</li>
+<li>Frontend speichert vorherigen Zustand für Undo.</li>
+</ol>
+<h3 id="undo-mechanismus">Undo-Mechanismus</h3>
+<ul>
+<li>Vor dem Bulk-Edit werden die aktuellen Werte der betroffenen Dokumente gelesen.</li>
+<li>Nach erfolgreichem Edit erscheint ein Undo-Button.</li>
+<li>Klick auf Undo sendet einen neuen Bulk-Update mit den ursprünglichen Werten.</li>
+</ul>
+<h2 id="9-frontend-state">9. Frontend-State</h2>
+<ul>
+<li><code>useSearchParams()</code> hält den Filterzustand in der URL.</li>
+<li>Dadurch sind Filter bookmarkbar und über Sidebar-Quicklinks setzbar.</li>
+<li><code>useCallback</code> für <code>buildFilterParams</code> verhindert unnötige Re-Renders.</li>
+</ul>
+<h2 id="10-mathematik-algorithmik">10. Mathematik &amp; Algorithmik</h2>
+<h3 id="101-pagination">10.1 Pagination</h3>
+<pre><code>totalPages = ceil(total / pageSize)
+offset = (page - 1) * pageSize
+</code></pre>
+<h3 id="102-filterlogik">10.2 Filterlogik</h3>
+<p>Alle Filter sind <strong>konjunktiv</strong> (AND). Es gibt keine OR-Filterung.</p>
+<h3 id="103-suchrelevanz">10.3 Suchrelevanz</h3>
+<p>FTS5 liefert Ergebnisse ohne explizite Relevanzsortierung; Sortierung erfolgt nach <code>archived_at</code> oder anderer gewählter Spalte.</p>
+<h2 id="11-performance">11. Performance</h2>
+<ul>
+<li>SQLite-Indizes auf häufig gefilterten Spalten (<code>category</code>, <code>sender</code>, <code>status</code>, <code>archived_at</code>).</li>
+<li>FTS5 ermöglicht schnelle Volltextsuche über große Dokumentenmengen.</li>
+<li><code>COUNT</code> und <code>SELECT</code> laufen in getrennten Queries, um <code>X-Total-Count</code> zu liefern.</li>
+</ul>
+<h2 id="12-tests">12. Tests</h2>
+<ul>
+<li><code>tests/test_documents_api.py</code></li>
+<li><code>tests/test_documents_repo.py</code> (falls vorhanden)</li>
+</ul>
+    <footer>
+      PaperVault Dokumentation · Generiert aus Markdown
+    </footer>
+  </main>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    // Toggle highlight.js theme based on dark mode
+    const darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.getElementById('light-hljs').disabled = darkMode;
+    document.getElementById('dark-hljs').disabled = !darkMode;
+  </script>
+</body>
+</html>

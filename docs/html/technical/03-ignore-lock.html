@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Technisch: Ignore / Lock – PaperVault Doku</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --border: #e2e8f0;
+      --code-bg: #f1f5f9;
+      --nav-bg: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #60a5fa;
+        --border: #334155;
+        --code-bg: #0f172a;
+        --nav-bg: #1e293b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      display: flex;
+      min-height: 100vh;
+    }
+    aside {
+      width: 280px;
+      background: var(--nav-bg);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+    }
+    aside h1 {
+      font-size: 1.25rem;
+      margin: 0 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .nav-link {
+      display: block;
+      padding: .45rem .6rem;
+      border-radius: .4rem;
+      color: var(--text);
+      text-decoration: none;
+      font-size: .92rem;
+      margin-bottom: .15rem;
+    }
+    .nav-link:hover { background: var(--bg); }
+    .nav-link.active { background: var(--accent); color: #fff; }
+    main {
+      margin-left: 280px;
+      flex: 1;
+      max-width: 900px;
+      padding: 2.5rem;
+    }
+    h1 { font-size: 2rem; margin-top: 0; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: .35rem; margin-top: 2.2rem; }
+    h3 { margin-top: 1.6rem; }
+    a { color: var(--accent); }
+    code, pre {
+      background: var(--code-bg);
+      border-radius: .35rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .9em;
+    }
+    code { padding: .15rem .35rem; }
+    pre {
+      padding: 1rem;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code { padding: 0; background: transparent; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: .55rem .75rem;
+      text-align: left;
+    }
+    th { background: var(--surface); }
+    blockquote {
+      border-left: 4px solid var(--accent);
+      margin: 1rem 0;
+      padding: .5rem 1rem;
+      background: var(--surface);
+      border-radius: 0 .4rem .4rem 0;
+    }
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .mermaid svg { max-width: 100%; }
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .toc ul { padding-left: 1.2rem; }
+    .toc > ul { padding-left: 0; list-style: none; }
+    footer {
+      margin-top: 4rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .875rem;
+    }
+    @media (max-width: 900px) {
+      aside { display: none; }
+      main { margin-left: 0; padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>📚 PaperVault Doku</h1>
+    <nav>
+<a class="nav-link" href="../ARCHITECTURE.html">Architecture</a>
+<a class="nav-link" href="../blueprints/blueprint_tax_module.html">Steuer-Modul Blueprint</a>
+<a class="nav-link" href="../blueprints/cline_blueprint_kv_extraction.html">KV-Extraction Blueprint</a>
+<a class="nav-link" href="../blueprints/cline_blueprint_vision_logo.html">Vision/Logo Blueprint</a>
+<a class="nav-link" href="../DOCUMENTATION_STRUCTURE.html">Documentation Structure</a>
+<a class="nav-link" href="../feature-ignore-lock.html">Feature Ignore Lock</a>
+<a class="nav-link" href="../feature-low-value-rules.html">Feature Low Value Rules</a>
+<a class="nav-link" href="../FEATURES.html">Features</a>
+<a class="nav-link" href="../index.html">Übersicht</a>
+<a class="nav-link" href="../llm-cascade-scenarios.html">Llm Cascade Scenarios</a>
+<a class="nav-link" href="../technical/01-pipeline-and-import.html">01 Pipeline And Import</a>
+<a class="nav-link" href="../technical/02-documents-search-and-filter.html">02 Documents Search And Filter</a>
+<a class="nav-link active" href="../technical/03-ignore-lock.html">03 Ignore Lock</a>
+<a class="nav-link" href="../technical/04-low-value-rules.html">04 Low Value Rules</a>
+<a class="nav-link" href="../technical/05-duplicates.html">05 Duplicates</a>
+<a class="nav-link" href="../technical/06-senders.html">06 Senders</a>
+<a class="nav-link" href="../technical/07-tax-module.html">07 Tax Module</a>
+<a class="nav-link" href="../technical/08-collections.html">08 Collections</a>
+<a class="nav-link" href="../technical/09-chat-and-llm.html">09 Chat And Llm</a>
+<a class="nav-link" href="../technical/10-monitor.html">10 Monitor</a>
+<a class="nav-link" href="../technical/11-feedback.html">11 Feedback</a>
+<a class="nav-link" href="../technical/12-settings-and-config.html">12 Settings And Config</a>
+<a class="nav-link" href="../technical/13-inventory-contracts-services.html">13 Inventory Contracts Services</a>
+<a class="nav-link" href="../USER_GUIDE.html">User Guide</a>
+    </nav>
+  </aside>
+  <main>
+    <h1>Technisch: Ignore / Lock</h1>
+<h1 id="technisch-ignore-lock">Technisch: Ignore / Lock</h1>
+<h2 id="1-ziel">1. Ziel</h2>
+<p>Dokumente dauerhaft als irrelevant markieren oder gegen Änderungen schützen. Beides wird über einen Hash-Registry realisiert, sodass geschützte Dokumente auch beim Re-Import erkannt werden.</p>
+<h2 id="2-datenmodell">2. Datenmodell</h2>
+<h3 id="tabelle-protected_document_hashes">Tabelle <code>protected_document_hashes</code></h3>
+<table>
+<thead>
+<tr>
+<th>Spalte</th>
+<th>Typ</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hash</code></td>
+<td>TEXT PK</td>
+<td>SHA256-Präfix (16 Hex-Zeichen)</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>TEXT</td>
+<td><code>ignored</code> oder <code>locked</code></td>
+</tr>
+<tr>
+<td><code>document_id</code></td>
+<td>INTEGER</td>
+<td>Verweis auf das Originaldokument</td>
+</tr>
+<tr>
+<td><code>filename</code></td>
+<td>TEXT</td>
+<td>Original-Dateiname</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>TEXT</td>
+<td>ISO-Timestamp</td>
+</tr>
+</tbody>
+</table>
+<h3 id="index">Index</h3>
+<pre><code class="language-sql">CREATE INDEX IF NOT EXISTS idx_protected_hash_type ON protected_document_hashes(hash, type);
+</code></pre>
+<h2 id="3-ablaufe">3. Abläufe</h2>
+<h3 id="31-ignorieren">3.1 Ignorieren</h3>
+<p><strong>API:</strong> <code>POST /documents/{id}/ignore</code></p>
+<pre><code class="language-python">1. doc = get_document(id)
+2. content_hash = doc[&quot;content_hash&quot;] (oder neu berechnen)
+3. update_document(id, status=&quot;ignored&quot;)
+4. protect_document_hash(hash, &quot;ignored&quot;, document_id=id, filename=doc[&quot;filename&quot;])
+5. Zielpfad = unique_path(IGNORED_DIR / basename(doc.file_path))
+6. shutil.move(doc.file_path, Zielpfad)
+7. update_document(id, file_path=Zielpfad)
+</code></pre>
+<h3 id="32-wiederherstellen">3.2 Wiederherstellen</h3>
+<p><strong>API:</strong> <code>POST /documents/{id}/unignore</code></p>
+<pre><code class="language-python">1. doc = get_document(id)
+2. delete_protected_hash(doc[&quot;content_hash&quot;])
+3. update_document(id, status=&quot;ok&quot;)
+</code></pre>
+<blockquote>
+<p>Hinweis: Die Datei verbleibt im <code>ignored/</code>-Ordner; es erfolgt keine Rückführung in das Archiv.</p>
+</blockquote>
+<h3 id="33-sperren">3.3 Sperren</h3>
+<p><strong>API:</strong> <code>POST /documents/{id}/lock</code></p>
+<pre><code class="language-python">1. doc = get_document(id)
+2. update_document(id, status=&quot;locked&quot;)
+3. protect_document_hash(hash, &quot;locked&quot;, document_id=id, filename=doc[&quot;filename&quot;])
+</code></pre>
+<h3 id="34-entsperren">3.4 Entsperren</h3>
+<p><strong>API:</strong> <code>POST /documents/{id}/unlock</code></p>
+<pre><code class="language-python">1. doc = get_document(id)
+2. delete_protected_hash(doc[&quot;content_hash&quot;])
+3. update_document(id, status=&quot;ok&quot;)
+</code></pre>
+<h2 id="4-schutzmechanismen">4. Schutzmechanismen</h2>
+<h3 id="41-bearbeiten-blockieren">4.1 Bearbeiten blockieren</h3>
+<p><code>PATCH /documents/{id}</code> prüft:</p>
+<pre><code class="language-python">if doc[&quot;status&quot;] in (&quot;locked&quot;, &quot;ignored&quot;):
+    raise HTTPException(409, &quot;Dokument ist gesperrt oder ignoriert&quot;)
+</code></pre>
+<h3 id="42-bulk-update-ausschlieen">4.2 Bulk-Update ausschließen</h3>
+<p><code>PATCH /documents/bulk</code> filtert IDs:</p>
+<pre><code class="language-python">valid_ids = [id for id in ids if get_document(id)[&quot;status&quot;] not in (&quot;locked&quot;, &quot;ignored&quot;)]
+</code></pre>
+<h3 id="43-reprocess-confirm-blockieren">4.3 Reprocess / Confirm blockieren</h3>
+<p><code>POST /documents/{id}/reprocess</code> und <code>POST /documents/{id}/confirm</code> werfen 409 bei <code>locked</code>/<code>ignored</code>.</p>
+<h2 id="5-duplikat-handling">5. Duplikat-Handling</h2>
+<p><code>pipeline/steps.check_duplicate()</code> prüft zuerst die Registry:</p>
+<pre><code class="language-python">protected = get_protected_hash(content_hash)
+if protected:
+    if protected[&quot;type&quot;] == &quot;ignored&quot;:
+        move_to_ignored(file_path)
+        update_document(doc_id, status=&quot;ignored&quot;, file_path=new_path)
+        return True
+    if protected[&quot;type&quot;] == &quot;locked&quot;:
+        move_to_duplicates(file_path)
+        update_document(doc_id, status=&quot;duplicate&quot;, file_path=new_path)
+        return True
+</code></pre>
+<h2 id="6-sicherheitsbetrachtung">6. Sicherheitsbetrachtung</h2>
+<ul>
+<li>Der Hash basiert auf dem Inhalt, nicht auf dem Dateinamen.</li>
+<li>Selbst wenn der Nutzer die Datei umbenennt oder kopiert, wird der Schutz erkannt.</li>
+<li>64-Bit-Hash-Präfix bietet ausreichenden Schutz gegen Kollisionen bei typischen Privatanwendungen.</li>
+</ul>
+<h2 id="7-frontend">7. Frontend</h2>
+<ul>
+<li><code>DocumentDetail.tsx</code>: Buttons für Ignore/Lock mit Bestätigungsdialog.</li>
+<li>Read-only-Modus: Eingabefelder deaktiviert, wenn <code>status</code> = <code>locked</code> oder <code>ignored</code>.</li>
+<li><code>Documents.tsx</code>: Lock-Icon neben Dateiname; Status-Filter <code>ignored</code> und <code>locked</code> verfügbar.</li>
+</ul>
+<h2 id="8-tests">8. Tests</h2>
+<ul>
+<li><code>tests/test_documents_api.py</code>:</li>
+<li><code>test_ignore_and_unignore_document</code></li>
+<li><code>test_lock_and_unlock_document</code></li>
+<li><code>test_locked_document_cannot_be_edited</code></li>
+<li><code>test_ignored_hidden_from_default_list</code></li>
+<li><code>tests/test_pipeline_steps.py</code>:</li>
+<li><code>test_check_duplicate_ignored_hash</code></li>
+<li><code>test_check_duplicate_locked_hash</code></li>
+</ul>
+<h2 id="9-dateisystem-auswirkungen">9. Dateisystem-Auswirkungen</h2>
+<table>
+<thead>
+<tr>
+<th>Aktion</th>
+<th>Quellpfad</th>
+<th>Zielpfad</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ignore</td>
+<td>Archiv</td>
+<td><code>IGNORED_DIR/&lt;filename&gt;</code></td>
+</tr>
+<tr>
+<td>Unignore</td>
+<td><code>IGNORED_DIR</code></td>
+<td>bleibt dort</td>
+</tr>
+<tr>
+<td>Lock</td>
+<td>Archiv</td>
+<td>bleibt im Archiv</td>
+</tr>
+<tr>
+<td>Locked-Duplikat importieren</td>
+<td>Inbox</td>
+<td><code>DUPLICATES_DIR/&lt;hash&gt;/&lt;filename&gt;</code></td>
+</tr>
+<tr>
+<td>Ignored-Duplikat importieren</td>
+<td>Inbox</td>
+<td><code>IGNORED_DIR/&lt;filename&gt;</code></td>
+</tr>
+</tbody>
+</table>
+    <footer>
+      PaperVault Dokumentation · Generiert aus Markdown
+    </footer>
+  </main>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    // Toggle highlight.js theme based on dark mode
+    const darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.getElementById('light-hljs').disabled = darkMode;
+    document.getElementById('dark-hljs').disabled = !darkMode;
+  </script>
+</body>
+</html>

@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blueprint: Steuer-Modul für PaperVault – PaperVault Doku</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --border: #e2e8f0;
+      --code-bg: #f1f5f9;
+      --nav-bg: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #60a5fa;
+        --border: #334155;
+        --code-bg: #0f172a;
+        --nav-bg: #1e293b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      display: flex;
+      min-height: 100vh;
+    }
+    aside {
+      width: 280px;
+      background: var(--nav-bg);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+    }
+    aside h1 {
+      font-size: 1.25rem;
+      margin: 0 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .nav-link {
+      display: block;
+      padding: .45rem .6rem;
+      border-radius: .4rem;
+      color: var(--text);
+      text-decoration: none;
+      font-size: .92rem;
+      margin-bottom: .15rem;
+    }
+    .nav-link:hover { background: var(--bg); }
+    .nav-link.active { background: var(--accent); color: #fff; }
+    main {
+      margin-left: 280px;
+      flex: 1;
+      max-width: 900px;
+      padding: 2.5rem;
+    }
+    h1 { font-size: 2rem; margin-top: 0; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: .35rem; margin-top: 2.2rem; }
+    h3 { margin-top: 1.6rem; }
+    a { color: var(--accent); }
+    code, pre {
+      background: var(--code-bg);
+      border-radius: .35rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .9em;
+    }
+    code { padding: .15rem .35rem; }
+    pre {
+      padding: 1rem;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code { padding: 0; background: transparent; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: .55rem .75rem;
+      text-align: left;
+    }
+    th { background: var(--surface); }
+    blockquote {
+      border-left: 4px solid var(--accent);
+      margin: 1rem 0;
+      padding: .5rem 1rem;
+      background: var(--surface);
+      border-radius: 0 .4rem .4rem 0;
+    }
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .mermaid svg { max-width: 100%; }
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .toc ul { padding-left: 1.2rem; }
+    .toc > ul { padding-left: 0; list-style: none; }
+    footer {
+      margin-top: 4rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .875rem;
+    }
+    @media (max-width: 900px) {
+      aside { display: none; }
+      main { margin-left: 0; padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>📚 PaperVault Doku</h1>
+    <nav>
+<a class="nav-link" href="../ARCHITECTURE.html">Architecture</a>
+<a class="nav-link active" href="../blueprints/blueprint_tax_module.html">Steuer-Modul Blueprint</a>
+<a class="nav-link" href="../blueprints/cline_blueprint_kv_extraction.html">KV-Extraction Blueprint</a>
+<a class="nav-link" href="../blueprints/cline_blueprint_vision_logo.html">Vision/Logo Blueprint</a>
+<a class="nav-link" href="../DOCUMENTATION_STRUCTURE.html">Documentation Structure</a>
+<a class="nav-link" href="../feature-ignore-lock.html">Feature Ignore Lock</a>
+<a class="nav-link" href="../feature-low-value-rules.html">Feature Low Value Rules</a>
+<a class="nav-link" href="../FEATURES.html">Features</a>
+<a class="nav-link" href="../index.html">Übersicht</a>
+<a class="nav-link" href="../llm-cascade-scenarios.html">Llm Cascade Scenarios</a>
+<a class="nav-link" href="../technical/01-pipeline-and-import.html">01 Pipeline And Import</a>
+<a class="nav-link" href="../technical/02-documents-search-and-filter.html">02 Documents Search And Filter</a>
+<a class="nav-link" href="../technical/03-ignore-lock.html">03 Ignore Lock</a>
+<a class="nav-link" href="../technical/04-low-value-rules.html">04 Low Value Rules</a>
+<a class="nav-link" href="../technical/05-duplicates.html">05 Duplicates</a>
+<a class="nav-link" href="../technical/06-senders.html">06 Senders</a>
+<a class="nav-link" href="../technical/07-tax-module.html">07 Tax Module</a>
+<a class="nav-link" href="../technical/08-collections.html">08 Collections</a>
+<a class="nav-link" href="../technical/09-chat-and-llm.html">09 Chat And Llm</a>
+<a class="nav-link" href="../technical/10-monitor.html">10 Monitor</a>
+<a class="nav-link" href="../technical/11-feedback.html">11 Feedback</a>
+<a class="nav-link" href="../technical/12-settings-and-config.html">12 Settings And Config</a>
+<a class="nav-link" href="../technical/13-inventory-contracts-services.html">13 Inventory Contracts Services</a>
+<a class="nav-link" href="../USER_GUIDE.html">User Guide</a>
+    </nav>
+  </aside>
+  <main>
+    <h1>Blueprint: Steuer-Modul für PaperVault</h1>
+<h1 id="blueprint-steuer-modul-fur-papervault">Blueprint: Steuer-Modul für PaperVault</h1>
+<h2 id="ziel">Ziel</h2>
+<p>Ein lokales, datensicheres Steuer-Hilfsprogramm innerhalb von PaperVault. Es lernt aus vergangenen Steuererklärungen (Steuerprogramm-Exporte + Finanzamtsbescheide), strukturiert Positionen pro Jahr und unterstützt die Vorbereitung zukünftiger Erklärungen.</p>
+<h2 id="grundsatz">Grundsatz</h2>
+<ul>
+<li>Keine Steuerberatung durch das LLM.</li>
+<li>Positionen müssen vom Benutzer verifiziert werden.</li>
+<li>Alle Daten bleiben lokal.</li>
+</ul>
+<h2 id="aktueller-implementierungsstand-stand-12072026">Aktueller Implementierungsstand (Stand: 12.07.2026)</h2>
+<h3 id="bereits-implementiert">Bereits implementiert</h3>
+<ol>
+<li><strong>Datenbank-Schema + Repositories</strong></li>
+<li>Tabellen: <code>tax_years</code>, <code>tax_documents</code>, <code>tax_positions</code></li>
+<li>
+<p>Dateien: <code>backend/db/tax_years_repo.py</code>, <code>backend/db/tax_documents_repo.py</code>, <code>backend/db/tax_positions_repo.py</code></p>
+</li>
+<li>
+<p><strong>Backend-API</strong></p>
+</li>
+<li>Datei: <code>backend/api/routes/tax.py</code> mit Prefix <code>/tax</code></li>
+<li>
+<p>Endpunkte für Steuerjahre, Dokumentenverknüpfung, Positionen, Extraktion, Vergleich, Entwicklung und Chat</p>
+</li>
+<li>
+<p><strong>LLM-Extraktion</strong></p>
+</li>
+<li>Datei: <code>backend/tax/extraction.py</code></li>
+<li>Prompts: <code>backend/tax/prompts.py</code></li>
+<li>
+<p>Generische LLM-Hilfsfunktionen: <code>backend/llm.py</code> (<code>llm_json_completion</code>, <code>llm_completion</code>)</p>
+</li>
+<li>
+<p><strong>Frontend-Seiten</strong></p>
+</li>
+<li><code>frontend/src/pages/tax/TaxYears.tsx</code> – Übersicht aller Steuerjahre</li>
+<li><code>frontend/src/pages/tax/TaxYearDetail.tsx</code> – Detailansicht mit Dokumenten und Positionen</li>
+<li><code>frontend/src/pages/tax/TaxYearComparison.tsx</code> – Vergleich Export vs. Bescheid</li>
+<li><code>frontend/src/pages/tax/TaxDevelopment.tsx</code> – Entwicklungsdiagramm mit Recharts</li>
+<li>
+<p><code>frontend/src/pages/tax/TaxChat.tsx</code> – Steuer-Assistent (neu, noch ungetestet)</p>
+</li>
+<li>
+<p><strong>API-Helpers</strong></p>
+</li>
+<li>
+<p>Datei: <code>frontend/src/api.ts</code> mit allen Tax-Endpunkten inklusive <code>askTaxQuestion</code></p>
+</li>
+<li>
+<p><strong>Routing und Navigation</strong></p>
+</li>
+<li>Routes in <code>frontend/src/App.tsx</code></li>
+<li>Navigationseintrag „Steuer“ mit Links zu Jahren, Entwicklung und Assistent</li>
+</ol>
+<h3 id="noch-offen-zu-prufen">Noch offen / zu prüfen</h3>
+<ul>
+<li>TypeScript-Check und Build der Frontend-Änderungen müssen manuell im <code>frontend/</code>-Verzeichnis durchgeführt werden.</li>
+<li>Steuer-Chat-Assistent wurde gerade hinzugefügt, aber noch nicht laufend getestet.</li>
+</ul>
+<h3 id="start-einer-neuen-session">Start einer neuen Session</h3>
+<p>Branch: <code>feature/tax-module</code></p>
+<p>Aktuelle offene Änderungen (letzter Git-Status):</p>
+<pre><code> M backend/api/routes/tax.py
+ M backend/llm.py
+ M frontend/src/App.tsx
+ M frontend/src/api.ts
+ M frontend/src/pages/tax/TaxYears.tsx
+?? backend/tax/chat.py
+?? blueprint_tax_module.md
+?? frontend/src/pages/tax/TaxChat.tsx
+?? frontend/src/pages/tax/TaxDevelopment.tsx
+</code></pre>
+<p>Empfohlene ersten Schritte beim Wiederaufnehmen:
+1. Im <code>frontend/</code>-Ordner <code>npx tsc --noEmit</code> ausführen.
+2. Backend-Import prüfen: <code>python -m py_compile backend/llm.py backend/tax/chat.py backend/api/routes/tax.py</code>.
+3. Falls alles sauber: <code>git add</code> und Commit für das Entwicklungsdiagramm + Chat-Assistent.
+4. Optional: Backend-Server starten und Chat-Endpunkt <code>POST /tax/chat</code> testen.</p>
+<p>Wichtige Dateipfade:
+- Backend-API: <code>backend/api/routes/tax.py</code>
+- LLM-Hilfsfunktionen: <code>backend/llm.py</code>
+- Steuer-Chat-Logik: <code>backend/tax/chat.py</code>
+- LLM-Prompts: <code>backend/tax/prompts.py</code>
+- Extraktion: <code>backend/tax/extraction.py</code>
+- Frontend-API-Helpers: <code>frontend/src/api.ts</code>
+- Frontend-Routing: <code>frontend/src/App.tsx</code>
+- Frontend-Steuerjahre: <code>frontend/src/pages/tax/TaxYears.tsx</code>
+- Frontend-Detail: <code>frontend/src/pages/tax/TaxYearDetail.tsx</code>
+- Frontend-Vergleich: <code>frontend/src/pages/tax/TaxYearComparison.tsx</code>
+- Frontend-Entwicklung: <code>frontend/src/pages/tax/TaxDevelopment.tsx</code>
+- Frontend-Chat: <code>frontend/src/pages/tax/TaxChat.tsx</code></p>
+<h2 id="zwischenfall-falsch-installierte-abhangigkeit">Zwischenfall: Falsch installierte Abhängigkeit</h2>
+<p>Während der Implementierung des Entwicklungsdiagramms wurde <code>recharts</code> korrekt in <code>frontend/package.json</code> installiert. Ein versehentlicher <code>npx tsc --noEmit</code>-Aufruf im Projekt-Root (statt im <code>frontend/</code>-Ordner) führte dazu, dass <code>npx</code> das fremde, veraltete Paket <code>tsc@2.0.4</code> zur Installation anbot. Dieses Paket ist nicht Microsofts TypeScript-Compiler.</p>
+<h3 id="bereinigung">Bereinigung</h3>
+<ul>
+<li>Root-<code>node_modules/</code>, <code>package.json</code> und <code>package-lock.json</code> wurden gelöscht.</li>
+<li><code>frontend/package.json</code> und <code>frontend/package-lock.json</code> enthalten weiterhin korrekt <code>recharts</code>.</li>
+<li>Es befinden sich aktuell keine ungewollten Dateien im Repository.</li>
+</ul>
+<h3 id="korrekte-vorgehensweise-fur-zukunftige-checks">Korrekte Vorgehensweise für zukünftige Checks</h3>
+<pre><code class="language-powershell">cd &quot;C:\Users\Alexander\Documents\Python Apps\papervault\frontend&quot;
+npx tsc --noEmit
+</code></pre>
+<h2 id="module">Module</h2>
+<h3 id="1-datenbank-schema">1. Datenbank-Schema</h3>
+<h4 id="tax_years"><code>tax_years</code></h4>
+<table>
+<thead>
+<tr>
+<th>Feld</th>
+<th>Typ</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>INTEGER PK</td>
+<td></td>
+</tr>
+<tr>
+<td><code>year</code></td>
+<td>INTEGER</td>
+<td>Steuerjahr</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>TEXT</td>
+<td><code>draft</code>, <code>submitted</code>, <code>assessed</code>, <code>final</code></td>
+</tr>
+<tr>
+<td><code>notes</code></td>
+<td>TEXT</td>
+<td>optionale Notizen</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>TEXT</td>
+<td>ISO-Timestamp</td>
+</tr>
+<tr>
+<td><code>updated_at</code></td>
+<td>TEXT</td>
+<td>ISO-Timestamp</td>
+</tr>
+</tbody>
+</table>
+<h4 id="tax_documents"><code>tax_documents</code></h4>
+<table>
+<thead>
+<tr>
+<th>Feld</th>
+<th>Typ</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>INTEGER PK</td>
+<td></td>
+</tr>
+<tr>
+<td><code>tax_year_id</code></td>
+<td>INTEGER FK</td>
+<td></td>
+</tr>
+<tr>
+<td><code>document_id</code></td>
+<td>INTEGER FK</td>
+<td>referenziert <code>documents</code></td>
+</tr>
+<tr>
+<td><code>source_type</code></td>
+<td>TEXT</td>
+<td><code>tax_program_export</code> oder <code>assessment_notice</code></td>
+</tr>
+<tr>
+<td><code>parsed_at</code></td>
+<td>TEXT</td>
+<td>ISO-Timestamp</td>
+</tr>
+<tr>
+<td><code>verified</code></td>
+<td>INTEGER</td>
+<td>0/1, ob der Benutzer die Extraktion geprüft hat</td>
+</tr>
+</tbody>
+</table>
+<h4 id="tax_positions"><code>tax_positions</code></h4>
+<table>
+<thead>
+<tr>
+<th>Feld</th>
+<th>Typ</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>INTEGER PK</td>
+<td></td>
+</tr>
+<tr>
+<td><code>tax_year_id</code></td>
+<td>INTEGER FK</td>
+<td></td>
+</tr>
+<tr>
+<td><code>tax_document_id</code></td>
+<td>INTEGER FK</td>
+<td>Quelle</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td>TEXT</td>
+<td>z. B. <code>Einkünfte</code>, <code>Werbungskosten</code>, <code>Sonderausgaben</code>, <code>Außergewöhnliche Belastungen</code></td>
+</tr>
+<tr>
+<td><code>subcategory</code></td>
+<td>TEXT</td>
+<td>z. B. <code>Lohn</code>, <code>Riester</code>, <code>Krankenkosten</code></td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td>TEXT</td>
+<td>Lesbare Bezeichnung</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>REAL</td>
+<td>Betrag in EUR</td>
+</tr>
+<tr>
+<td><code>amount_assessed</code></td>
+<td>REAL</td>
+<td>Betrag lt. Bescheid (falls abweichend)</td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>INTEGER</td>
+<td>Seite im PDF (optional)</td>
+</tr>
+<tr>
+<td><code>verified</code></td>
+<td>INTEGER</td>
+<td>0/1</td>
+</tr>
+<tr>
+<td><code>source_text</code></td>
+<td>TEXT</td>
+<td>Originaltext-Ausschnitt</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>TEXT</td>
+<td>ISO-Timestamp</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2-backend">2. Backend</h3>
+<h4 id="repositories">Repositories</h4>
+<ul>
+<li><code>backend/db/tax_years_repo.py</code>: CRUD für Steuerjahre.</li>
+<li><code>backend/db/tax_documents_repo.py</code>: Verknüpfung zwischen <code>documents</code> und Steuerjahr.</li>
+<li><code>backend/db/tax_positions_repo.py</code>: CRUD für Positionen, Filter, Vergleich.</li>
+</ul>
+<h4 id="llm-extraktion">LLM-Extraktion</h4>
+<ul>
+<li><code>backend/tax/extraction.py</code>: Funktion <code>extract_tax_positions(document_id, source_type)</code>.</li>
+<li>Lädt Text aus <code>documents.full_text</code>.</li>
+<li>Sendet strukturierten Prompt ans LLM.</li>
+<li>Erwartet JSON-Array mit <code>{category, subcategory, label, amount, page, source_text}</code>.</li>
+<li>Speichert Ergebnisse in <code>tax_positions</code>.</li>
+<li><code>backend/tax/prompts.py</code>: Prompts für Steuerprogramm-Export und Bescheid.</li>
+<li><code>backend/tax/chat.py</code>: Steuer-Chat-Assistent, sammelt Kontext und beantwortet Fragen per LLM.</li>
+</ul>
+<h4 id="vergleichs-logik">Vergleichs-Logik</h4>
+<ul>
+<li>Vergleich erfolgt in <code>backend/api/routes/tax.py</code> Endpunkt <code>GET /tax/years/{id}/comparison</code>.</li>
+<li>Vergleicht Positionen aus <code>tax_program_export</code> mit <code>assessment_notice</code>.</li>
+<li>Markiert Abweichungen (<code>amount</code> vs. <code>amount_assessed</code>).</li>
+<li>Liefert Summen pro Kategorie und Jahr.</li>
+</ul>
+<h4 id="api-routes">API-Routes</h4>
+<ul>
+<li><code>backend/api/routes/tax.py</code> mit Prefix <code>/tax</code>:</li>
+<li><code>GET /tax/years</code> – Liste aller Jahre</li>
+<li><code>POST /tax/years</code> – Jahr anlegen</li>
+<li><code>GET /tax/years/{id}</code> – Jahr inkl. Positionen</li>
+<li><code>PATCH /tax/years/{id}</code> – Status/Notizen aktualisieren</li>
+<li><code>POST /tax/years/{id}/documents</code> – Dokument verknüpfen</li>
+<li><code>POST /tax/documents/{tax_document_id}/extract</code> – LLM-Extraktion starten</li>
+<li><code>GET /tax/years/{id}/comparison</code> – Vergleich Export vs. Bescheid</li>
+<li><code>GET /tax/years/{id}/documents</code> – Verknüpfte Dokumente</li>
+<li><code>PATCH /tax/positions/{id}</code> – Position korrigieren/verifizieren</li>
+<li><code>DELETE /tax/positions/{id}</code> – Position löschen</li>
+<li><code>GET /tax/development</code> – Zeitreihe pro Kategorie</li>
+<li><code>POST /tax/chat</code> – Steuer-Chat-Assistent</li>
+</ul>
+<h3 id="3-frontend">3. Frontend</h3>
+<h4 id="neue-seiten-unter-frontendsrcpagestax">Neue Seiten unter <code>frontend/src/pages/tax/</code></h4>
+<ul>
+<li><code>TaxYears.tsx</code> – Übersicht aller Steuerjahre mit Status.</li>
+<li><code>TaxYearDetail.tsx</code> – Detailansicht eines Jahres:</li>
+<li>Verknüpfte Dokumente</li>
+<li>Positionen pro Kategorie</li>
+<li>Button „Extraktion starten“</li>
+<li>Button „Vergleich anzeigen“</li>
+<li><code>TaxYearComparison.tsx</code> – Vergleich Export vs. Bescheid:</li>
+<li>Abweichungen rot markiert</li>
+<li>Summen pro Kategorie</li>
+<li><code>TaxDevelopment.tsx</code> – Entwicklung über die Jahre:</li>
+<li>Liniendiagramm pro Kategorie</li>
+<li>Kategorie-Filter</li>
+<li><code>TaxChat.tsx</code> – Steuer-Assistent:</li>
+<li>Chat-UI mit Nutzer- und Assistent-Nachrichten</li>
+<li>Sendet Frage an <code>POST /tax/chat</code></li>
+</ul>
+<h4 id="navigation">Navigation</h4>
+<ul>
+<li>Neuer Hauptnavigationspunkt „Steuer“.</li>
+<li>Innerhalb der Steuer-Seite: Links zu „Assistent“, „Entwicklung“ und der Jahresliste.</li>
+</ul>
+<h3 id="4-llm-prompts">4. LLM-Prompts</h3>
+<h4 id="steuerprogramm-export">Steuerprogramm-Export</h4>
+<pre><code class="language-text">Du erhältst den Text eines Steuerprogramm-Exports.
+Extrahiere alle steuerrelevanten Positionen in ein JSON-Array.
+Felder pro Objekt:
+- category: Eine von [Einkünfte, Werbungskosten, Sonderausgaben, Außergewöhnliche Belastungen, Steuerliche Ergebnisse]
+- subcategory: konkrete Untergruppe
+- label: lesbare Bezeichnung
+- amount: Betrag als Zahl (positiv, EUR)
+- page: Seitenzahl im PDF (optional, null wenn unbekannt)
+- source_text: Originaltext-Ausschnitt
+Ignoriere Kopfzeilen, Fußzeilen und Seitenzahlen.
+</code></pre>
+<h4 id="finanzamtsbescheid">Finanzamtsbescheid</h4>
+<pre><code class="language-text">Du erhältst den Text eines Finanzamtsbescheids.
+Extrahiere:
+- Festgesetzte Einkommensteuer
+- Soli
+- ggf. Kirchensteuer
+- Erstattung / Nachzahlung
+- Abweichungen gegenüber der Erklärung (wenn im Text erwähnt)
+Gib ein JSON-Array mit gleichen Feldern wie beim Steuerprogramm-Export zurück.
+</code></pre>
+<h3 id="5-workflows">5. Workflows</h3>
+<h4 id="workflow-a-steuerjahr-anlegen-und-dokumentieren">Workflow A: Steuerjahr anlegen und dokumentieren</h4>
+<ol>
+<li>Benutzer legt Steuerjahr an (z. B. 2024).</li>
+<li>Benutzer verknüpft Steuerprogramm-Export-PDF aus der Dokumenten-DB.</li>
+<li>Backend extrahiert Positionen mit LLM.</li>
+<li>Benutzer prüft Positionen in Review-UI und korrigiert falls nötig.</li>
+<li>Benutzer verknüpft Finanzamtsbescheid.</li>
+<li>Backend extrahiert Bescheidspositionen.</li>
+<li>Benutzer vergleicht Export vs. Bescheid.</li>
+</ol>
+<h4 id="workflow-b-vorbereitung-neues-jahr">Workflow B: Vorbereitung neues Jahr</h4>
+<ol>
+<li>Benutzer legt neues Jahr an (z. B. 2025).</li>
+<li>System schlägt wiederkehrende Positionen aus Vorjahren vor.</li>
+<li>Benutzer verknüpft neue Dokumente.</li>
+<li>System zeigt fehlende Positionen im Vergleich zum Vorjahr.</li>
+</ol>
+<h4 id="workflow-c-analyse-uber-die-jahre">Workflow C: Analyse über die Jahre</h4>
+<ol>
+<li>Benutzer öffnet „Entwicklung“.</li>
+<li>Wählt Kategorie aus.</li>
+<li>Sieht Diagramm und Beträge pro Jahr.</li>
+</ol>
+<h2 id="abhangigkeiten-erweiterungen-bestehende-komponenten">Abhängigkeiten / Erweiterungen bestehende Komponenten</h2>
+<ul>
+<li><code>documents.full_text</code> wird für LLM-Extraktion verwendet.</li>
+<li><code>categories.py</code> und <code>prompts.py</code> werden um Steuerkategorien erweitert.</li>
+<li>Chat-Modul bekommt einen Steuer-Kontext.</li>
+<li><code>documents.low_value</code> kann Steuer-relevante Dokumente ausschließen.</li>
+</ul>
+<h2 id="nicht-im-scope">Nicht im Scope</h2>
+<ul>
+<li>Automatisches Ausfüllen von Steuerformularen.</li>
+<li>Rechtsverbindliche Steuerberatung.</li>
+<li>ELSTER-Integration.</li>
+<li>Cloud-Export.</li>
+</ul>
+<h2 id="implementierungs-reihenfolge">Implementierungs-Reihenfolge</h2>
+<ol>
+<li>✅ Datenbank-Schema + Repositories</li>
+<li>✅ Backend-API für Steuerjahre und Dokumentenverknüpfung</li>
+<li>✅ LLM-Extraktion für Steuerprogramm-Exporte</li>
+<li>✅ Review-UI für Positionen</li>
+<li>✅ Finanzamtsbescheid-Extraktion + Vergleich</li>
+<li>✅ Entwicklungsdiagramm</li>
+<li>✅ Steuer-Chat-Assistent (hinzugefügt, Build/Check ausstehend)</li>
+</ol>
+<h2 id="erfolgskriterien">Erfolgskriterien</h2>
+<ul>
+<li>Ein Steuerprogramm-PDF kann importiert und in Positionen aufgeteilt werden.</li>
+<li>Positionen sind korrigierbar und verifizierbar.</li>
+<li>Vergleich zwischen Export und Bescheid zeigt Abweichungen.</li>
+<li>Entwicklung pro Kategorie ist über mindestens 2 Jahre visualisierbar.</li>
+<li>Steuer-Chat kann gezielt Fragen zu einem Steuerjahr beantworten.</li>
+</ul>
+    <footer>
+      PaperVault Dokumentation · Generiert aus Markdown
+    </footer>
+  </main>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    // Toggle highlight.js theme based on dark mode
+    const darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.getElementById('light-hljs').disabled = darkMode;
+    document.getElementById('dark-hljs').disabled = !darkMode;
+  </script>
+</body>
+</html>

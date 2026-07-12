@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PaperVault – Systemarchitektur – PaperVault Doku</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --border: #e2e8f0;
+      --code-bg: #f1f5f9;
+      --nav-bg: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #60a5fa;
+        --border: #334155;
+        --code-bg: #0f172a;
+        --nav-bg: #1e293b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      display: flex;
+      min-height: 100vh;
+    }
+    aside {
+      width: 280px;
+      background: var(--nav-bg);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+    }
+    aside h1 {
+      font-size: 1.25rem;
+      margin: 0 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .nav-link {
+      display: block;
+      padding: .45rem .6rem;
+      border-radius: .4rem;
+      color: var(--text);
+      text-decoration: none;
+      font-size: .92rem;
+      margin-bottom: .15rem;
+    }
+    .nav-link:hover { background: var(--bg); }
+    .nav-link.active { background: var(--accent); color: #fff; }
+    main {
+      margin-left: 280px;
+      flex: 1;
+      max-width: 900px;
+      padding: 2.5rem;
+    }
+    h1 { font-size: 2rem; margin-top: 0; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: .35rem; margin-top: 2.2rem; }
+    h3 { margin-top: 1.6rem; }
+    a { color: var(--accent); }
+    code, pre {
+      background: var(--code-bg);
+      border-radius: .35rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .9em;
+    }
+    code { padding: .15rem .35rem; }
+    pre {
+      padding: 1rem;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code { padding: 0; background: transparent; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: .55rem .75rem;
+      text-align: left;
+    }
+    th { background: var(--surface); }
+    blockquote {
+      border-left: 4px solid var(--accent);
+      margin: 1rem 0;
+      padding: .5rem 1rem;
+      background: var(--surface);
+      border-radius: 0 .4rem .4rem 0;
+    }
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .mermaid svg { max-width: 100%; }
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .toc ul { padding-left: 1.2rem; }
+    .toc > ul { padding-left: 0; list-style: none; }
+    footer {
+      margin-top: 4rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .875rem;
+    }
+    @media (max-width: 900px) {
+      aside { display: none; }
+      main { margin-left: 0; padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>📚 PaperVault Doku</h1>
+    <nav>
+<a class="nav-link active" href="./ARCHITECTURE.html">Architecture</a>
+<a class="nav-link" href="./blueprints/blueprint_tax_module.html">Steuer-Modul Blueprint</a>
+<a class="nav-link" href="./blueprints/cline_blueprint_kv_extraction.html">KV-Extraction Blueprint</a>
+<a class="nav-link" href="./blueprints/cline_blueprint_vision_logo.html">Vision/Logo Blueprint</a>
+<a class="nav-link" href="./DOCUMENTATION_STRUCTURE.html">Documentation Structure</a>
+<a class="nav-link" href="./feature-ignore-lock.html">Feature Ignore Lock</a>
+<a class="nav-link" href="./feature-low-value-rules.html">Feature Low Value Rules</a>
+<a class="nav-link" href="./FEATURES.html">Features</a>
+<a class="nav-link" href="./index.html">Übersicht</a>
+<a class="nav-link" href="./llm-cascade-scenarios.html">Llm Cascade Scenarios</a>
+<a class="nav-link" href="./technical/01-pipeline-and-import.html">01 Pipeline And Import</a>
+<a class="nav-link" href="./technical/02-documents-search-and-filter.html">02 Documents Search And Filter</a>
+<a class="nav-link" href="./technical/03-ignore-lock.html">03 Ignore Lock</a>
+<a class="nav-link" href="./technical/04-low-value-rules.html">04 Low Value Rules</a>
+<a class="nav-link" href="./technical/05-duplicates.html">05 Duplicates</a>
+<a class="nav-link" href="./technical/06-senders.html">06 Senders</a>
+<a class="nav-link" href="./technical/07-tax-module.html">07 Tax Module</a>
+<a class="nav-link" href="./technical/08-collections.html">08 Collections</a>
+<a class="nav-link" href="./technical/09-chat-and-llm.html">09 Chat And Llm</a>
+<a class="nav-link" href="./technical/10-monitor.html">10 Monitor</a>
+<a class="nav-link" href="./technical/11-feedback.html">11 Feedback</a>
+<a class="nav-link" href="./technical/12-settings-and-config.html">12 Settings And Config</a>
+<a class="nav-link" href="./technical/13-inventory-contracts-services.html">13 Inventory Contracts Services</a>
+<a class="nav-link" href="./USER_GUIDE.html">User Guide</a>
+    </nav>
+  </aside>
+  <main>
+    <h1>PaperVault – Systemarchitektur</h1>
+<h1 id="papervault-systemarchitektur">PaperVault – Systemarchitektur</h1>
+<h2 id="1-ubersicht">1. Übersicht</h2>
+<p>PaperVault ist eine lokale Dokumentenarchivierungslösung mit drei Hauptschichten:</p>
+<ol>
+<li><strong>Frontend</strong>: React + Vite + Tailwind CSS (läuft im Browser)</li>
+<li><strong>Backend</strong>: FastAPI (Python) mit SQLite-Datenbank</li>
+<li><strong>Pipeline</strong>: Lokale KI-Klassifikation und Dateiverarbeitung</li>
+</ol>
+<pre><code>┌─────────────────────────────────────┐
+│  Browser (React SPA)                │
+│  http://localhost:5173              │
+└──────────────┬──────────────────────┘
+               │ REST (axios)
+┌──────────────▼──────────────────────┐
+│  FastAPI Backend                    │
+│  http://localhost:8000               │
+│  - API-Routes                       │
+│  - Repository-Schicht               │
+│  - SQLite Datenbank                 │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│  Pipeline (llm, archiver, steps)    │
+│  - OCR / Textextraktion             │
+│  - LLM-Klassifikation               │
+│  - Dateiarchivierung                │
+└─────────────────────────────────────┘
+</code></pre>
+<h2 id="2-datenfluss-beim-import">2. Datenfluss beim Import</h2>
+<pre><code>1. PDF landet im INBOX_DIR
+2. Monitor erkennt Datei oder Nutzer startet Archiver manuell
+3. Pipeline:
+   a. PDF → Text (native) oder OCR (gescannt)
+   b. Duplikat-Check via SHA256-Hash
+   c. LLM extrahiert Metadaten (Sender, Datum, Kategorie, Typ, Betrag, ...)
+   d. Datei wird nach TARGET_BASE/Kategorie/Sender/Jahr/Monat/ verschoben
+   e. SQLite-Eintrag in `documents` wird erstellt
+4. Frontend zeigt Dokument in Inbox / Dokumentenliste an
+</code></pre>
+<h2 id="3-verzeichnisstruktur">3. Verzeichnisstruktur</h2>
+<pre><code>papervault/
+├── backend/
+│   ├── api/           # FastAPI Routes und Pydantic-Modelle
+│   ├── db/            # SQLite-Schema, Repositories, Verbindung
+│   ├── pipeline/      # Archiver, Verarbeitungsschritte
+│   ├── tax/           # Steuer-Modul Extraktion / Prompts
+│   ├── llm.py         # LLM-Abstraktion
+│   ├── storage.py     # Dateisystem-Operationen, Sender-Registry
+│   └── config.py      # Konfiguration und Pfade
+├── frontend/
+│   ├── src/
+│   │   ├── pages/     # Seitenkomponenten
+│   │   ├── components/# Wiederverwendbare Komponenten
+│   │   ├── api.ts     # API-Client
+│   │   └── ConfigContext.tsx
+│   └── vite.config.ts # Dev-Proxy
+├── tests/             # pytest-Suite
+└── scripts/           # Hilfsskripte
+</code></pre>
+<h2 id="4-datenbank">4. Datenbank</h2>
+<p>SQLite-Datenbank mit folgenden Kern-Tabellen:</p>
+<table>
+<thead>
+<tr>
+<th>Tabelle</th>
+<th>Zweck</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>documents</code></td>
+<td>Alle Dokumente mit Metadaten, Status, Text</td>
+</tr>
+<tr>
+<td><code>documents_fts</code></td>
+<td>FTS5-Volltextindex für schnelle Suche</td>
+</tr>
+<tr>
+<td><code>protected_document_hashes</code></td>
+<td>SHA256-Hashes für Ignore/Lock-Schutz</td>
+</tr>
+<tr>
+<td><code>low_value_rules</code></td>
+<td>Regeln für geringe Werte</td>
+</tr>
+<tr>
+<td><code>collections</code> / <code>collection_documents</code></td>
+<td>Sammlungen</td>
+</tr>
+<tr>
+<td><code>tax_years</code>, <code>tax_documents</code>, <code>tax_positions</code></td>
+<td>Steuer-Modul</td>
+</tr>
+<tr>
+<td><code>items</code>, <code>services</code>, <code>contracts</code></td>
+<td>Extrahierte Entitäten</td>
+</tr>
+<tr>
+<td><code>senders</code></td>
+<td>Sender-Registry (JSON-Datei, nicht SQLite)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-frontend-architektur">5. Frontend-Architektur</h2>
+<ul>
+<li><strong>React Router</strong> für Seitennavigation.</li>
+<li><strong>ConfigContext</strong> liefert globale Konfiguration (Kategorien, Dokumententypen).</li>
+<li><strong>API-Client</strong> (<code>api.ts</code>) kapselt alle Backend-Aufrufe.</li>
+<li><strong>Tailwind CSS</strong> für Styling, Dark Mode über <code>dark</code>-Klasse.</li>
+</ul>
+<h2 id="6-sicherheit-datenschutz">6. Sicherheit &amp; Datenschutz</h2>
+<ul>
+<li>Alle Daten bleiben lokal.</li>
+<li>Kein Cloud-LLM; optional GPU-beschleunigtes lokales LLM.</li>
+<li>Passwortgeschützte Bereiche sind nicht implementiert – Tool für lokale Nutzung gedacht.</li>
+</ul>
+<h2 id="7-erweiterbarkeit">7. Erweiterbarkeit</h2>
+<p>Neue Features werden typischerweise so hinzugefügt:</p>
+<ol>
+<li>DB-Schema in <code>backend/db/schema.py</code></li>
+<li>Repository in <code>backend/db/</code></li>
+<li>API-Router in <code>backend/api/routes/</code></li>
+<li>Router in <code>backend/api/main.py</code> registrieren</li>
+<li>Frontend-Seite in <code>frontend/src/pages/</code></li>
+<li>Route in <code>frontend/src/App.tsx</code> hinzufügen</li>
+<li>Vite-Proxy in <code>frontend/vite.config.ts</code> ergänzen</li>
+<li>Tests in <code>tests/</code></li>
+</ol>
+<h2 id="8-wichtige-algorithmen-uberblick">8. Wichtige Algorithmen (Überblick)</h2>
+<table>
+<thead>
+<tr>
+<th>Bereich</th>
+<th>Algorithmus / Methode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Duplikat-Erkennung</td>
+<td>SHA256-Hash des Dokumententextes</td>
+</tr>
+<tr>
+<td>Volltextsuche</td>
+<td>SQLite FTS5 über Trigger synchronisiert</td>
+</tr>
+<tr>
+<td>Klassifikation</td>
+<td>Lokales GGUF-LLM mit strukturiertem JSON-Prompt</td>
+</tr>
+<tr>
+<td>Low-Value-Matching</td>
+<td>SQL mit optionalem EXISTS-Subquery über <code>items/services/contracts</code></td>
+</tr>
+<tr>
+<td>Sender-Lernen</td>
+<td>Häufigkeitsanalyse + manuelle Review-Pins</td>
+</tr>
+</tbody>
+</table>
+<h2 id="siehe-auch">Siehe auch</h2>
+<ul>
+<li><a href="USER_GUIDE.md"><code>docs/USER_GUIDE.md</code></a> – Bedienungsanleitung</li>
+<li><a href="technical/"><code>docs/technical/</code></a> – Detaillierte technische Kapitel</li>
+</ul>
+    <footer>
+      PaperVault Dokumentation · Generiert aus Markdown
+    </footer>
+  </main>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    // Toggle highlight.js theme based on dark mode
+    const darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.getElementById('light-hljs').disabled = darkMode;
+    document.getElementById('dark-hljs').disabled = !darkMode;
+  </script>
+</body>
+</html>

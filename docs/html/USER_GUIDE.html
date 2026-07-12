@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PaperVault – Bedienungsanleitung – PaperVault Doku</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --border: #e2e8f0;
+      --code-bg: #f1f5f9;
+      --nav-bg: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #60a5fa;
+        --border: #334155;
+        --code-bg: #0f172a;
+        --nav-bg: #1e293b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      display: flex;
+      min-height: 100vh;
+    }
+    aside {
+      width: 280px;
+      background: var(--nav-bg);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+    }
+    aside h1 {
+      font-size: 1.25rem;
+      margin: 0 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .nav-link {
+      display: block;
+      padding: .45rem .6rem;
+      border-radius: .4rem;
+      color: var(--text);
+      text-decoration: none;
+      font-size: .92rem;
+      margin-bottom: .15rem;
+    }
+    .nav-link:hover { background: var(--bg); }
+    .nav-link.active { background: var(--accent); color: #fff; }
+    main {
+      margin-left: 280px;
+      flex: 1;
+      max-width: 900px;
+      padding: 2.5rem;
+    }
+    h1 { font-size: 2rem; margin-top: 0; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: .35rem; margin-top: 2.2rem; }
+    h3 { margin-top: 1.6rem; }
+    a { color: var(--accent); }
+    code, pre {
+      background: var(--code-bg);
+      border-radius: .35rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .9em;
+    }
+    code { padding: .15rem .35rem; }
+    pre {
+      padding: 1rem;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code { padding: 0; background: transparent; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: .55rem .75rem;
+      text-align: left;
+    }
+    th { background: var(--surface); }
+    blockquote {
+      border-left: 4px solid var(--accent);
+      margin: 1rem 0;
+      padding: .5rem 1rem;
+      background: var(--surface);
+      border-radius: 0 .4rem .4rem 0;
+    }
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .mermaid svg { max-width: 100%; }
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .toc ul { padding-left: 1.2rem; }
+    .toc > ul { padding-left: 0; list-style: none; }
+    footer {
+      margin-top: 4rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .875rem;
+    }
+    @media (max-width: 900px) {
+      aside { display: none; }
+      main { margin-left: 0; padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>📚 PaperVault Doku</h1>
+    <nav>
+<a class="nav-link" href="./ARCHITECTURE.html">Architecture</a>
+<a class="nav-link" href="./blueprints/blueprint_tax_module.html">Steuer-Modul Blueprint</a>
+<a class="nav-link" href="./blueprints/cline_blueprint_kv_extraction.html">KV-Extraction Blueprint</a>
+<a class="nav-link" href="./blueprints/cline_blueprint_vision_logo.html">Vision/Logo Blueprint</a>
+<a class="nav-link" href="./DOCUMENTATION_STRUCTURE.html">Documentation Structure</a>
+<a class="nav-link" href="./feature-ignore-lock.html">Feature Ignore Lock</a>
+<a class="nav-link" href="./feature-low-value-rules.html">Feature Low Value Rules</a>
+<a class="nav-link" href="./FEATURES.html">Features</a>
+<a class="nav-link" href="./index.html">Übersicht</a>
+<a class="nav-link" href="./llm-cascade-scenarios.html">Llm Cascade Scenarios</a>
+<a class="nav-link" href="./technical/01-pipeline-and-import.html">01 Pipeline And Import</a>
+<a class="nav-link" href="./technical/02-documents-search-and-filter.html">02 Documents Search And Filter</a>
+<a class="nav-link" href="./technical/03-ignore-lock.html">03 Ignore Lock</a>
+<a class="nav-link" href="./technical/04-low-value-rules.html">04 Low Value Rules</a>
+<a class="nav-link" href="./technical/05-duplicates.html">05 Duplicates</a>
+<a class="nav-link" href="./technical/06-senders.html">06 Senders</a>
+<a class="nav-link" href="./technical/07-tax-module.html">07 Tax Module</a>
+<a class="nav-link" href="./technical/08-collections.html">08 Collections</a>
+<a class="nav-link" href="./technical/09-chat-and-llm.html">09 Chat And Llm</a>
+<a class="nav-link" href="./technical/10-monitor.html">10 Monitor</a>
+<a class="nav-link" href="./technical/11-feedback.html">11 Feedback</a>
+<a class="nav-link" href="./technical/12-settings-and-config.html">12 Settings And Config</a>
+<a class="nav-link" href="./technical/13-inventory-contracts-services.html">13 Inventory Contracts Services</a>
+<a class="nav-link active" href="./USER_GUIDE.html">User Guide</a>
+    </nav>
+  </aside>
+  <main>
+    <h1>PaperVault – Bedienungsanleitung</h1>
+<h1 id="papervault-bedienungsanleitung">PaperVault – Bedienungsanleitung</h1>
+<blockquote>
+<p>Aus dem Code abgeleitete Bedienungsanleitung für Endanwender.</p>
+</blockquote>
+<hr />
+<h2 id="inhalt">Inhalt</h2>
+<ol>
+<li><a href="#1-erste-schritte">Erste Schritte</a></li>
+<li><a href="#2-dashboard">Dashboard</a></li>
+<li><a href="#3-inbox--dokumente-prüfen">Inbox – Dokumente prüfen</a></li>
+<li><a href="#4-dokumente-durchsuchen">Dokumente durchsuchen</a></li>
+<li><a href="#5-dokument-bearbeiten">Dokument bearbeiten</a></li>
+<li><a href="#6-duplikate">Duplikate</a></li>
+<li><a href="#7-absender-verwalten">Absender verwalten</a></li>
+<li><a href="#8-geringer-wert-regeln">Geringer-Wert-Regeln</a></li>
+<li><a href="#9-ignorieren-und-sperren">Ignorieren und Sperren</a></li>
+<li><a href="#10-sammlungen">Sammlungen</a></li>
+<li><a href="#11-steuer-modul">Steuer-Modul</a></li>
+<li><a href="#12-inventar-verträge-ausgaben">Inventar, Verträge, Ausgaben</a></li>
+<li><a href="#13-ki-suche">KI-Suche</a></li>
+<li><a href="#14-monitor">Monitor</a></li>
+<li><a href="#15-feedback">Feedback</a></li>
+<li><a href="#16-einstellungen">Einstellungen</a></li>
+<li><a href="#17-fehlerbehebung">Fehlerbehebung</a></li>
+</ol>
+<hr />
+<h2 id="1-erste-schritte">1. Erste Schritte</h2>
+<h3 id="starten-der-anwendung">Starten der Anwendung</h3>
+<p>Auf Windows über PowerShell:</p>
+<pre><code class="language-powershell">.\start_all.ps1
+</code></pre>
+<p>Oder manuell:</p>
+<pre><code class="language-powershell"># Backend
+.venv\Scripts\python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Frontend (neues Terminal)
+cd frontend
+npm run dev
+</code></pre>
+<p>Die Web-App ist dann unter <code>http://localhost:5173</code> erreichbar, das Backend unter <code>http://localhost:8000</code>.</p>
+<h3 id="dark-mode">Dark Mode</h3>
+<ul>
+<li>Über das Sonne/Mond-Icon oben links in der Sidebar umschalten.</li>
+<li>Der Modus folgt initial der Systemeinstellung.</li>
+</ul>
+<h3 id="erstkonfiguration">Erstkonfiguration</h3>
+<ol>
+<li>Unter <strong>Einstellungen</strong> das Archiv-Verzeichnis und das Quellverzeichnis prüfen.</li>
+<li>Ein geeignetes LLM-Modell (GGUF) hinterlegen.</li>
+<li>Optionale OCR-Tools (Tesseract, Poppler) im PATH prüfen.</li>
+</ol>
+<hr />
+<h2 id="2-dashboard">2. Dashboard</h2>
+<p>Das Dashboard zeigt einen schnellen Überblick:</p>
+<ul>
+<li>Gesamtzahl der Dokumente</li>
+<li>Dokumente nach Kategorie, Jahr und Status</li>
+<li>Unreviewte Absender</li>
+<li>Kürzlich archivierte Dokumente</li>
+<li>KPI-Karten für fehlende Dateien, ablaufende Dokumente usw.</li>
+</ul>
+<p>Klick auf eine Karte oder ein Diagramm führt oft direkt zur gefilterten Dokumentenliste.</p>
+<hr />
+<h2 id="3-inbox-dokumente-prufen">3. Inbox – Dokumente prüfen</h2>
+<p>Die Inbox zeigt Dokumente, die noch nicht als endgültig klassifiziert sind.</p>
+<h3 id="reiter">Reiter</h3>
+<ul>
+<li><strong>Zu überprüfen</strong> (<code>review</code>): Dokumente, bei denen die KI-Klassifikation geprüft werden soll.</li>
+<li><strong>In Verarbeitung</strong> (<code>processing</code> / <code>pending</code>): Dokumente, die gerade verarbeitet werden.</li>
+<li><strong>Fehlgeschlagen</strong> (<code>classification_failed</code>): Dokumente, die nicht automatisch klassifiziert werden konnten (z. B. verschlüsselte oder korrupte PDFs).</li>
+</ul>
+<h3 id="aktionen-pro-dokument">Aktionen pro Dokument</h3>
+<ul>
+<li><strong>Öffnen</strong>: PDF ansehen.</li>
+<li><strong>Bearbeiten</strong>: Sender, Datum, Kategorie, Dokumententyp, Zusammenfassung korrigieren.</li>
+<li><strong>Bestätigen</strong>: Dokument als überprüft markieren (<code>status = ok</code>).</li>
+<li><strong>Neu verarbeiten</strong>: KI-Klassifikation mit optionalem Hinweis wiederholen.</li>
+<li><strong>Löschen</strong>: Dokument samt Datei entfernen.</li>
+</ul>
+<h3 id="massenbearbeitung">Massenbearbeitung</h3>
+<ul>
+<li>Mehrere Dokumente über Checkboxen auswählen.</li>
+<li>Mit den Buttons oben alle ausgewählten Dokumente bestätigen oder neu verarbeiten.</li>
+</ul>
+<hr />
+<h2 id="4-dokumente-durchsuchen">4. Dokumente durchsuchen</h2>
+<p>Unter <strong>Dokumente</strong> befindet sich die zentrale Übersicht aller archivierten Dokumente.</p>
+<h3 id="ansichten">Ansichten</h3>
+<ul>
+<li><strong>Listenansicht</strong>: Tabellarische Darstellung mit Sortierung.</li>
+<li><strong>Grid-Ansicht</strong>: Thumbnail-Vorschau der Dokumente.</li>
+</ul>
+<h3 id="filter">Filter</h3>
+<p>Oben in der Leiste stehen verschiedene Filter zur Verfügung:</p>
+<ul>
+<li><strong>Suche</strong> (<code>q</code>): Volltextsuche über Dateiname, Sender, Zusammenfassung, Keywords.</li>
+<li><strong>Kategorie</strong>: Nach Dokumentenkategorie filtern.</li>
+<li><strong>Jahr</strong>: Archivierungsjahr.</li>
+<li><strong>Sender</strong>: Nach Absender filtern.</li>
+<li><strong>Status</strong>: z. B. <code>ok</code>, <code>review</code>, <code>locked</code>, <code>ignored</code>, <code>missing</code>.</li>
+<li><strong>Steuerrelevant</strong>: Nur als steuerrelevant markierte Dokumente.</li>
+<li><strong>Geringer Wert</strong>: Nur Dokumente mit <code>low_value = 1</code>.</li>
+<li><strong>Kein Absender</strong>: Dokumente ohne erkannten Absender.</li>
+<li><strong>Confidence</strong>: Nach Klassifikations-Confidence filtern (<code>low</code>, <code>medium</code>, <code>high</code>).</li>
+<li><strong>Tag</strong>: Nach Tag filtern (sofern Tags vergeben sind).</li>
+</ul>
+<h3 id="schnellfilter-in-der-sidebar">Schnellfilter in der Sidebar</h3>
+<ul>
+<li><strong>Fehlgeschlagen</strong></li>
+<li><strong>Steuerrelevant</strong></li>
+<li><strong>Läuft ab</strong> (nächste 60 Tage)</li>
+<li><strong>Datei fehlt</strong></li>
+<li><strong>Kein Absender</strong></li>
+<li><strong>Geringer Wert</strong></li>
+</ul>
+<p>Klick auf einen Schnellfilter öffnet die Dokumentenliste mit dem passenden Filter.</p>
+<h3 id="sortierung">Sortierung</h3>
+<ul>
+<li>Nach Dateiname, Sender, Datum, Kategorie, Status, Archivierungsdatum sortierbar.</li>
+<li>Auf- oder absteigend.</li>
+</ul>
+<h3 id="selektion-und-bulk-edit">Selektion und Bulk-Edit</h3>
+<ul>
+<li>Checkboxen in der Liste ermöglichen die Mehrfachauswahl.</li>
+<li>Oben rechts „Bulk-Edit“: Feld wählen (z. B. Kategorie, Steuerjahr, Tags), Wert eingeben, auf alle ausgewählten Dokumente anwenden.</li>
+<li>Rückgängig machen über den gelben Undo-Banner, der nach einem Bulk-Edit erscheint.</li>
+</ul>
+<hr />
+<h2 id="5-dokument-bearbeiten">5. Dokument bearbeiten</h2>
+<p>Klick auf einen Dateinamen öffnet die Detailansicht.</p>
+<h3 id="metadaten-bearbeiten">Metadaten bearbeiten</h3>
+<p>Folgende Felder können geändert werden:</p>
+<ul>
+<li>Dateiname (optional umbenennen)</li>
+<li>Sender</li>
+<li>Datum</li>
+<li>Dokumententyp</li>
+<li>Kategorie</li>
+<li>Zusammenfassung</li>
+<li>Tags (kommasepariert)</li>
+<li>Steuerrelevant (Checkbox)</li>
+<li>Steuerjahr</li>
+<li>Läuft ab (Ablaufdatum)</li>
+<li>Notizen</li>
+<li>Status</li>
+</ul>
+<h3 id="wichtige-hinweise">Wichtige Hinweise</h3>
+<ul>
+<li><strong>Gesperrte Dokumente</strong> (<code>locked</code>) können nicht bearbeitet werden. Entsperren vor einer Änderung.</li>
+<li><strong>Ignorierte Dokumente</strong> (<code>ignored</code>) können ebenfalls nicht bearbeitet werden.</li>
+<li>Änderungen an Metadaten werden gespeichert, sobald der „Speichern“-Button geklickt wird.</li>
+</ul>
+<h3 id="pdf-ansehen">PDF ansehen</h3>
+<ul>
+<li>Klick auf das PDF zeigt die Datei an (sofern vorhanden).</li>
+<li>Bei fehlender Datei wird der Status automatisch auf <code>missing</code> gesetzt.</li>
+</ul>
+<h3 id="aktionen">Aktionen</h3>
+<ul>
+<li><strong>Neu verarbeiten</strong>: LLM-Klassifikation wiederholen.</li>
+<li><strong>Bestätigen</strong>: Status auf <code>ok</code> setzen.</li>
+<li><strong>Ignorieren / Wiederherstellen</strong></li>
+<li><strong>Sperren / Entsperren</strong></li>
+<li><strong>Löschen</strong>: Dokument samt Datei entfernen.</li>
+</ul>
+<hr />
+<h2 id="6-duplikate">6. Duplikate</h2>
+<p>Unter <strong>Duplikate</strong> werden Dokumente angezeigt, die denselben Inhaltshash haben.</p>
+<h3 id="ablauf">Ablauf</h3>
+<ul>
+<li>Beim Import wird anhand des SHA256-Hashes geprüft, ob ein Dokument bereits existiert.</li>
+<li>Doppelte Dateien werden automatisch in den <code>duplicates/</code>-Ordner verschoben und mit Status <code>duplicate</code> markiert.</li>
+<li>Wenn der Original-Hash als <code>locked</code> geschützt ist, wird das Duplikat ebenfalls abgelehnt.</li>
+</ul>
+<h3 id="manueller-umgang">Manueller Umgang</h3>
+<ul>
+<li>Duplikate können eingesehen und gelöscht werden.</li>
+<li>Das Original-Dokument behält den Status <code>ok</code> oder <code>locked</code>.</li>
+</ul>
+<hr />
+<h2 id="7-absender-verwalten">7. Absender verwalten</h2>
+<p>Unter <strong>Absender</strong> werden alle erkannten Absender aufgelistet.</p>
+<h3 id="ansicht">Ansicht</h3>
+<ul>
+<li>Name des Absenders</li>
+<li>Anzahl der zugeordneten Dokumente</li>
+<li>Zugeordnete Kategorien</li>
+<li>Festgepinnte Kategorie/Dokumententyp</li>
+<li>Review-Status</li>
+</ul>
+<h3 id="aktionen_1">Aktionen</h3>
+<ul>
+<li><strong>Kategorie festlegen</strong>: Feste Kategorie für alle zukünftigen Dokumente dieses Absenders setzen.</li>
+<li><strong>Dokumententyp festlegen</strong>: Typ vorbelegen.</li>
+<li><strong>Reviewed</strong>: Absender als geprüft markieren.</li>
+<li><strong>Zusammenführen</strong>: Zwei Absender-Einträge vereinen.</li>
+<li><strong>Umbenennen</strong>: Schreibweise korrigieren.</li>
+<li><strong>Neu laden</strong>: <code>senders.json</code> ohne Backend-Neustart neu einlesen.</li>
+<li><strong>Neu aufbauen</strong>: Sender-Registry aus allen Dokumenten neu generieren.</li>
+<li><strong>Audit</strong>: Plausibilitätsprüfung für Absender starten (sofern implementiert).</li>
+</ul>
+<h3 id="tipps">Tipps</h3>
+<ul>
+<li>Unreviewte Absender werden im Sidebar-Badge angezeigt.</li>
+<li>Eine feste Kategorie beschleunigt die zukünftige Klassifikation.</li>
+</ul>
+<hr />
+<h2 id="8-geringer-wert-regeln">8. Geringer-Wert-Regeln</h2>
+<p>Siehe auch: <a href="feature-low-value-rules.md"><code>feature-low-value-rules.md</code></a></p>
+<h3 id="zweck">Zweck</h3>
+<p>Dokumente automatisch als „geringer Wert“ markieren, um unwichtige Belege zu kennzeichnen.</p>
+<h3 id="regeln-erstellen">Regeln erstellen</h3>
+<ol>
+<li>Menü <strong>Geringer Wert</strong> in der Sidebar öffnen.</li>
+<li>Name vergeben.</li>
+<li>Bedingungen auswählen:</li>
+<li>Kategorie</li>
+<li>Dokumententyp</li>
+<li>Maximalbetrag (wird gegen <code>items</code>, <code>services</code>, <code>contracts</code> geprüft)</li>
+<li>Älter als X Tage</li>
+<li><strong>Regel erstellen</strong>.</li>
+</ol>
+<h3 id="regel-testen-und-anwenden">Regel testen und anwenden</h3>
+<ul>
+<li><strong>Vorschau</strong> zeigt alle passenden Dokumente, ohne sie zu verändern.</li>
+<li><strong>Anwenden</strong> markiert alle passenden Dokumente mit <code>low_value = 1</code>.</li>
+</ul>
+<h3 id="filter-in-dokumentenliste">Filter in Dokumentenliste</h3>
+<ul>
+<li>Über den Button <strong>Geringer Wert</strong> oder den Sidebar-Schnellfilter lassen sich als gering markierte Dokumente anzeigen.</li>
+</ul>
+<hr />
+<h2 id="9-ignorieren-und-sperren">9. Ignorieren und Sperren</h2>
+<p>Siehe auch: <a href="feature-ignore-lock.md"><code>feature-ignore-lock.md</code></a></p>
+<h3 id="ignorieren">Ignorieren</h3>
+<ul>
+<li>In der Dokumenten-Detailansicht auf <strong>Ignorieren</strong> klicken.</li>
+<li>Das Dokument verschwindet aus der Standardliste.</li>
+<li>Der Inhaltshash wird gespeichert, damit das Dokument nicht erneut importiert wird.</li>
+<li>Ignorierte Dokumente werden in den <code>ignored/</code>-Ordner verschoben.</li>
+</ul>
+<h3 id="ignorieren-ruckgangig-machen">Ignorieren rückgängig machen</h3>
+<ol>
+<li>In der Dokumentenliste den Status-Filter <strong>Irrelevant</strong> wählen.</li>
+<li>Dokument öffnen.</li>
+<li><strong>Wiederherstellen</strong> klicken.</li>
+</ol>
+<h3 id="sperren">Sperren</h3>
+<ul>
+<li>In der Detailansicht auf <strong>Sperren</strong> klicken.</li>
+<li>Gesperrte Dokumente können nicht bearbeitet oder gelöscht werden.</li>
+<li>Duplikate eines gesperrten Hashes werden abgewiesen.</li>
+</ul>
+<h3 id="entsperren">Entsperren</h3>
+<ul>
+<li>In der Detailansicht auf <strong>Entsperren</strong> klicken.</li>
+<li>Das Schloss-Icon in der Liste verschwindet.</li>
+</ul>
+<hr />
+<h2 id="10-sammlungen">10. Sammlungen</h2>
+<p>Unter <strong>Sammlungen</strong> können Dokumente thematisch gruppiert werden (z. B. „Umbau 2024“, „Versicherungen“).</p>
+<h3 id="sammlung-erstellen">Sammlung erstellen</h3>
+<ol>
+<li>Auf <strong>Sammlungen</strong> klicken.</li>
+<li><strong>Neue Sammlung</strong> mit Name, Beschreibung und Farbe anlegen.</li>
+</ol>
+<h3 id="dokumente-hinzufugen">Dokumente hinzufügen</h3>
+<ul>
+<li>In der Dokumentenliste über Bulk-Edit „Zur Sammlung hinzufügen“ wählen.</li>
+<li>Oder in der Sammlungs-Detailansicht einzelne Dokumente hinzufügen.</li>
+</ul>
+<h3 id="export">Export</h3>
+<ul>
+<li>Sammlungen können als ZIP heruntergeladen werden.</li>
+</ul>
+<hr />
+<h2 id="11-steuer-modul">11. Steuer-Modul</h2>
+<p>Detaillierte Architektur und Planung: <a href="blueprint_tax_module.md"><code>blueprint_tax_module.md</code></a></p>
+<h3 id="steuerjahr-anlegen">Steuerjahr anlegen</h3>
+<ol>
+<li>Menü <strong>Steuer</strong> → <strong>Steuerjahre</strong> öffnen.</li>
+<li>Jahr eingeben und anlegen.</li>
+</ol>
+<h3 id="dokumente-verknupfen">Dokumente verknüpfen</h3>
+<ul>
+<li>In der Steuerjahres-Detailansicht Dokumente hinzufügen.</li>
+<li>Mögliche Quellen:</li>
+<li><code>tax_program_export</code> (Export aus Steuersoftware)</li>
+<li><code>assessment_notice</code> (Finanzamtsbescheid)</li>
+</ul>
+<h3 id="positionen-extrahieren">Positionen extrahieren</h3>
+<ul>
+<li>Klick auf <strong>Extrahieren</strong> startet das lokale LLM.</li>
+<li>Das LLM liest <code>full_text</code> und erzeugt strukturierte Positionen (Kategorie, Unterkategorie, Betrag, Seite).</li>
+<li>Positionen müssen vom Benutzer verifiziert werden.</li>
+</ul>
+<h3 id="positionen-korrigieren">Positionen korrigieren</h3>
+<ul>
+<li>Betrag, Kategorie, Unterkategorie, Bezeichnung bearbeiten.</li>
+<li><strong>Verifiziert</strong>-Checkbox setzen.</li>
+<li>Positionen löschen, falls falsch erkannt.</li>
+</ul>
+<h3 id="vergleich-export-vs-bescheid">Vergleich Export vs. Bescheid</h3>
+<ul>
+<li>Wenn sowohl Steuerprogramm-Export als auch Bescheid vorliegen, zeigt das Modul Abweichungen (<code>amount</code> vs. <code>amount_assessed</code>).</li>
+</ul>
+<h3 id="weitere-ansichten">Weitere Ansichten</h3>
+<ul>
+<li><strong>Entwicklung</strong>: Zeitreihe der Beträge pro Kategorie über mehrere Jahre.</li>
+<li><strong>Vergleich</strong>: Jahr gegen Jahr vergleichen.</li>
+<li><strong>Steuer-Assistent</strong>: KI-Chat für Steuerfragen.</li>
+</ul>
+<hr />
+<h2 id="12-inventar-vertrage-ausgaben">12. Inventar, Verträge, Ausgaben</h2>
+<p>Diese Module erfassen spezifische Informationen aus Dokumenten.</p>
+<h3 id="inventar">Inventar</h3>
+<ul>
+<li>Erfassung von Gegenständen/Geräten.</li>
+<li>Verknüpfung mit Quelldokumenten.</li>
+</ul>
+<h3 id="vertrage">Verträge</h3>
+<ul>
+<li>Übersicht eingehender und laufender Verträge.</li>
+<li>Ablaufdaten und Kündigungsfristen verwalten.</li>
+</ul>
+<h3 id="ausgaben-services">Ausgaben (Services)</h3>
+<ul>
+<li>Erfassung wiederkehrender oder einmaliger Ausgaben.</li>
+<li>Verknüpfung mit Dokumenten.</li>
+</ul>
+<blockquote>
+<p>Hinweis: Diese Module sind primär Datenerfassungs- und Übersichtsmodule. Details finden sich in der jeweiligen Seite im Frontend.</p>
+</blockquote>
+<hr />
+<h2 id="13-ki-suche">13. KI-Suche</h2>
+<p>Unter <strong>KI-Suche</strong> kann ein lokales LLM befragt werden.</p>
+<h3 id="dokumentenbasierte-fragen">Dokumentenbasierte Fragen</h3>
+<ul>
+<li>Fragen über das Archiv stellen.</li>
+<li>Das LLM greift auf indexierte Dokumenteninhalte zu.</li>
+</ul>
+<h3 id="steuer-assistent">Steuer-Assistent</h3>
+<ul>
+<li>Spezieller Chat für Steuerfragen.</li>
+<li>Berücksichtigt verknüpfte Steuerjahre und Positionen.</li>
+</ul>
+<blockquote>
+<p>Wichtig: Die KI ersetzt keine Steuerberatung.</p>
+</blockquote>
+<hr />
+<h2 id="14-monitor">14. Monitor</h2>
+<p>Der <strong>Monitor</strong> zeigt den Live-Status der Inbox-Verarbeitung.</p>
+<h3 id="anzeigen">Anzeigen</h3>
+<ul>
+<li>Aktuell im Inbox-Ordner befindliche Dateien.</li>
+<li>Verarbeitungsstatus in Echtzeit per SSE-Stream.</li>
+<li>Duplikat-Anzahl.</li>
+</ul>
+<h3 id="aktionen_2">Aktionen</h3>
+<ul>
+<li>Archiver manuell starten.</li>
+<li>Status der Verarbeitung beobachten.</li>
+</ul>
+<hr />
+<h2 id="15-feedback">15. Feedback</h2>
+<p>Unter <strong>Feedback</strong> können Feedback-Einträge zu Dokumenten oder der Anwendung erfasst werden.</p>
+<ul>
+<li>Kategorien wie Fehler, Wünsche, Bewertungen.</li>
+<li>Hilft bei der Weiterentwicklung des Systems.</li>
+</ul>
+<hr />
+<h2 id="16-einstellungen">16. Einstellungen</h2>
+<p>Unter <strong>Einstellungen</strong> werden globale Optionen konfiguriert.</p>
+<h3 id="typische-einstellungen">Typische Einstellungen</h3>
+<ul>
+<li>Pfade für Inbox, Archiv, Ignored, Duplikate.</li>
+<li>LLM-Modellpfad.</li>
+<li>OCR-Optionen.</li>
+<li>Dark-Mode-Standard.</li>
+<li>Weitere Konfigurationen je nach Version.</li>
+</ul>
+<hr />
+<h2 id="17-fehlerbehebung">17. Fehlerbehebung</h2>
+<h3 id="seite-bleibt-leer-oder-schwarz">Seite bleibt leer oder schwarz</h3>
+<ol>
+<li>Browser-Konsole mit <strong>F12</strong> öffnen.</li>
+<li>Roten Fehlertext lesen.</li>
+<li>Häufige Ursachen:</li>
+<li>Vite-Dev-Server hat die API-Route nicht gelernt → Frontend-Server neu starten.</li>
+<li>Backend läuft nicht → <code>start_all.ps1</code> prüfen.</li>
+<li>API liefert unerwartetes Format → Backend-Logs prüfen.</li>
+</ol>
+<h3 id="dokumente-werden-nicht-verarbeitet">Dokumente werden nicht verarbeitet</h3>
+<ul>
+<li>Prüfen, ob Archiver läuft (Monitor-Seite).</li>
+<li>Prüfen, ob PDF lesbar ist (nicht verschlüsselt/korrupt).</li>
+<li>Prüfen, ob LLM geladen ist.</li>
+</ul>
+<h3 id="ocr-funktioniert-nicht">OCR funktioniert nicht</h3>
+<ul>
+<li><code>tesseract --version</code> und <code>pdftoppm -v</code> im Terminal prüfen.</li>
+<li>Pfade in den Umgebungsvariablen/PATH hinterlegen.</li>
+</ul>
+<h3 id="api-fehler-500">API-Fehler 500</h3>
+<ul>
+<li>Backend-Log im Terminal lesen.</li>
+<li>Datenbank auf Fehler prüfen: <code>.venv\Scripts\python backend/db/connection.py</code> oder Tests laufen lassen.</li>
+</ul>
+<h3 id="tests-ausfuhren">Tests ausführen</h3>
+<pre><code class="language-powershell">.venv\Scripts\python -m pytest tests/ -q
+</code></pre>
+<hr />
+<h2 id="siehe-auch">Siehe auch</h2>
+<ul>
+<li><a href="FEATURES.md"><code>FEATURES.md</code></a> – Übersicht aller Features</li>
+<li><a href="feature-ignore-lock.md"><code>feature-ignore-lock.md</code></a> – Ignore / Lock</li>
+<li><a href="feature-low-value-rules.md"><code>feature-low-value-rules.md</code></a> – Low-Value-Rules</li>
+<li><a href="blueprint_tax_module.md"><code>blueprint_tax_module.md</code></a> – Steuer-Modul (detailliert)</li>
+<li>Backend läuft → OpenAPI-Doku unter <code>http://localhost:8000/docs</code></li>
+</ul>
+    <footer>
+      PaperVault Dokumentation · Generiert aus Markdown
+    </footer>
+  </main>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    // Toggle highlight.js theme based on dark mode
+    const darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.getElementById('light-hljs').disabled = darkMode;
+    document.getElementById('dark-hljs').disabled = !darkMode;
+  </script>
+</body>
+</html>

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Technisch: Geringer-Wert-Regeln (Low Value Rules) – PaperVault Doku</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --border: #e2e8f0;
+      --code-bg: #f1f5f9;
+      --nav-bg: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #60a5fa;
+        --border: #334155;
+        --code-bg: #0f172a;
+        --nav-bg: #1e293b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      display: flex;
+      min-height: 100vh;
+    }
+    aside {
+      width: 280px;
+      background: var(--nav-bg);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+    }
+    aside h1 {
+      font-size: 1.25rem;
+      margin: 0 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .nav-link {
+      display: block;
+      padding: .45rem .6rem;
+      border-radius: .4rem;
+      color: var(--text);
+      text-decoration: none;
+      font-size: .92rem;
+      margin-bottom: .15rem;
+    }
+    .nav-link:hover { background: var(--bg); }
+    .nav-link.active { background: var(--accent); color: #fff; }
+    main {
+      margin-left: 280px;
+      flex: 1;
+      max-width: 900px;
+      padding: 2.5rem;
+    }
+    h1 { font-size: 2rem; margin-top: 0; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: .35rem; margin-top: 2.2rem; }
+    h3 { margin-top: 1.6rem; }
+    a { color: var(--accent); }
+    code, pre {
+      background: var(--code-bg);
+      border-radius: .35rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .9em;
+    }
+    code { padding: .15rem .35rem; }
+    pre {
+      padding: 1rem;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code { padding: 0; background: transparent; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: .55rem .75rem;
+      text-align: left;
+    }
+    th { background: var(--surface); }
+    blockquote {
+      border-left: 4px solid var(--accent);
+      margin: 1rem 0;
+      padding: .5rem 1rem;
+      background: var(--surface);
+      border-radius: 0 .4rem .4rem 0;
+    }
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .mermaid svg { max-width: 100%; }
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .toc ul { padding-left: 1.2rem; }
+    .toc > ul { padding-left: 0; list-style: none; }
+    footer {
+      margin-top: 4rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .875rem;
+    }
+    @media (max-width: 900px) {
+      aside { display: none; }
+      main { margin-left: 0; padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>📚 PaperVault Doku</h1>
+    <nav>
+<a class="nav-link" href="../ARCHITECTURE.html">Architecture</a>
+<a class="nav-link" href="../blueprints/blueprint_tax_module.html">Steuer-Modul Blueprint</a>
+<a class="nav-link" href="../blueprints/cline_blueprint_kv_extraction.html">KV-Extraction Blueprint</a>
+<a class="nav-link" href="../blueprints/cline_blueprint_vision_logo.html">Vision/Logo Blueprint</a>
+<a class="nav-link" href="../DOCUMENTATION_STRUCTURE.html">Documentation Structure</a>
+<a class="nav-link" href="../feature-ignore-lock.html">Feature Ignore Lock</a>
+<a class="nav-link" href="../feature-low-value-rules.html">Feature Low Value Rules</a>
+<a class="nav-link" href="../FEATURES.html">Features</a>
+<a class="nav-link" href="../index.html">Übersicht</a>
+<a class="nav-link" href="../llm-cascade-scenarios.html">Llm Cascade Scenarios</a>
+<a class="nav-link" href="../technical/01-pipeline-and-import.html">01 Pipeline And Import</a>
+<a class="nav-link" href="../technical/02-documents-search-and-filter.html">02 Documents Search And Filter</a>
+<a class="nav-link" href="../technical/03-ignore-lock.html">03 Ignore Lock</a>
+<a class="nav-link active" href="../technical/04-low-value-rules.html">04 Low Value Rules</a>
+<a class="nav-link" href="../technical/05-duplicates.html">05 Duplicates</a>
+<a class="nav-link" href="../technical/06-senders.html">06 Senders</a>
+<a class="nav-link" href="../technical/07-tax-module.html">07 Tax Module</a>
+<a class="nav-link" href="../technical/08-collections.html">08 Collections</a>
+<a class="nav-link" href="../technical/09-chat-and-llm.html">09 Chat And Llm</a>
+<a class="nav-link" href="../technical/10-monitor.html">10 Monitor</a>
+<a class="nav-link" href="../technical/11-feedback.html">11 Feedback</a>
+<a class="nav-link" href="../technical/12-settings-and-config.html">12 Settings And Config</a>
+<a class="nav-link" href="../technical/13-inventory-contracts-services.html">13 Inventory Contracts Services</a>
+<a class="nav-link" href="../USER_GUIDE.html">User Guide</a>
+    </nav>
+  </aside>
+  <main>
+    <h1>Technisch: Geringer-Wert-Regeln (Low Value Rules)</h1>
+<h1 id="technisch-geringer-wert-regeln-low-value-rules">Technisch: Geringer-Wert-Regeln (Low Value Rules)</h1>
+<h2 id="1-ziel">1. Ziel</h2>
+<p>Automatische Markierung von Dokumenten als <code>low_value = 1</code>, wenn sie vordefinierte Kriterien erfüllen.</p>
+<h2 id="2-datenmodell">2. Datenmodell</h2>
+<h3 id="tabelle-low_value_rules">Tabelle <code>low_value_rules</code></h3>
+<table>
+<thead>
+<tr>
+<th>Spalte</th>
+<th>Typ</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>INTEGER PK</td>
+<td>Regel-ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>TEXT</td>
+<td>Name</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td>TEXT</td>
+<td>Optional: geforderte Kategorie</td>
+</tr>
+<tr>
+<td><code>document_type</code></td>
+<td>TEXT</td>
+<td>Optional: geforderter Dokumententyp</td>
+</tr>
+<tr>
+<td><code>max_amount</code></td>
+<td>REAL</td>
+<td>Optional: Maximalbetrag</td>
+</tr>
+<tr>
+<td><code>older_than_days</code></td>
+<td>INTEGER</td>
+<td>Optional: Mindestalter in Tagen</td>
+</tr>
+<tr>
+<td><code>active</code></td>
+<td>INTEGER</td>
+<td>1 = aktiv, 0 = inaktiv</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>TEXT</td>
+<td>ISO-Timestamp</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3-regel-matching">3. Regel-Matching</h2>
+<p><code>backend/db/low_value_rules_repo.py::find_matching_docs(rule)</code></p>
+<h3 id="basisbedingungen">Basisbedingungen</h3>
+<pre><code class="language-sql">low_value = 0
+status IN ('ok', 'review')
+</code></pre>
+<p>Nur diese Dokumente können überhaupt als gering markiert werden.</p>
+<h3 id="optionale-bedingungen">Optionale Bedingungen</h3>
+<table>
+<thead>
+<tr>
+<th>Feld</th>
+<th>SQL-Fragment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>category</code></td>
+<td><code>AND category = ?</code></td>
+</tr>
+<tr>
+<td><code>document_type</code></td>
+<td><code>AND document_type = ?</code></td>
+</tr>
+<tr>
+<td><code>older_than_days</code></td>
+<td><code>AND archived_at &lt; datetime('now', '-{days} days')</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="betragsbedingung">Betragsbedingung</h3>
+<p>Wenn <code>max_amount</code> gesetzt:</p>
+<pre><code class="language-sql">AND EXISTS (
+  SELECT 1 FROM (
+    SELECT total_price AS amount FROM items WHERE document_id = d.id AND total_price IS NOT NULL
+    UNION ALL
+    SELECT amount FROM services WHERE document_id = d.id AND amount IS NOT NULL
+    UNION ALL
+    SELECT amount FROM contracts WHERE document_id = d.id AND amount IS NOT NULL
+  ) WHERE amount &lt;= :max_amount
+)
+</code></pre>
+<h2 id="4-algorithmus">4. Algorithmus</h2>
+<h3 id="41-regel-anwenden">4.1 Regel anwenden</h3>
+<pre><code class="language-python">def apply_rule(rule_id):
+    rule = get(rule_id)
+    if not rule[&quot;active&quot;]:
+        return {&quot;matched&quot;: 0, &quot;updated&quot;: 0}
+    matches = find_matching_docs(rule, limit=100000)
+    updated = 0
+    for doc in matches:
+        if doc[&quot;status&quot;] in (&quot;ok&quot;, &quot;review&quot;) and doc[&quot;low_value&quot;] == 0:
+            update_document(doc[&quot;id&quot;], low_value=1)
+            updated += 1
+    return {&quot;matched&quot;: len(matches), &quot;updated&quot;: updated}
+</code></pre>
+<h3 id="42-vorschau">4.2 Vorschau</h3>
+<p>Gleiche Query wie <code>apply_rule</code>, aber ohne <code>UPDATE</code>. Liefert nur die Trefferliste.</p>
+<h2 id="5-mathematik">5. Mathematik</h2>
+<h3 id="51-altersberechnung">5.1 Altersberechnung</h3>
+<p>SQLite-Funktion:</p>
+<pre><code class="language-sql">archived_at &lt; datetime('now', '-{days} days')
+</code></pre>
+<p>Vergleicht ISO-Timestamps. Dokumente älter als <code>days</code> Tage werden erfasst.</p>
+<h3 id="52-betragsprufung">5.2 Betragsprüfung</h3>
+<pre><code>amount &lt;= max_amount
+</code></pre>
+<p>Für ein Dokument reicht es, wenn <strong>ein</strong> Betrag aus <code>items</code>, <code>services</code> oder <code>contracts</code> unter dem Limit liegt.</p>
+<h3 id="53-unendlich-vs-fehlender-betrag">5.3 Unendlich vs. fehlender Betrag</h3>
+<ul>
+<li><code>max_amount = NULL</code>: Bedingung wird ignoriert.</li>
+<li>Betrag <code>NULL</code> in der UNION-Abfrage wird durch <code>IS NOT NULL</code> ausgeschlossen.</li>
+<li>Ein Dokument ohne jeglichen Betrag erfüllt die <code>max_amount</code>-Bedingung <strong>nicht</strong>, wenn <code>max_amount</code> gesetzt ist.</li>
+</ul>
+<h2 id="6-api-endpunkte">6. API-Endpunkte</h2>
+<table>
+<thead>
+<tr>
+<th>Methode</th>
+<th>Pfad</th>
+<th>Logik</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/low-value-rules/</code></td>
+<td><code>repo.get_all()</code></td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/low-value-rules/</code></td>
+<td><code>repo.insert()</code> + <code>repo.get()</code></td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/low-value-rules/{id}</code></td>
+<td><code>repo.get(id)</code></td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/low-value-rules/{id}</code></td>
+<td><code>repo.update(id, **fields)</code></td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/low-value-rules/{id}</code></td>
+<td><code>repo.delete(id)</code></td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/low-value-rules/{id}/preview</code></td>
+<td><code>find_matching_docs(rule, limit=200)</code></td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/low-value-rules/{id}/apply</code></td>
+<td><code>apply_rule(id)</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="7-frontend">7. Frontend</h2>
+<ul>
+<li>Seite <code>LowValueRules.tsx</code> listet Regeln als Tabelle.</li>
+<li>Formular zum Erstellen neuer Regeln.</li>
+<li>Aktionen: Toggle aktiv/inaktiv, Vorschau, Anwenden, Löschen.</li>
+<li>Validierung der API-Antwort: <code>Array.isArray(data)</code>.</li>
+</ul>
+<h2 id="8-integration-mit-dokumentenliste">8. Integration mit Dokumentenliste</h2>
+<ul>
+<li>Filter <code>low_value=1</code> in <code>GET /documents/</code>.</li>
+<li>Sidebar-Badge zeigt Anzahl der <code>low_value</code>-Dokumente an.</li>
+<li>Status-Button in der Dokumentenliste.</li>
+</ul>
+<h2 id="9-tests">9. Tests</h2>
+<ul>
+<li><code>tests/test_low_value_rules.py</code>:</li>
+<li>Liste ist Array</li>
+<li>Erstellen, Aktivieren, Löschen</li>
+<li>Vorschau und Anwenden</li>
+</ul>
+<h2 id="10-bekannte-einschrankungen">10. Bekannte Einschränkungen</h2>
+<ul>
+<li>Beträge müssen zuvor in <code>items</code>, <code>services</code> oder <code>contracts</code> extrahiert worden sein.</li>
+<li>Keine komplexen logischen Verknüpfungen (nur AND).</li>
+<li>Keine Negation (z. B. „nicht Kategorie X“).</li>
+</ul>
+    <footer>
+      PaperVault Dokumentation · Generiert aus Markdown
+    </footer>
+  </main>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    // Toggle highlight.js theme based on dark mode
+    const darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.getElementById('light-hljs').disabled = darkMode;
+    document.getElementById('dark-hljs').disabled = !darkMode;
+  </script>
+</body>
+</html>
