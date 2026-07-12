@@ -47,10 +47,14 @@ def init_services_table():
         conn.executescript(SERVICES_SCHEMA)
 
 
+_VALID_SERVICE_SORT_COLS = {"name", "provider", "category", "service_date", "amount"}
+
+
 def get_services(
     q=None, category=None, provider=None,
     date_from=None, date_to=None,
-    min_amount=None, limit=50, offset=0
+    min_amount=None, sort_by="service_date", sort_dir="desc",
+    limit=50, offset=0
 ):
     conditions = []
     params = []
@@ -74,6 +78,9 @@ def get_services(
         params.append(min_amount)
 
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    order_col = sort_by if sort_by in _VALID_SERVICE_SORT_COLS else "service_date"
+    direction = "ASC" if str(sort_dir).upper() == "ASC" else "DESC"
+
     with get_conn() as conn:
         total = conn.execute(
             f"SELECT COUNT(*) FROM services s {where}", params
@@ -81,7 +88,7 @@ def get_services(
         rows = conn.execute(
             f"SELECT s.*, d.filename as doc_filename FROM services s "
             f"LEFT JOIN documents d ON s.document_id = d.id "
-            f"{where} ORDER BY s.service_date DESC NULLS LAST, s.id DESC "
+            f"{where} ORDER BY s.{order_col} {direction} NULLS LAST, s.id DESC "
             f"LIMIT ? OFFSET ?",
             params + [limit, offset]
         ).fetchall()

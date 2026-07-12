@@ -42,12 +42,15 @@ def list_contracts(
     status: Optional[str] = Query(None),
     partner: Optional[str] = Query(None),
     expiring_within_days: Optional[int] = Query(None),
+    sort_by: Optional[str] = Query("end_date"),
+    sort_dir: Optional[str] = Query("asc"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
     contracts, total = contracts_repo.get_contracts(
         q=q, category=category, status=status, partner=partner,
         expiring_within_days=expiring_within_days,
+        sort_by=sort_by, sort_dir=sort_dir,
         limit=limit, offset=offset,
     )
     return {"total": total, "contracts": contracts}

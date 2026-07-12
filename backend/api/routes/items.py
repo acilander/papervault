@@ -25,13 +25,16 @@ def list_items(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
     min_price: float | None = Query(None),
+    sort_by: str | None = Query("purchase_date"),
+    sort_dir: str | None = Query("desc"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
     items, total = items_repo.get_items(
         q=q, category=category, vendor=vendor,
         date_from=date_from, date_to=date_to,
-        min_price=min_price, limit=limit, offset=offset,
+        min_price=min_price, sort_by=sort_by, sort_dir=sort_dir,
+        limit=limit, offset=offset,
     )
     return {"total": total, "items": items}
 

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { Wrench, Download, RefreshCw, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import { Wrench, Download, RefreshCw, ExternalLink, ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react'
 import Pagination from '../components/Pagination'
 
 const PAGE_SIZE = 50
@@ -54,6 +54,8 @@ export default function Services() {
   const [pending, setPending] = useState<number | null>(null)
   const [page, setPage] = useState(1)
   const [showStats, setShowStats] = useState(false)
+  const [sortBy, setSortBy] = useState('service_date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
@@ -65,7 +67,7 @@ export default function Services() {
   const load = useCallback(async (p = 1) => {
     setLoading(true)
     try {
-      const params: Record<string, string | number> = { limit: PAGE_SIZE, offset: (p - 1) * PAGE_SIZE }
+      const params: Record<string, string | number> = { limit: PAGE_SIZE, offset: (p - 1) * PAGE_SIZE, sort_by: sortBy, sort_dir: sortDir }
       if (q) params.q = q
       if (category) params.category = category
       if (provider) params.provider = provider
@@ -82,9 +84,30 @@ export default function Services() {
     } finally {
       setLoading(false)
     }
-  }, [q, category, provider, dateFrom, dateTo, minAmount])
+  }, [q, category, provider, dateFrom, dateTo, minAmount, sortBy, sortDir])
 
   useEffect(() => { load(1); setPage(1) }, [load])
+
+  const handleSort = (col: string) => {
+    if (sortBy === col) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(col)
+      setSortDir('asc')
+    }
+  }
+
+  const SortHeader = ({ col, label, align = 'left' }: { col: string; label: string; align?: 'left' | 'right' }) => (
+    <th
+      className={`px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 ${align === 'right' ? 'text-right' : 'text-left'}`}
+      onClick={() => handleSort(col)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortBy === col && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}
+      </span>
+    </th>
+  )
 
   useEffect(() => {
     axios.get('/services/pending-count').then(r => setPending(r.data.pending)).catch(() => {})
@@ -258,11 +281,11 @@ export default function Services() {
           <table className="w-full text-sm">
             <thead className="border-b border-gray-100 dark:border-gray-800">
               <tr className="text-xs text-gray-500 dark:text-gray-400">
-                <th className="px-4 py-2 text-left font-medium">Bezeichnung</th>
-                <th className="px-4 py-2 text-left font-medium">Anbieter</th>
-                <th className="px-4 py-2 text-left font-medium">Kategorie</th>
-                <th className="px-4 py-2 text-left font-medium">Datum</th>
-                <th className="px-4 py-2 text-right font-medium">Betrag</th>
+                <SortHeader col="name" label="Bezeichnung" />
+                <SortHeader col="provider" label="Anbieter" />
+                <SortHeader col="category" label="Kategorie" />
+                <SortHeader col="service_date" label="Datum" />
+                <SortHeader col="amount" label="Betrag" align="right" />
                 <th className="px-4 py-2 text-left font-medium">Dokument</th>
               </tr>
             </thead>

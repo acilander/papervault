@@ -101,6 +101,9 @@ def insert_items(document_id: int, items: list[dict], extracted_at: str) -> int:
     return count
 
 
+_VALID_ITEM_SORT_COLS = {"name", "vendor", "category", "purchase_date", "quantity", "unit_price", "total_price", "warranty_until"}
+
+
 def get_items(
     q: str | None = None,
     category: str | None = None,
@@ -108,6 +111,8 @@ def get_items(
     date_from: str | None = None,
     date_to: str | None = None,
     min_price: float | None = None,
+    sort_by: str | None = "purchase_date",
+    sort_dir: str | None = "desc",
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[dict], int]:
@@ -137,12 +142,15 @@ def get_items(
 
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
+    order_col = sort_by if sort_by in _VALID_ITEM_SORT_COLS else "purchase_date"
+    direction = "ASC" if str(sort_dir).upper() == "ASC" else "DESC"
+
     with get_conn() as conn:
         total = conn.execute(
             f"SELECT COUNT(*) FROM items {where_sql}", params
         ).fetchone()[0]
         rows = conn.execute(
-            f"SELECT * FROM items {where_sql} ORDER BY purchase_date DESC, id DESC LIMIT ? OFFSET ?",
+            f"SELECT * FROM items {where_sql} ORDER BY {order_col} {direction} NULLS LAST, id DESC LIMIT ? OFFSET ?",
             params + [limit, offset],
         ).fetchall()
 

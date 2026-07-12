@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { FileText, Download, RefreshCw, ExternalLink, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronUp, Pencil, Check, X } from 'lucide-react'
+import { FileText, Download, RefreshCw, ExternalLink, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronUp, Pencil, Check, X, ArrowUpDown } from 'lucide-react'
 import Pagination from '../components/Pagination'
 
 const PAGE_SIZE = 50
@@ -78,6 +78,8 @@ export default function Contracts() {
   const [showStats, setShowStats] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editFields, setEditFields] = useState<Partial<Contract>>({})
+  const [sortBy, setSortBy] = useState('end_date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
@@ -87,7 +89,7 @@ export default function Contracts() {
   const load = useCallback(async (p = 1) => {
     setLoading(true)
     try {
-      const params: Record<string, string | number> = { limit: PAGE_SIZE, offset: (p - 1) * PAGE_SIZE }
+      const params: Record<string, string | number> = { limit: PAGE_SIZE, offset: (p - 1) * PAGE_SIZE, sort_by: sortBy, sort_dir: sortDir }
       if (q) params.q = q
       if (category) params.category = category
       if (status) params.status = status
@@ -102,9 +104,30 @@ export default function Contracts() {
     } finally {
       setLoading(false)
     }
-  }, [q, category, status, expiringOnly])
+  }, [q, category, status, expiringOnly, sortBy, sortDir])
 
   useEffect(() => { load(1); setPage(1) }, [load])
+
+  const handleSort = (col: string) => {
+    if (sortBy === col) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(col)
+      setSortDir('asc')
+    }
+  }
+
+  const SortHeader = ({ col, label, align = 'left' }: { col: string; label: string; align?: 'left' | 'right' }) => (
+    <th
+      className={`px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 ${align === 'right' ? 'text-right' : 'text-left'}`}
+      onClick={() => handleSort(col)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortBy === col && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}
+      </span>
+    </th>
+  )
 
   useEffect(() => {
     axios.get('/contracts/pending-count').then(r => setPending(r.data.pending)).catch(() => {})
@@ -287,12 +310,12 @@ export default function Contracts() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
               <tr>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Vertragspartner</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Kategorie</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Status</th>
-                <th className="text-right px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Betrag</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Laufzeit</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Kündigung bis</th>
+                <SortHeader col="partner" label="Vertragspartner" />
+                <SortHeader col="category" label="Kategorie" />
+                <SortHeader col="status" label="Status" />
+                <SortHeader col="amount" label="Betrag" align="right" />
+                <SortHeader col="end_date" label="Laufzeit" />
+                <SortHeader col="cancellation_deadline" label="Kündigung bis" />
                 <th className="px-4 py-2.5"></th>
               </tr>
             </thead>

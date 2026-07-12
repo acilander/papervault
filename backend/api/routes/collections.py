@@ -2,7 +2,7 @@ import io
 import os
 import zipfile
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -39,8 +39,12 @@ def create(body: CollectionCreate):
 
 
 @router.get("/{collection_id}")
-def get(collection_id: int):
-    col = get_collection(collection_id)
+def get(
+    collection_id: int,
+    sort_by: Optional[str] = Query("added_at"),
+    sort_dir: Optional[str] = Query("desc"),
+):
+    col = get_collection(collection_id, sort_by=sort_by, sort_dir=sort_dir)
     if not col:
         raise HTTPException(status_code=404, detail="Sammlung nicht gefunden")
     return col

@@ -57,4 +57,4 @@ Jeder Step in `core.py` hat seinen eigenen Fehler-Pfad. Ein zentraler Pipeline-R
 - [x] in Dokumente Liste feht die Typ Spalte
 - [x] die Dokumente Liste lässt sich nicht nach den Spalten sortieren
 - [x] wenn in der absender liste dokumente als review sind, die aber eine falsche Kategorie haben, wie kann ich alle auf die richtige Kategorie setzen?
-- [ ] alle tabellen sollen sich nach spalten sortieren lassen
+- [x] alle tabellen sollen sich nach spalten sortieren lassen (Dokumente, Inventar, Ausgaben, Verträge, Sammlungen)

@@ -25,13 +25,16 @@ def list_services(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
     min_amount: float | None = Query(None),
+    sort_by: str | None = Query("service_date"),
+    sort_dir: str | None = Query("desc"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
     services, total = services_repo.get_services(
         q=q, category=category, provider=provider,
         date_from=date_from, date_to=date_to,
-        min_amount=min_amount, limit=limit, offset=offset,
+        min_amount=min_amount, sort_by=sort_by, sort_dir=sort_dir,
+        limit=limit, offset=offset,
     )
     return {"total": total, "services": services}
 

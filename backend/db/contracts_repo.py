@@ -125,12 +125,17 @@ def delete_contract(contract_id: int):
         conn.execute("DELETE FROM contracts WHERE id = ?", (contract_id,))
 
 
+_VALID_CONTRACT_SORT_COLS = {"partner", "category", "status", "amount", "start_date", "end_date", "next_due_date", "cancellation_deadline"}
+
+
 def get_contracts(
     q: str | None = None,
     category: str | None = None,
     status: str | None = None,
     partner: str | None = None,
     expiring_within_days: int | None = None,
+    sort_by: str | None = "end_date",
+    sort_dir: str | None = "asc",
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[dict], int]:
@@ -159,13 +164,15 @@ def get_contracts(
         params.append(f"+{expiring_within_days} days")
 
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+    order_col = sort_by if sort_by in _VALID_CONTRACT_SORT_COLS else "end_date"
+    direction = "ASC" if str(sort_dir).upper() == "ASC" else "DESC"
 
     with get_conn() as conn:
         total = conn.execute(
             f"SELECT COUNT(*) FROM contracts {where_sql}", params
         ).fetchone()[0]
         rows = conn.execute(
-            f"SELECT * FROM contracts {where_sql} ORDER BY end_date ASC NULLS LAST, id DESC LIMIT ? OFFSET ?",
+            f"SELECT * FROM contracts {where_sql} ORDER BY {order_col} {direction} NULLS LAST, id DESC LIMIT ? OFFSET ?",
             params + [limit, offset],
         ).fetchall()
 

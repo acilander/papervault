@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { Package, Download, RefreshCw, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import { Package, Download, RefreshCw, ExternalLink, ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react'
 import Pagination from '../components/Pagination'
 
 const PAGE_SIZE = 50
@@ -60,6 +60,8 @@ export default function Inventory() {
   const [pending, setPending] = useState<number | null>(null)
   const [page, setPage] = useState(1)
   const [showStats, setShowStats] = useState(false)
+  const [sortBy, setSortBy] = useState('purchase_date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
@@ -71,7 +73,7 @@ export default function Inventory() {
   const load = useCallback(async (p = 1) => {
     setLoading(true)
     try {
-      const params: Record<string, string | number> = { limit: PAGE_SIZE, offset: (p - 1) * PAGE_SIZE }
+      const params: Record<string, string | number> = { limit: PAGE_SIZE, offset: (p - 1) * PAGE_SIZE, sort_by: sortBy, sort_dir: sortDir }
       if (q) params.q = q
       if (category) params.category = category
       if (vendor) params.vendor = vendor
@@ -88,9 +90,30 @@ export default function Inventory() {
     } finally {
       setLoading(false)
     }
-  }, [q, category, vendor, dateFrom, dateTo, minPrice])
+  }, [q, category, vendor, dateFrom, dateTo, minPrice, sortBy, sortDir])
 
   useEffect(() => { load(1); setPage(1) }, [load])
+
+  const handleSort = (col: string) => {
+    if (sortBy === col) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(col)
+      setSortDir('asc')
+    }
+  }
+
+  const SortHeader = ({ col, label, align = 'left' }: { col: string; label: string; align?: 'left' | 'right' }) => (
+    <th
+      className={`px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 ${align === 'right' ? 'text-right' : 'text-left'}`}
+      onClick={() => handleSort(col)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortBy === col && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}
+      </span>
+    </th>
+  )
 
   useEffect(() => {
     axios.get('/items/pending-count').then(r => setPending(r.data.pending)).catch(() => {})
@@ -284,14 +307,14 @@ export default function Inventory() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
               <tr>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Artikel</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Händler</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Datum</th>
-                <th className="text-right px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Menge</th>
-                <th className="text-right px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">E-Preis</th>
-                <th className="text-right px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Gesamt</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Kategorie</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-400">Garantie</th>
+                <SortHeader col="name" label="Artikel" />
+                <SortHeader col="vendor" label="Händler" />
+                <SortHeader col="purchase_date" label="Datum" />
+                <SortHeader col="quantity" label="Menge" align="right" />
+                <SortHeader col="unit_price" label="E-Preis" align="right" />
+                <SortHeader col="total_price" label="Gesamt" align="right" />
+                <SortHeader col="category" label="Kategorie" />
+                <SortHeader col="warranty_until" label="Garantie" />
                 <th className="px-4 py-2.5"></th>
               </tr>
             </thead>

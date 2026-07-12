@@ -38,19 +38,24 @@ def get_all_collections():
     return [dict(r) for r in rows]
 
 
-def get_collection(collection_id: int):
+_VALID_COLLECTION_DOC_SORT_COLS = {"filename", "sender", "category", "document_type", "date", "added_at"}
+
+
+def get_collection(collection_id: int, sort_by: str = "added_at", sort_dir: str = "desc"):
     with get_conn() as conn:
         row = conn.execute("SELECT * FROM collections WHERE id = ?", (collection_id,)).fetchone()
         if not row:
             return None
         col = dict(row)
+        order_col = sort_by if sort_by in _VALID_COLLECTION_DOC_SORT_COLS else "added_at"
+        direction = "ASC" if str(sort_dir).upper() == "ASC" else "DESC"
         doc_rows = conn.execute(
-            """SELECT d.id, d.filename, d.sender, d.date, d.document_type, d.category,
+            f"""SELECT d.id, d.filename, d.sender, d.date, d.document_type, d.category,
                       d.summary, d.file_path, d.status, cd.added_at
                FROM collection_documents cd
                JOIN documents d ON d.id = cd.document_id
                WHERE cd.collection_id = ?
-               ORDER BY cd.added_at DESC""",
+               ORDER BY {order_col} {direction} NULLS LAST""",
             (collection_id,)
         ).fetchall()
         col["documents"] = [dict(r) for r in doc_rows]

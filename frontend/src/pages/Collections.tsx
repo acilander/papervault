@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { FolderOpen, Plus, Pencil, Trash2, FileText, ChevronLeft, X, Download } from 'lucide-react'
+import { FolderOpen, Plus, Pencil, Trash2, FileText, ChevronLeft, X, Download, ArrowUpDown } from 'lucide-react'
 import { thumbnailUrl, collectionZipUrl } from '../api'
 import axios from 'axios'
 
@@ -201,17 +201,19 @@ function CollectionDetail() {
   const [col, setCol] = useState<CollectionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
+  const [sortBy, setSortBy] = useState('added_at')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const navigate = useNavigate()
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await axios.get(`/collections/${id}`)
+      const res = await axios.get(`/collections/${id}`, { params: { sort_by: sortBy, sort_dir: sortDir } })
       setCol(res.data)
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, sortBy, sortDir])
 
   useEffect(() => { load() }, [load])
 
@@ -260,7 +262,30 @@ function CollectionDetail() {
         </div>
       )}
 
-      <p className="text-sm text-gray-500 dark:text-gray-400">{col.documents.length} Dokument{col.documents.length !== 1 ? 'e' : ''} in dieser Sammlung</p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500 dark:text-gray-400">{col.documents.length} Dokument{col.documents.length !== 1 ? 'e' : ''} in dieser Sammlung</p>
+        <div className="flex items-center gap-2">
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            className="text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2 py-1 focus:outline-none"
+          >
+            <option value="added_at">Hinzugefügt</option>
+            <option value="filename">Dateiname</option>
+            <option value="sender">Absender</option>
+            <option value="date">Datum</option>
+            <option value="document_type">Typ</option>
+            <option value="category">Kategorie</option>
+          </select>
+          <button
+            onClick={() => setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')}
+            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            title={sortDir === 'asc' ? 'Aufsteigend' : 'Absteigend'}
+          >
+            <ArrowUpDown size={14} className={sortDir === 'asc' ? '' : 'rotate-180'} />
+          </button>
+        </div>
+      </div>
 
       {col.documents.length === 0 && (
         <div className="text-center py-12 text-gray-400 dark:text-gray-600">
