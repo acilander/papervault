@@ -101,6 +101,9 @@ export const renameDocument = (id: number, filename: string) =>
 export const reprocessDocument = (id: number, hint?: string) =>
   api.post(`/documents/${id}/reprocess`, hint ? { hint } : {})
 
+export const reprocessDocumentsWithoutSender = (hint?: string) =>
+  api.post<{ queued: number; skipped: number; errors: { id: number; file: string; error: string }[] }>(`/documents/reprocess-no-sender`, hint ? { hint } : {})
+
 export const deleteDocumentWithFile = (id: number) =>
   api.delete(`/documents/${id}/delete-file`)
 

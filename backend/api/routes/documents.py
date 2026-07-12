@@ -281,6 +281,43 @@ def get_original_for_duplicate(doc_id: int):
     return original
 
 
+@router.post("/reprocess-no-sender", status_code=202)
+def reprocess_documents_without_sender(body: dict = {}):
+    """Re-process all archived/review documents that have no sender detected.
+    Moves them back to inbox so the archiver can re-classify them.
+    Optional body: {hint: str}
+    """
+    hint = (body or {}).get("hint", "").strip()
+    docs = db.get_documents_without_sender()
+    queued = 0
+    skipped = 0
+    errors = []
+    for doc in docs:
+        try:
+            path = os.path.normpath(doc["file_path"])
+            if not os.path.exists(path):
+                skipped += 1
+                continue
+            os.makedirs(SOURCE_DIR, exist_ok=True)
+            inbox_path = unique_path(os.path.join(SOURCE_DIR, os.path.basename(path)))
+            shutil.move(path, inbox_path)
+            existing = db.get_document_by_path(inbox_path)
+            if existing and existing["id"] != doc["id"]:
+                db.delete_document(existing["id"])
+            db.update_document(doc["id"], status="pending", file_path=inbox_path, sender=None)
+            if hint:
+                hint_path = os.path.splitext(inbox_path)[0] + ".hint"
+                try:
+                    with open(hint_path, "w", encoding="utf-8") as f:
+                        f.write(hint)
+                except Exception:
+                    pass
+            queued += 1
+        except Exception as e:
+            errors.append({"id": doc["id"], "file": doc.get("filename"), "error": str(e)})
+    return {"queued": queued, "skipped": skipped, "errors": errors}
+
+
 @router.post("/{doc_id}/reprocess", status_code=202)
 def reprocess_document(doc_id: int, body: dict = {}):
     """Queue the PDF for re-classification by the archiver worker. Optional body: {hint: str}"""

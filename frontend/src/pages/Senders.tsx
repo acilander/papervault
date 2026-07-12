@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, ShieldAlert, AlertTriangle, MailCheck } from 'lucide-react'
-import { getSenders, getSenderCounts, reloadSenders, rebuildSenders, cleanupSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, auditSenders, ambiguousSenders, reclassifySender, confirmPendingSender, type SenderEntry, type AuditEntry, type AmbiguousEntry } from '../api'
+import { getSenders, getSenderCounts, reloadSenders, rebuildSenders, cleanupSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, auditSenders, ambiguousSenders, reclassifySender, confirmPendingSender, reprocessDocumentsWithoutSender, type SenderEntry, type AuditEntry, type AmbiguousEntry } from '../api'
 import { useConfig } from '../ConfigContext'
 import Pagination from '../components/Pagination'
 
@@ -228,6 +228,21 @@ export default function Senders() {
                 showUnreviewed ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'
               }`}>{unreviewedCount}</span>
             )}
+          </button>
+          <button
+            onClick={async () => {
+              if (!confirm('Alle archivierten Dokumente ohne erkannten Absender zurück in die Inbox verschieben und neu klassifizieren?')) return
+              try {
+                const res = await reprocessDocumentsWithoutSender()
+                alert(`${res.data.queued} Dokumente zur Neu-Klassifizierung eingereiht.${res.data.errors.length ? '\n\nFehler:\n' + res.data.errors.map((e: any) => `${e.file}: ${e.error}`).join('\n') : ''}`)
+              } catch (e: any) {
+                alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+              }
+            }}
+            title="Alle Dokumente ohne Absender neu klassifizieren"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+          >
+            <RefreshCw size={12} /> Ohne Absender neu
           </button>
           <span className="text-sm text-gray-500 dark:text-gray-400">{filtered.length} / {Object.keys(senders).length} Absender</span>
         </div>

@@ -55,6 +55,15 @@ def get_document_by_hash(content_hash):
         return dict(row) if row else None
 
 
+def get_documents_without_sender():
+    """Return all ok/review documents with empty or null sender."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM documents WHERE status IN ('ok', 'review') AND (sender IS NULL OR sender = '') ORDER BY archived_at DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def update_document(doc_id, **fields):
     if "file_path" in fields and fields["file_path"]:
         fields["file_path"] = os.path.normpath(fields["file_path"])
