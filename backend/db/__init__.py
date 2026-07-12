@@ -7,4 +7,8 @@ from db.documents_repo import (
     find_similar_by_features, get_document_by_hash, get_document_by_path,
     get_similar_by_simhash, get_all_file_paths
 )
+from db.protected_hashes_repo import (
+    protect_document_hash, unprotect_document_hash, get_protected_hash,
+    is_hash_protected, list_protected_hashes,
+)
 from db.stats_repo import get_stats

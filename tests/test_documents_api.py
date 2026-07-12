@@ -210,3 +210,60 @@ def test_expiring_documents(tmp_path):
     resp = client.get("/documents/expiring?days=365")
     assert resp.status_code == 200
     assert len(resp.json()) >= 1
+
+
+def test_ignore_and_unignore_document(tmp_path):
+    doc_id, _ = _insert_pdf(tmp_path, name="ignore.pdf")
+    db.update_document(doc_id, content_hash="ignoredhash123")
+
+    resp = client.post(f"/documents/{doc_id}/ignore")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ignored"
+    assert db.get_protected_hash("ignoredhash123")["type"] == "ignored"
+
+    resp = client.post(f"/documents/{doc_id}/unignore")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+    assert db.get_protected_hash("ignoredhash123") is None
+
+
+def test_lock_and_unlock_document(tmp_path):
+    doc_id, _ = _insert_pdf(tmp_path, name="lock.pdf")
+    db.update_document(doc_id, content_hash="lockedhash123")
+
+    resp = client.post(f"/documents/{doc_id}/lock")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "locked"
+    assert db.get_protected_hash("lockedhash123")["type"] == "locked"
+
+    resp = client.post(f"/documents/{doc_id}/unlock")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+    assert db.get_protected_hash("lockedhash123") is None
+
+
+def test_locked_document_cannot_be_edited(tmp_path):
+    doc_id, _ = _insert_pdf(tmp_path, name="locked_edit.pdf")
+    db.update_document(doc_id, content_hash="lockedit123")
+    client.post(f"/documents/{doc_id}/lock")
+
+    resp = client.patch(f"/documents/{doc_id}", json={"category": "Kommunikation"})
+    assert resp.status_code == 409
+    assert db.get_document(doc_id)["category"] != "Kommunikation"
+
+
+def test_ignored_hidden_from_default_list(tmp_path):
+    visible_id, _ = _insert_pdf(tmp_path, name="visible.pdf")
+    ignored_id, _ = _insert_pdf(tmp_path, name="ignored.pdf")
+    db.update_document(ignored_id, content_hash="ignorelist123")
+    client.post(f"/documents/{ignored_id}/ignore")
+
+    resp = client.get("/documents/")
+    assert resp.status_code == 200
+    ids = {d["id"] for d in resp.json()}
+    assert visible_id in ids
+    assert ignored_id not in ids
+
+    resp = client.get("/documents/?status=ignored")
+    ids = {d["id"] for d in resp.json()}
+    assert ignored_id in ids

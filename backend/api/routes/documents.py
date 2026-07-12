@@ -92,6 +92,10 @@ def update_document(doc_id: int, body: DocumentUpdate):
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if doc.get("status") == "locked":
+        raise HTTPException(status_code=409, detail="Dokument ist gesperrt. Entsperren vor dem Bearbeiten.")
+    if doc.get("status") == "ignored" and "status" not in body.model_fields_set:
+        raise HTTPException(status_code=409, detail="Irrelevantes Dokument muss zuerst wiederhergestellt werden.")
     updates = {k: v for k, v in body.model_dump().items() if k in body.model_fields_set}
 
     # Record correction as few-shot example if classification fields changed
@@ -154,6 +158,79 @@ def update_document(doc_id: int, body: DocumentUpdate):
                     pass
 
     return updated_doc
+
+
+def _ensure_content_hash(doc: dict) -> str | None:
+    """Return the document's content hash, computing it from disk if missing."""
+    if doc.get("content_hash"):
+        return doc["content_hash"]
+    path = doc.get("file_path")
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        from pipeline.steps import compute_content_hash
+        from pdf_utils import extract_text
+        text, _ = extract_text(path)
+        content_hash, _ = compute_content_hash(path, text or "")
+        return content_hash
+    except Exception:
+        return None
+
+
+@router.post("/{doc_id}/ignore", status_code=200)
+def ignore_document(doc_id: int):
+    """Mark a document as irrelevant and block its hash from re-import."""
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    content_hash = _ensure_content_hash(doc)
+    if content_hash:
+        db.protect_document_hash(content_hash, "ignored", document_id=doc_id, filename=doc.get("filename"))
+    db.update_document(doc_id, status="ignored")
+    return db.get_document(doc_id)
+
+
+@router.post("/{doc_id}/unignore", status_code=200)
+def unignore_document(doc_id: int):
+    """Restore an ignored document and remove its hash from the blocklist."""
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if doc.get("status") != "ignored":
+        raise HTTPException(status_code=400, detail="Dokument ist nicht als irrelevant markiert")
+    content_hash = doc.get("content_hash") or _ensure_content_hash(doc)
+    if content_hash:
+        db.unprotect_document_hash(hash_value=content_hash)
+    db.update_document(doc_id, status="ok")
+    return db.get_document(doc_id)
+
+
+@router.post("/{doc_id}/lock", status_code=200)
+def lock_document(doc_id: int):
+    """Lock a verified document to prevent accidental edits or reclassification."""
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    content_hash = _ensure_content_hash(doc)
+    if content_hash:
+        db.protect_document_hash(content_hash, "locked", document_id=doc_id, filename=doc.get("filename"))
+    db.update_document(doc_id, status="locked")
+    return db.get_document(doc_id)
+
+
+@router.post("/{doc_id}/unlock", status_code=200)
+def unlock_document(doc_id: int):
+    """Unlock a document so it can be edited again."""
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if doc.get("status") != "locked":
+        raise HTTPException(status_code=400, detail="Dokument ist nicht gesperrt")
+    content_hash = doc.get("content_hash") or _ensure_content_hash(doc)
+    if content_hash:
+        db.unprotect_document_hash(hash_value=content_hash)
+    db.update_document(doc_id, status="ok")
+    return db.get_document(doc_id)
 
 
 @router.delete("/{doc_id}", status_code=204)
@@ -324,6 +401,8 @@ def reprocess_document(doc_id: int, body: dict = {}):
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if doc.get("status") in ("locked", "ignored"):
+        raise HTTPException(status_code=409, detail=f"Dokument hat Status '{doc['status']}' und kann nicht neu klassifiziert werden.")
     path = os.path.normpath(doc["file_path"])
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {path}")
@@ -356,6 +435,8 @@ def confirm_document(doc_id: int):
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if doc["status"] in ("locked", "ignored"):
+        raise HTTPException(status_code=409, detail=f"Dokument hat Status '{doc['status']}' und kann nicht bestätigt werden.")
     if doc["status"] != "review":
         raise HTTPException(status_code=400, detail=f"Dokument hat Status '{doc['status']}', erwartet 'review'")
 
@@ -402,7 +483,8 @@ def confirm_document(doc_id: int):
 def bulk_update(body: dict):
     """Apply field updates to multiple documents at once.
     Body: { ids: [1,2,3], fields: { category: "...", sender: "...", document_type: "..." } }
-    Only sender, category, document_type, date, notes are allowed."""
+    Only sender, category, document_type, date, notes are allowed.
+    Locked and ignored documents are skipped."""
     ids = body.get("ids", [])
     fields = body.get("fields", {})
     if not ids:
@@ -411,8 +493,12 @@ def bulk_update(body: dict):
     filtered = {k: v for k, v in fields.items() if k in ALLOWED}
     if not filtered:
         raise HTTPException(status_code=400, detail="Keine gültigen Felder zum Aktualisieren")
-    updated = db.bulk_update_documents(ids, filtered)
-    return {"updated": updated, "skipped": len(ids) - updated}
+    # Skip protected documents
+    allowed_ids = [doc_id for doc_id in ids
+                   if (doc := db.get_document(doc_id)) and doc.get("status") not in ("locked", "ignored")]
+    skipped = len(ids) - len(allowed_ids)
+    updated = db.bulk_update_documents(allowed_ids, filtered) if allowed_ids else 0
+    return {"updated": updated, "skipped": skipped + len(allowed_ids) - updated}
 
 
 @router.get("/export/csv")

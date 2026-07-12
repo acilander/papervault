@@ -92,6 +92,18 @@ export const updateDocument = (id: number, body: DocumentUpdate) =>
 
 export const deleteDocument = (id: number) => api.delete(`/documents/${id}`)
 
+export const ignoreDocument = (id: number) =>
+  api.post<Document>(`/documents/${id}/ignore`).then(r => r.data)
+
+export const unignoreDocument = (id: number) =>
+  api.post<Document>(`/documents/${id}/unignore`).then(r => r.data)
+
+export const lockDocument = (id: number) =>
+  api.post<Document>(`/documents/${id}/lock`).then(r => r.data)
+
+export const unlockDocument = (id: number) =>
+  api.post<Document>(`/documents/${id}/unlock`).then(r => r.data)
+
 export const openInExplorer = (id: number) =>
   api.post(`/documents/${id}/open`)
 

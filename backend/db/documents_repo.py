@@ -49,7 +49,7 @@ def get_document_by_hash(content_hash):
         return None
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT * FROM documents WHERE content_hash = ? AND status IN ('ok', 'review', 'processing') LIMIT 1",
+            "SELECT * FROM documents WHERE content_hash = ? AND status IN ('ok', 'review', 'processing', 'locked') LIMIT 1",
             (content_hash,)
         ).fetchone()
         return dict(row) if row else None
@@ -135,6 +135,8 @@ def search_documents(query=None, category=None, year=None, sender=None,
         if status:
             sql += " AND d.status = ?"
             params.append(status)
+        else:
+            sql += " AND d.status != 'ignored'"
         if tax_relevant is not None:
             sql += " AND d.tax_relevant = ?"
             params.append(int(tax_relevant))
@@ -205,6 +207,8 @@ def count_documents(query=None, category=None, year=None, sender=None,
         if status:
             sql += " AND d.status = ?"
             params.append(status)
+        else:
+            sql += " AND d.status != 'ignored'"
         if tax_relevant is not None:
             sql += " AND d.tax_relevant = ?"
             params.append(int(tax_relevant))

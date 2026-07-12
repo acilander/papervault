@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
-import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react'
-import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, type Document, type DocumentUpdate } from '../api'
+import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight, EyeOff, Eye, Lock, Unlock } from 'lucide-react'
+import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, ignoreDocument, unignoreDocument, lockDocument, unlockDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
 
@@ -50,28 +50,36 @@ export default function DocumentDetail() {
 
   if (!doc) return <div className="p-8 text-gray-500">Lade…</div>
 
-  const field = (label: string, key: keyof DocumentUpdate, type: 'text' | 'select' | 'textarea' = 'text') => (
+  const isLocked = doc.status === 'locked'
+  const isIgnored = doc.status === 'ignored'
+  const isReadOnly = isLocked || isIgnored
+
+  const field = (label: string, key: keyof DocumentUpdate, type: 'text' | 'select' | 'textarea' = 'text', disabled = false) => (
     <div>
       <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
       {type === 'select' ? (
         <select value={edit[key] ?? ''} onChange={e => setEdit(prev => ({ ...prev, [key]: e.target.value }))}
-          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400">
+          disabled={disabled}
+          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500">
           <option value="">–</option>
           {CATEGORIES.map(c => <option key={c}>{c}</option>)}
         </select>
       ) : type === 'textarea' ? (
         <textarea rows={3} value={edit[key] ?? ''} onChange={e => setEdit(prev => ({ ...prev, [key]: e.target.value }))}
-          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none" />
+          disabled={disabled}
+          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500" />
       ) : key === 'sender' ? (
         <>
           <input type="text" list="sender-list" value={edit[key] ?? ''}
             onChange={e => setEdit(prev => ({ ...prev, [key]: e.target.value }))}
-            className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+            disabled={disabled}
+            className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500" />
           <SenderDatalist id="sender-list" />
         </>
       ) : (
         <input type="text" value={edit[key] ?? ''} onChange={e => setEdit(prev => ({ ...prev, [key]: e.target.value }))}
-          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+          disabled={disabled}
+          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500" />
       )}
     </div>
   )
@@ -175,11 +183,11 @@ export default function DocumentDetail() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {field('Absender', 'sender')}
-          {field('Datum', 'date')}
-          {field('Dokumenttyp', 'document_type')}
-          {field('Kategorie', 'category', 'select')}
-          {field('Zusammenfassung', 'summary', 'textarea')}
+          {field('Absender', 'sender', 'text', isReadOnly)}
+          {field('Datum', 'date', 'text', isReadOnly)}
+          {field('Dokumenttyp', 'document_type', 'text', isReadOnly)}
+          {field('Kategorie', 'category', 'select', isReadOnly)}
+          {field('Zusammenfassung', 'summary', 'textarea', isReadOnly)}
 
           {/* Tags */}
           <div>
@@ -187,7 +195,8 @@ export default function DocumentDetail() {
             <input type="text" placeholder="z.B. Garantie, Wichtig"
               value={edit.tags ?? ''}
               onChange={e => setEdit(prev => ({ ...prev, tags: e.target.value }))}
-              className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+              disabled={isReadOnly}
+              className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500" />
             {doc.tags && doc.tags.split(',').map(t => t.trim()).filter(Boolean).map(t => (
               <span key={t} className="inline-block mt-1 mr-1 px-2 py-0.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs">{t}</span>
             ))}
@@ -195,21 +204,23 @@ export default function DocumentDetail() {
 
           {/* Steuer */}
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-800/50">
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className={`flex items-center gap-2 ${isReadOnly ? '' : 'cursor-pointer'}`}>
               <input type="checkbox"
                 checked={!!edit.low_value}
                 onChange={e => setEdit(prev => ({ ...prev, low_value: e.target.checked ? 1 : 0 }))}
-                className="w-4 h-4 accent-gray-500" />
+                disabled={isReadOnly}
+                className="w-4 h-4 accent-gray-500 disabled:opacity-50" />
               <span className="text-xs font-medium text-gray-700 dark:text-gray-300">⚠️ Geringer Archivwert</span>
             </label>
           </div>
 
           <div className="border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 bg-yellow-50 dark:bg-yellow-900/10 space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className={`flex items-center gap-2 ${isReadOnly ? '' : 'cursor-pointer'}`}>
               <input type="checkbox"
                 checked={!!edit.tax_relevant}
                 onChange={e => setEdit(prev => ({ ...prev, tax_relevant: e.target.checked ? 1 : 0 }))}
-                className="w-4 h-4 accent-yellow-500" />
+                disabled={isReadOnly}
+                className="w-4 h-4 accent-yellow-500 disabled:opacity-50" />
               <span className="text-xs font-medium text-yellow-800 dark:text-yellow-300">Steuerrelevant</span>
             </label>
             {!!edit.tax_relevant && (
@@ -218,7 +229,8 @@ export default function DocumentDetail() {
                 <input type="text" placeholder="z.B. 2024"
                   value={edit.tax_year ?? ''}
                   onChange={e => setEdit(prev => ({ ...prev, tax_year: e.target.value }))}
-                  className="w-full text-sm border border-yellow-300 dark:border-yellow-700 dark:bg-gray-800 rounded px-2 py-1.5 focus:outline-none" />
+                  disabled={isReadOnly}
+                  className="w-full text-sm border border-yellow-300 dark:border-yellow-700 dark:bg-gray-800 rounded px-2 py-1.5 focus:outline-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500" />
               </div>
             )}
           </div>
@@ -229,7 +241,8 @@ export default function DocumentDetail() {
             <input type="date"
               value={edit.expires_at ?? ''}
               onChange={e => setEdit(prev => ({ ...prev, expires_at: e.target.value }))}
-              className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+              disabled={isReadOnly}
+              className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500" />
           </div>
 
           {/* Notizen */}
@@ -238,7 +251,8 @@ export default function DocumentDetail() {
             <textarea rows={2} placeholder="Persönliche Anmerkungen…"
               value={edit.notes ?? ''}
               onChange={e => setEdit(prev => ({ ...prev, notes: e.target.value }))}
-              className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none" />
+              disabled={isReadOnly}
+              className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500" />
           </div>
 
           <div>
@@ -262,10 +276,11 @@ export default function DocumentDetail() {
                 placeholder={doc.filename}
                 value={newFilename}
                 onChange={e => setNewFilename(e.target.value)}
-                className="flex-1 text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
+                disabled={isReadOnly}
+                className="flex-1 text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-0 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500"
               />
               <button
-                disabled={!newFilename.trim() || renaming}
+                disabled={!newFilename.trim() || renaming || isReadOnly}
                 onClick={async () => {
                   if (!confirm(`Datei umbenennen zu "${newFilename.trim()}"?`)) return
                   setRenaming(true)
@@ -288,7 +303,18 @@ export default function DocumentDetail() {
         </div>
 
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
-          <button onClick={save} disabled={saving}
+          {/* Status badge */}
+          {(isLocked || isIgnored) && (
+            <div className={`px-3 py-2 rounded-lg text-xs font-medium text-center ${
+              isLocked
+                ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
+            }`}>
+              {isLocked ? '🔒 Gesperrt – nicht editierbar' : '🚫 Irrelevant – ausgeblendet'}
+            </div>
+          )}
+
+          <button onClick={save} disabled={saving || isReadOnly}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
             <Save size={14} />
             {saved ? 'Gespeichert ✓' : saving ? 'Speichert…' : 'Speichern'}
@@ -328,7 +354,8 @@ export default function DocumentDetail() {
           </button>
           <button
             onClick={() => { setReprocessHint(''); setReprocessDlg(true) }}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-sm rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+            disabled={isReadOnly}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-sm rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 disabled:opacity-50 transition-colors">
             <RefreshCw size={14} />
             Neu klassifizieren
           </button>
@@ -347,6 +374,69 @@ export default function DocumentDetail() {
               ))}
             </div>
           )}
+          {isIgnored ? (
+            <button
+              onClick={async () => {
+                try {
+                  const updated = await unignoreDocument(doc.id)
+                  setDoc(updated)
+                } catch (e: any) {
+                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-colors"
+            >
+              <Eye size={14} /> Wiederherstellen
+            </button>
+          ) : (
+            <button
+              onClick={async () => {
+                if (!confirm(`„${doc.filename}" als irrelevant markieren? Es wird aus der Liste ausgeblendet und nicht erneut importiert.`)) return
+                try {
+                  const updated = await ignoreDocument(doc.id)
+                  setDoc(updated)
+                } catch (e: any) {
+                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-colors"
+            >
+              <EyeOff size={14} /> Irrelevant
+            </button>
+          )}
+
+          {isLocked ? (
+            <button
+              onClick={async () => {
+                try {
+                  const updated = await unlockDocument(doc.id)
+                  setDoc(updated)
+                } catch (e: any) {
+                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 transition-colors"
+            >
+              <Unlock size={14} /> Entsperren
+            </button>
+          ) : (
+            <button
+              onClick={async () => {
+                if (!confirm(`„${doc.filename}" sperren? Es kann dann nicht mehr bearbeitet oder neu klassifiziert werden.`)) return
+                try {
+                  const updated = await lockDocument(doc.id)
+                  setDoc(updated)
+                } catch (e: any) {
+                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                }
+              }}
+              disabled={isIgnored}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 disabled:opacity-50 transition-colors"
+            >
+              <Lock size={14} /> Sperren
+            </button>
+          )}
+
           <button onClick={remove}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
             <Trash2 size={14} />

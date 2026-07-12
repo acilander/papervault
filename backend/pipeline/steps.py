@@ -2,7 +2,7 @@ import hashlib
 import os
 import shutil
 import subprocess
-from config import DUPLICATES_DIR
+from config import DUPLICATES_DIR, IGNORED_DIR
 from pdf_utils import unique_path
 from utils import log
 
@@ -47,7 +47,11 @@ def cleanup_empty_inbox_folders(original_path: str) -> None:
         current = parent
 
 
-def check_duplicate(file_path, text, doc_id):
+def compute_content_hash(file_path: str, text: str) -> tuple[str, str]:
+    """Compute the same content hash used for duplicate detection.
+
+    Returns (hash, type) where type is 'text' or 'binary'.
+    """
     cleaned_text = text.strip()
     if len(cleaned_text) >= 100:
         content_hash = hashlib.sha256(cleaned_text.encode("utf-8")).hexdigest()[:16]
@@ -63,11 +67,54 @@ def check_duplicate(file_path, text, doc_id):
         except Exception:
             content_hash = hashlib.sha256(cleaned_text.encode("utf-8")).hexdigest()[:16]
             hash_type = "text"
+    return content_hash, hash_type
+
+
+def check_duplicate(file_path, text, doc_id):
+    content_hash, hash_type = compute_content_hash(file_path, text)
 
     check_duplicate.last_hash = content_hash  # expose hash to caller
     check_duplicate.last_fuzzy_match = None   # expose fuzzy match to caller
 
     import db as _db
+
+    # --- Protected hash check (ignored / locked) ---
+    protected = _db.get_protected_hash(content_hash)
+    if protected:
+        if protected["type"] == "ignored":
+            os.makedirs(IGNORED_DIR, exist_ok=True)
+            dest = unique_path(os.path.join(IGNORED_DIR, os.path.basename(file_path)))
+            shutil.move(file_path, dest)
+            log(f"IGNORIERT ({hash_type.upper()}-Hash: {content_hash}) – in ignored/ verschoben")
+            _db.update_document(
+                doc_id,
+                file_path=dest,
+                filename=os.path.basename(dest),
+                summary=f"IGNORIERT: Hash steht auf der Ignorieren-Liste.",
+                status="ignored",
+                content_hash=content_hash,
+            )
+            cleanup_empty_inbox_folders(file_path)
+            return True
+
+        if protected["type"] == "locked":
+            dup_dir = os.path.join(DUPLICATES_DIR, content_hash)
+            os.makedirs(dup_dir, exist_ok=True)
+            dest = unique_path(os.path.join(dup_dir, os.path.basename(file_path)))
+            shutil.move(file_path, dest)
+            log(f"DUPLIKAT VON GESPERRTEM DOKUMENT ({hash_type.upper()}-Hash: {content_hash})")
+            original_doc = _db.get_document(protected["document_id"]) if protected.get("document_id") else None
+            original_name = os.path.basename(original_doc["file_path"]) if original_doc else "gesperrtes Original"
+            _db.update_document(
+                doc_id,
+                file_path=dest,
+                filename=os.path.basename(dest),
+                summary=f"DUPLIKAT: Identisch mit gesperrtem Original '{original_name}' (Hash: {content_hash})",
+                status="duplicate",
+                content_hash=content_hash,
+            )
+            cleanup_empty_inbox_folders(file_path)
+            return True
 
     # --- Exact hash match ---
     existing_doc = _db.get_document_by_hash(content_hash)

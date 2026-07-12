@@ -111,6 +111,16 @@ MIGRATIONS = [
     "INSERT INTO documents_fts(documents_fts) VALUES('rebuild')",
     "ALTER TABLE documents ADD COLUMN confidence TEXT DEFAULT NULL",
     "ALTER TABLE documents ADD COLUMN iban TEXT DEFAULT NULL",
+    """
+    CREATE TABLE IF NOT EXISTS protected_document_hashes (
+        hash         TEXT PRIMARY KEY,
+        type         TEXT NOT NULL CHECK(type IN ('ignored', 'locked')),
+        document_id  INTEGER,
+        filename     TEXT,
+        created_at   TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_protected_hashes_type ON protected_document_hashes(type)",
 ]
 
 def init_db():
@@ -136,6 +146,8 @@ def init_db():
     init_contracts_table()
     from db.services_repo import init_services_table
     init_services_table()
+    from db.protected_hashes_repo import init_protected_hashes_table
+    init_protected_hashes_table()
     from db.low_value_rules_repo import init_low_value_rules_table
     init_low_value_rules_table()
     from db.tax_years_repo import init_tax_years_table

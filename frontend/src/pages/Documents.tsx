@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search, Filter, LayoutList, LayoutGrid, Download, X, Undo2, FolderPlus, ArrowUpDown } from 'lucide-react'
+import { Search, Filter, LayoutList, LayoutGrid, Download, X, Undo2, FolderPlus, ArrowUpDown, Lock } from 'lucide-react'
 import { getDocumentsPage, getExpiring, thumbnailUrl, bulkUpdate, csvExportUrl, getCollections, addDocumentToCollection, type Document, type Collection } from '../api'
 import { useConfig } from '../ConfigContext'
 import Pagination from '../components/Pagination'
@@ -15,6 +15,8 @@ const STATUS_COLORS: Record<string, string> = {
   no_text:               'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
   encrypted:             'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
   corrupt:               'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+  ignored:               'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+  locked:                'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
 }
 
 const PAGE_SIZE = 50
@@ -255,6 +257,9 @@ export default function Documents() {
           className="text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400">
           <option value="">Alle Status</option>
           <option value="ok">OK</option>
+          <option value="review">Review</option>
+          <option value="locked">🔒 Gesperrt</option>
+          <option value="ignored">🚫 Irrelevant</option>
           <option value="classification_failed">Fehlgeschlagen</option>
           <option value="encrypted">Verschlüsselt</option>
           <option value="corrupt">Korrupt</option>
@@ -489,8 +494,9 @@ export default function Documents() {
                       <Link
                         to={`/documents/${doc.id}`}
                         state={{ docIds: docs.map(d => d.id), currentIndex: index, search: searchParams.toString() }}
-                        className="text-blue-600 hover:underline truncate block"
+                        className="text-blue-600 hover:underline truncate block flex items-center gap-1.5"
                       >
+                        {doc.status === 'locked' && <Lock size={12} className="text-amber-600 shrink-0" />}
                         {doc.filename}
                       </Link>
                     </td>

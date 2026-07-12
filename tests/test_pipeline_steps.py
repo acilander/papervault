@@ -199,3 +199,45 @@ def test_cleanup_empty_inbox_folders(monkeypatch, tmp_path):
     assert not empty.exists()
     assert nonempty.exists()
     assert inbox.exists()
+
+
+def test_check_duplicate_ignored_hash(monkeypatch, tmp_path):
+    text = "This document content is ignored and should not be re-imported"
+    content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    db.protect_document_hash(content_hash, "ignored", document_id=1, filename="ignored.pdf")
+
+    src = tmp_path / "inbox" / "reimport.pdf"
+    src.parent.mkdir()
+    src.write_bytes(text.encode("utf-8"))
+    ignored_dir = tmp_path / "ignored"
+    ignored_dir.mkdir()
+    monkeypatch.setattr(steps, "IGNORED_DIR", str(ignored_dir))
+
+    doc_id = _make_doc(str(tmp_path / "placeholder.pdf"), "other")
+    result = steps.check_duplicate(str(src), text, doc_id)
+    assert result is True
+    assert db.get_document(doc_id)["status"] == "ignored"
+    assert not src.exists()
+
+
+def test_check_duplicate_locked_hash(monkeypatch, tmp_path):
+    text = "This document content is locked and duplicates should be rejected"
+    content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    original_path = tmp_path / "archive" / "locked_original.pdf"
+    original_path.parent.mkdir()
+    original_path.write_bytes(text.encode("utf-8"))
+    original_id = _make_doc(str(original_path), content_hash, status="locked")
+    db.protect_document_hash(content_hash, "locked", document_id=original_id, filename="locked_original.pdf")
+
+    src = tmp_path / "inbox" / "reimport.pdf"
+    src.parent.mkdir()
+    src.write_bytes(text.encode("utf-8"))
+    duplicates_dir = tmp_path / "duplicates"
+    duplicates_dir.mkdir()
+    monkeypatch.setattr(steps, "DUPLICATES_DIR", str(duplicates_dir))
+
+    new_id = _make_doc(str(tmp_path / "incoming.pdf"), "incoming")
+    result = steps.check_duplicate(str(src), text, new_id)
+    assert result is True
+    assert db.get_document(new_id)["status"] == "duplicate"
+    assert not src.exists()
