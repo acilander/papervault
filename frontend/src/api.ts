@@ -264,3 +264,17 @@ export const csvExportUrl = (params: Record<string, string>) => {
 }
 
 export const collectionZipUrl = (id: number) => `/collections/${id}/export/zip`
+
+export interface FeedbackEntry {
+  id: number
+  ts: string
+  sender: string | null
+  document_type: string | null
+  category: string | null
+  summary: string | null
+  corrected_fields: string[]
+}
+
+export const getFeedback = () => api.get<FeedbackEntry[]>('/feedback/').then(r => r.data)
+
+export const deleteFeedback = (id: number) => api.delete(`/feedback/${id}`)

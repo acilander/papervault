@@ -49,7 +49,7 @@ Jeder Step in `core.py` hat seinen eigenen Fehler-Pfad. Ein zentraler Pipeline-R
 ## Features
 
 - [x] Bulk-Reprocessing für Dokumente ohne Absender
-- [ ] GUI-Seite für Feedback-Verwaltung (Few-Shot-Beispiele einsehen/löschen)
+- [x] GUI-Seite für Feedback-Verwaltung (Few-Shot-Beispiele einsehen/löschen)
 - [ ] Bulk-`low_value`-Markierung per Regel (Kategorie, Typ, Betragsschwelle)
 
 ## Meine Anmerkungen

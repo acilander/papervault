@@ -78,6 +78,11 @@ def import_from_list(examples: list[dict]):
         insert(entry)
 
 
+def delete(feedback_id: int):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM feedback WHERE id = ?", (feedback_id,))
+
+
 def _clear_all_for_tests():
     init_feedback_table()
     with get_conn() as conn:
