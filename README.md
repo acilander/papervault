@@ -510,6 +510,7 @@ python scripts/migrate_to_db.py
 
 ## Dokumentation
 
+- **Bedienungsanleitung**: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
 - Feature-Übersicht und aktuelle Liste: [`docs/FEATURES.md`](docs/FEATURES.md)
 - Vorgeschlagene Dokumentationsstruktur: [`docs/DOCUMENTATION_STRUCTURE.md`](docs/DOCUMENTATION_STRUCTURE.md)
 - Ignore / Lock: [`docs/feature-ignore-lock.md`](docs/feature-ignore-lock.md)
