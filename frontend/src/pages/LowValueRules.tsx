@@ -7,6 +7,7 @@ export default function LowValueRules() {
   const { categories: CATEGORIES, documentTypes: DOCUMENT_TYPES } = useConfig()
   const [rules, setRules] = useState<LowValueRule[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<{ rule: LowValueRule; matches: any[] } | null>(null)
   const [previewBusy, setPreviewBusy] = useState<number | null>(null)
   const [applyBusy, setApplyBusy] = useState<number | null>(null)
@@ -21,8 +22,16 @@ export default function LowValueRules() {
 
   const load = async () => {
     setLoading(true)
+    setError(null)
     try {
-      setRules(await getLowValueRules())
+      const data = await getLowValueRules()
+      if (!Array.isArray(data)) {
+        throw new Error(`Ungültige API-Antwort: ${typeof data}`)
+      }
+      setRules(data)
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || err?.message || 'Fehler beim Laden der Regeln')
+      setRules([])
     } finally {
       setLoading(false)
     }
@@ -156,13 +165,19 @@ export default function LowValueRules() {
         </div>
       </form>
 
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl px-4 py-3 text-sm text-red-700 dark:text-red-200">
+          {error}
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-12 text-gray-400">Lade Regeln…</div>
-      ) : rules.length === 0 ? (
+      ) : rules.length === 0 && !error ? (
         <div className="text-center py-12 text-gray-400 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
           Noch keine Regeln vorhanden.
         </div>
-      ) : (
+      ) : !error && (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">

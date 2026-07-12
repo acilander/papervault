@@ -26,6 +26,8 @@ export default defineConfig({
       '/items': 'http://localhost:8000',
       '/contracts': 'http://localhost:8000',
       '/services': 'http://localhost:8000',
+      '/feedback': 'http://localhost:8000',
+      '/low-value-rules': 'http://localhost:8000',
       '/tax': 'http://localhost:8000',
     },
   },

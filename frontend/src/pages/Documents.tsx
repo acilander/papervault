@@ -531,9 +531,9 @@ export default function Documents() {
                     <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{doc.document_type ?? '–'}</td>
                     <td className="px-4 py-2 text-gray-500 dark:text-gray-400 whitespace-nowrap">{doc.date ?? '–'}</td>
                     <td className="px-4 py-2">
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status ?? '–'}</span>
                     </td>
-                    <td className="px-4 py-2 text-gray-400 text-xs whitespace-nowrap">{doc.archived_at.slice(0, 10)}</td>
+                    <td className="px-4 py-2 text-gray-400 text-xs whitespace-nowrap">{doc.archived_at?.slice(0, 10) ?? '–'}</td>
                   </tr>
                 ))}
                 {docs.length === 0 && !loading && (
@@ -558,11 +558,11 @@ export default function Documents() {
                   />
                 </div>
                 <div className="px-2 py-1.5 space-y-0.5">
-                  <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate" title={doc.filename}>{doc.filename}</p>
+                  <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate" title={doc.filename ?? ''}>{doc.filename ?? 'Unbekannt'}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{doc.sender ?? '–'}</p>
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-xs text-gray-400">{doc.date?.slice(0, 7) ?? '–'}</span>
-                    <span className={`px-1.5 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status}</span>
+                    <span className={`px-1.5 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status ?? '–'}</span>
                   </div>
                 </div>
               </Link>

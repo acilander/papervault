@@ -102,6 +102,7 @@ def find_matching_docs(rule: dict, limit: int = 1000) -> list[dict]:
             f"  UNION ALL"
             f"  SELECT amount FROM contracts WHERE document_id = d.id AND amount IS NOT NULL"
             f") WHERE amount <= {max_amount}"
+            f")"
         )
     if rule.get("older_than_days") is not None:
         days = int(rule["older_than_days"])
