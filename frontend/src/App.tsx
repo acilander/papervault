@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package, ScrollText, Wrench, BookOpen } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package, ScrollText, Wrench, BookOpen, Calculator } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import DocumentDetail from './pages/DocumentDetail'
@@ -17,6 +17,8 @@ import Contracts from './pages/Contracts'
 import Services from './pages/Services'
 import Feedback from './pages/Feedback'
 import LowValueRules from './pages/LowValueRules'
+import TaxYears from './pages/tax/TaxYears'
+import TaxYearDetail from './pages/tax/TaxYearDetail'
 import axios from 'axios'
 import { ConfigProvider } from './ConfigContext'
 
@@ -35,6 +37,7 @@ const nav = [
   { to: '/monitor', label: 'Monitor', icon: Activity },
   { to: '/feedback', label: 'Feedback', icon: BookOpen },
   { to: '/low-value-rules', label: 'Geringer Wert', icon: AlertTriangle },
+  { to: '/tax/years', label: 'Steuer', icon: Calculator },
   { to: '/settings', label: 'Einstellungen', icon: SettingsIcon },
 ]
 
@@ -208,6 +211,8 @@ export default function App() {
             <Route path="/services" element={<Services />} />
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/low-value-rules" element={<LowValueRules />} />
+            <Route path="/tax/years" element={<TaxYears />} />
+            <Route path="/tax/years/:id" element={<TaxYearDetail />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
