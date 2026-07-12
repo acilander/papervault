@@ -172,144 +172,49 @@
   <main>
 <h1 id="feature-dokumente-ignorieren-und-sperren-ignore-lock">Feature: Dokumente ignorieren und sperren (Ignore / Lock)</h1>
 <h2 id="uberblick">Überblick</h2>
-<p>Mit diesem Feature können Dokumente entweder als <strong>irrelevant markiert</strong> oder <strong>gegen Änderungen gesperrt</strong> werden. Beide Aktionen werden über einen SHA256-Hash des Dokumenteninhalts in der Tabelle <code>protected_document_hashes</code> gesichert, sodass geschützte Dokumente nicht versehentlich re-importiert oder verändert werden.</p>
+<p>Dokumente können als <strong>irrelevant</strong> markiert oder <strong>gegen Änderungen gesperrt</strong> werden. Der Schutz basiert auf einem SHA256-Hash des Dokumenteninhalts, sodass geschützte Dokumente beim Re-Import erkannt werden.</p>
 <h2 id="status">Status</h2>
 <ul>
-<li><code>ignored</code> – Dokument ist irrelevant, wird standardmäßig ausgeblendet.</li>
+<li><code>ignored</code> – Dokument ist irrelevant, wird in der Standardliste ausgeblendet.</li>
 <li><code>locked</code> – Dokument ist gesperrt, Änderungen sind blockiert.</li>
 </ul>
-<h2 id="ablaufe">Abläufe</h2>
-<h3 id="ignorieren-eines-dokuments">Ignorieren eines Dokuments</h3>
-<ol>
-<li>Nutzer klickt in der Detailansicht auf <strong>„Ignorieren“</strong>.</li>
-<li>Backend:</li>
-<li>Status auf <code>ignored</code> setzen.</li>
-<li>SHA256-Hash-Präfix in <code>protected_document_hashes</code> mit <code>type = 'ignored'</code> speichern.</li>
-<li>Datei in den konfigurierten <code>IGNORED_DIR</code> verschieben.</li>
-<li>Frontend:</li>
-<li>Zurück zur Dokumentenliste navigieren.</li>
-<li>Dokument erscheint nicht mehr in der Standardansicht.</li>
-</ol>
-<h3 id="wiederherstellen-eines-ignorierten-dokuments">Wiederherstellen eines ignorierten Dokuments</h3>
-<ol>
-<li>Nutzer wählt Status-Filter <strong>„Irrelevant“</strong> in der Dokumentenliste.</li>
-<li>In der Detailansicht auf <strong>„Wiederherstellen“</strong> klicken.</li>
-<li>Backend:</li>
-<li>Status auf <code>ok</code> setzen.</li>
-<li>Hash aus <code>protected_document_hashes</code> entfernen.</li>
-</ol>
-<h3 id="sperren-eines-dokuments">Sperren eines Dokuments</h3>
-<ol>
-<li>Nutzer klickt in der Detailansicht auf <strong>„Sperren“</strong>.</li>
-<li>Backend:</li>
-<li>Status auf <code>locked</code> setzen.</li>
-<li>Hash in <code>protected_document_hashes</code> mit <code>type = 'locked'</code> speichern.</li>
-<li>Datei bleibt im Archiv.</li>
-</ol>
-<h3 id="entsperren">Entsperren</h3>
-<ol>
-<li>Nutzer klickt auf <strong>„Entsperren“</strong>.</li>
-<li>Backend:</li>
-<li>Status auf <code>ok</code> setzen.</li>
-<li>Hash aus <code>protected_document_hashes</code> entfernen.</li>
-</ol>
-<h2 id="auswirkungen-auf-andere-features">Auswirkungen auf andere Features</h2>
-<h3 id="standard-dokumentenliste">Standard-Dokumentenliste</h3>
-<ul>
-<li><code>search_documents()</code> und <code>count_documents()</code> schließen Dokumente mit <code>status = 'ignored'</code> standardmäßig aus.</li>
-<li>Mit dem Status-Filter <code>ignored</code> lassen sie sich gezielt anzeigen.</li>
-</ul>
-<h3 id="duplikat-check">Duplikat-Check</h3>
-<p><code>pipeline/steps.check_duplicate()</code> prüft zuerst <code>protected_document_hashes</code>:</p>
-<ul>
-<li>Hash ist <code>ignored</code> → Eingehende Datei wird verworfen, Status <code>ignored</code>, Datei nach <code>ignored/</code> verschoben.</li>
-<li>Hash ist <code>locked</code> → Eingehende Datei wird als Duplikat abgelehnt, Status <code>duplicate</code>, Datei nach <code>duplicates/</code> verschoben.</li>
-</ul>
-<h3 id="bearbeiten">Bearbeiten</h3>
-<ul>
-<li><code>PATCH /documents/{id}</code> und Bulk-Update blockieren Änderungen an <code>locked</code> oder <code>ignored</code> Dokumenten (HTTP 409).</li>
-<li><code>POST /documents/{id}/reprocess</code> und <code>POST /documents/{id}/confirm</code> sind ebenfalls blockiert.</li>
-</ul>
-<h2 id="api-endpunkte">API-Endpunkte</h2>
+<h2 id="bedienung">Bedienung</h2>
 <table>
 <thead>
 <tr>
-<th>Methode</th>
-<th>Pfad</th>
-<th>Beschreibung</th>
+<th>Aktion</th>
+<th>Vorgehen</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>POST</td>
-<td><code>/documents/{id}/ignore</code></td>
-<td>Dokument ignorieren</td>
+<td><strong>Ignorieren</strong></td>
+<td>In der Dokumenten-Detailansicht auf <strong>Ignorieren</strong> klicken. Datei wird nach <code>ignored/</code> verschoben.</td>
 </tr>
 <tr>
-<td>POST</td>
-<td><code>/documents/{id}/unignore</code></td>
-<td>Ignorieren aufheben</td>
+<td><strong>Wiederherstellen</strong></td>
+<td>Status-Filter <strong>Irrelevant</strong> wählen, Dokument öffnen, <strong>Wiederherstellen</strong> klicken.</td>
 </tr>
 <tr>
-<td>POST</td>
-<td><code>/documents/{id}/lock</code></td>
-<td>Dokument sperren</td>
+<td><strong>Sperren</strong></td>
+<td>In der Detailansicht auf <strong>Sperren</strong> klicken. Dokument bleibt im Archiv, wird aber schreibgeschützt.</td>
 </tr>
 <tr>
-<td>POST</td>
-<td><code>/documents/{id}/unlock</code></td>
-<td>Sperre aufheben</td>
+<td><strong>Entsperren</strong></td>
+<td>In der Detailansicht auf <strong>Entsperren</strong> klicken.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="frontend">Frontend</h2>
+<h2 id="auswirkungen">Auswirkungen</h2>
 <ul>
-<li>In <code>DocumentDetail.tsx</code> werden Eingabefelder für <code>locked</code>/<code>ignored</code> Dokumente deaktiviert (read-only).</li>
-<li>Sperren-/Ignorieren-Buttons mit Bestätigungsdialog.</li>
-<li>Status-Badges und <code>Lock</code>-Icon in der Dokumentenliste.</li>
+<li><strong>Standardliste</strong>: <code>ignored</code>-Dokumente werden ausgeblendet (sichtbar über Status-Filter).</li>
+<li><strong>Duplikat-Import</strong>: Ein erneuter Import eines <code>ignored</code>-Hashes wird abgewiesen; ein Import eines <code>locked</code>-Hashes wird als Duplikat markiert.</li>
+<li><strong>Bearbeiten</strong>: <code>PATCH</code>, Bulk-Update, Reprocess und Confirm sind für <code>locked</code>/<code>ignored</code> blockiert (HTTP 409).</li>
 </ul>
-<h2 id="datenbank">Datenbank</h2>
-<p><strong>Tabelle <code>protected_document_hashes</code>:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Spalte</th>
-<th>Typ</th>
-<th>Bedeutung</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>hash</td>
-<td>TEXT PK</td>
-<td>SHA256-Präfix des Dokumenteninhalts</td>
-</tr>
-<tr>
-<td>type</td>
-<td>TEXT</td>
-<td><code>ignored</code> oder <code>locked</code></td>
-</tr>
-<tr>
-<td>document_id</td>
-<td>INTEGER</td>
-<td>Verknüpfung zum Originaldokument</td>
-</tr>
-<tr>
-<td>filename</td>
-<td>TEXT</td>
-<td>Ursprünglicher Dateiname</td>
-</tr>
-<tr>
-<td>created_at</td>
-<td>TEXT</td>
-<td>Zeitstempel</td>
-</tr>
-</tbody>
-</table>
-<h2 id="tests">Tests</h2>
-<p>Siehe:
-- <code>tests/test_documents_api.py</code> – API-Tests für ignore/unignore, lock/unlock, Edit-Blocking, Standard-Ausblendung.
-- <code>tests/test_pipeline_steps.py</code> – Duplikat-Handling für ignored/locked Hashes.</p>
+<h2 id="technische-details">Technische Details</h2>
+<blockquote>
+<p>Architektur, Datenbankschema, API, Algorithmen und Tests: <a href="technical/03-ignore-lock.md"><code>technical/03-ignore-lock.md</code></a></p>
+</blockquote>
     <footer>
       PaperVault Dokumentation · Generiert aus Markdown
     </footer>

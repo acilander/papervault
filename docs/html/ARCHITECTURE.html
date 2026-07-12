@@ -198,18 +198,7 @@
 │  - Dateiarchivierung                │
 └─────────────────────────────────────┘
 </code></pre>
-<h2 id="2-datenfluss-beim-import">2. Datenfluss beim Import</h2>
-<pre><code>1. PDF landet im INBOX_DIR
-2. Monitor erkennt Datei oder Nutzer startet Archiver manuell
-3. Pipeline:
-   a. PDF → Text (native) oder OCR (gescannt)
-   b. Duplikat-Check via SHA256-Hash
-   c. LLM extrahiert Metadaten (Sender, Datum, Kategorie, Typ, Betrag, ...)
-   d. Datei wird nach TARGET_BASE/Kategorie/Sender/Jahr/Monat/ verschoben
-   e. SQLite-Eintrag in `documents` wird erstellt
-4. Frontend zeigt Dokument in Inbox / Dokumentenliste an
-</code></pre>
-<h2 id="3-verzeichnisstruktur">3. Verzeichnisstruktur</h2>
+<h2 id="2-verzeichnisstruktur">2. Verzeichnisstruktur</h2>
 <pre><code>papervault/
 ├── backend/
 │   ├── api/           # FastAPI Routes und Pydantic-Modelle
@@ -229,8 +218,7 @@
 ├── tests/             # pytest-Suite
 └── scripts/           # Hilfsskripte
 </code></pre>
-<h2 id="4-datenbank">4. Datenbank</h2>
-<p>SQLite-Datenbank mit folgenden Kern-Tabellen:</p>
+<h2 id="3-datenbank-kern-tabellen">3. Datenbank (Kern-Tabellen)</h2>
 <table>
 <thead>
 <tr>
@@ -267,27 +255,15 @@
 <td><code>items</code>, <code>services</code>, <code>contracts</code></td>
 <td>Extrahierte Entitäten</td>
 </tr>
-<tr>
-<td><code>senders</code></td>
-<td>Sender-Registry (JSON-Datei, nicht SQLite)</td>
-</tr>
 </tbody>
 </table>
-<h2 id="5-frontend-architektur">5. Frontend-Architektur</h2>
-<ul>
-<li><strong>React Router</strong> für Seitennavigation.</li>
-<li><strong>ConfigContext</strong> liefert globale Konfiguration (Kategorien, Dokumententypen).</li>
-<li><strong>API-Client</strong> (<code>api.ts</code>) kapselt alle Backend-Aufrufe.</li>
-<li><strong>Tailwind CSS</strong> für Styling, Dark Mode über <code>dark</code>-Klasse.</li>
-</ul>
-<h2 id="6-sicherheit-datenschutz">6. Sicherheit &amp; Datenschutz</h2>
+<h2 id="4-sicherheit-datenschutz">4. Sicherheit &amp; Datenschutz</h2>
 <ul>
 <li>Alle Daten bleiben lokal.</li>
 <li>Kein Cloud-LLM; optional GPU-beschleunigtes lokales LLM.</li>
-<li>Passwortgeschützte Bereiche sind nicht implementiert – Tool für lokale Nutzung gedacht.</li>
 </ul>
-<h2 id="7-erweiterbarkeit">7. Erweiterbarkeit</h2>
-<p>Neue Features werden typischerweise so hinzugefügt:</p>
+<h2 id="5-erweiterbarkeit">5. Erweiterbarkeit</h2>
+<p>Standard-Workflow für neue Features:</p>
 <ol>
 <li>DB-Schema in <code>backend/db/schema.py</code></li>
 <li>Repository in <code>backend/db/</code></li>
@@ -298,41 +274,49 @@
 <li>Vite-Proxy in <code>frontend/vite.config.ts</code> ergänzen</li>
 <li>Tests in <code>tests/</code></li>
 </ol>
-<h2 id="8-wichtige-algorithmen-uberblick">8. Wichtige Algorithmen (Überblick)</h2>
+<h2 id="detaillierte-technische-kapitel">Detaillierte technische Kapitel</h2>
 <table>
 <thead>
 <tr>
-<th>Bereich</th>
-<th>Algorithmus / Methode</th>
+<th>Thema</th>
+<th>Kapitel</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Duplikat-Erkennung</td>
-<td>SHA256-Hash des Dokumententextes</td>
+<td>Pipeline &amp; Import</td>
+<td><a href="technical/01-pipeline-and-import.md"><code>technical/01-pipeline-and-import.md</code></a></td>
 </tr>
 <tr>
-<td>Volltextsuche</td>
-<td>SQLite FTS5 über Trigger synchronisiert</td>
+<td>Suche &amp; Filter</td>
+<td><a href="technical/02-documents-search-and-filter.md"><code>technical/02-documents-search-and-filter.md</code></a></td>
 </tr>
 <tr>
-<td>Klassifikation</td>
-<td>Lokales GGUF-LLM mit strukturiertem JSON-Prompt</td>
+<td>Ignore / Lock</td>
+<td><a href="technical/03-ignore-lock.md"><code>technical/03-ignore-lock.md</code></a></td>
 </tr>
 <tr>
-<td>Low-Value-Matching</td>
-<td>SQL mit optionalem EXISTS-Subquery über <code>items/services/contracts</code></td>
+<td>Low-Value-Rules</td>
+<td><a href="technical/04-low-value-rules.md"><code>technical/04-low-value-rules.md</code></a></td>
 </tr>
 <tr>
-<td>Sender-Lernen</td>
-<td>Häufigkeitsanalyse + manuelle Review-Pins</td>
+<td>Duplikate</td>
+<td><a href="technical/05-duplicates.md"><code>technical/05-duplicates.md</code></a></td>
+</tr>
+<tr>
+<td>Absender</td>
+<td><a href="technical/06-senders.md"><code>technical/06-senders.md</code></a></td>
+</tr>
+<tr>
+<td>Steuer-Modul</td>
+<td><a href="technical/07-tax-module.md"><code>technical/07-tax-module.md</code></a></td>
 </tr>
 </tbody>
 </table>
 <h2 id="siehe-auch">Siehe auch</h2>
 <ul>
-<li><a href="USER_GUIDE.md"><code>docs/USER_GUIDE.md</code></a> – Bedienungsanleitung</li>
-<li><a href="technical/"><code>docs/technical/</code></a> – Detaillierte technische Kapitel</li>
+<li><a href="USER_GUIDE.md"><code>USER_GUIDE.md</code></a> – Bedienungsanleitung</li>
+<li><a href="UI_REFERENCE.md"><code>UI_REFERENCE.md</code></a> – UI-Elemente</li>
 </ul>
     <footer>
       PaperVault Dokumentation · Generiert aus Markdown

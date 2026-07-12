@@ -30,21 +30,7 @@ PaperVault ist eine lokale Dokumentenarchivierungslösung mit drei Hauptschichte
 └─────────────────────────────────────┘
 ```
 
-## 2. Datenfluss beim Import
-
-```
-1. PDF landet im INBOX_DIR
-2. Monitor erkennt Datei oder Nutzer startet Archiver manuell
-3. Pipeline:
-   a. PDF → Text (native) oder OCR (gescannt)
-   b. Duplikat-Check via SHA256-Hash
-   c. LLM extrahiert Metadaten (Sender, Datum, Kategorie, Typ, Betrag, ...)
-   d. Datei wird nach TARGET_BASE/Kategorie/Sender/Jahr/Monat/ verschoben
-   e. SQLite-Eintrag in `documents` wird erstellt
-4. Frontend zeigt Dokument in Inbox / Dokumentenliste an
-```
-
-## 3. Verzeichnisstruktur
+## 2. Verzeichnisstruktur
 
 ```
 papervault/
@@ -67,9 +53,7 @@ papervault/
 └── scripts/           # Hilfsskripte
 ```
 
-## 4. Datenbank
-
-SQLite-Datenbank mit folgenden Kern-Tabellen:
+## 3. Datenbank (Kern-Tabellen)
 
 | Tabelle | Zweck |
 |---------|-------|
@@ -80,24 +64,15 @@ SQLite-Datenbank mit folgenden Kern-Tabellen:
 | `collections` / `collection_documents` | Sammlungen |
 | `tax_years`, `tax_documents`, `tax_positions` | Steuer-Modul |
 | `items`, `services`, `contracts` | Extrahierte Entitäten |
-| `senders` | Sender-Registry (JSON-Datei, nicht SQLite) |
 
-## 5. Frontend-Architektur
-
-- **React Router** für Seitennavigation.
-- **ConfigContext** liefert globale Konfiguration (Kategorien, Dokumententypen).
-- **API-Client** (`api.ts`) kapselt alle Backend-Aufrufe.
-- **Tailwind CSS** für Styling, Dark Mode über `dark`-Klasse.
-
-## 6. Sicherheit & Datenschutz
+## 4. Sicherheit & Datenschutz
 
 - Alle Daten bleiben lokal.
 - Kein Cloud-LLM; optional GPU-beschleunigtes lokales LLM.
-- Passwortgeschützte Bereiche sind nicht implementiert – Tool für lokale Nutzung gedacht.
 
-## 7. Erweiterbarkeit
+## 5. Erweiterbarkeit
 
-Neue Features werden typischerweise so hinzugefügt:
+Standard-Workflow für neue Features:
 
 1. DB-Schema in `backend/db/schema.py`
 2. Repository in `backend/db/`
@@ -108,17 +83,19 @@ Neue Features werden typischerweise so hinzugefügt:
 7. Vite-Proxy in `frontend/vite.config.ts` ergänzen
 8. Tests in `tests/`
 
-## 8. Wichtige Algorithmen (Überblick)
+## Detaillierte technische Kapitel
 
-| Bereich | Algorithmus / Methode |
-|---------|----------------------|
-| Duplikat-Erkennung | SHA256-Hash des Dokumententextes |
-| Volltextsuche | SQLite FTS5 über Trigger synchronisiert |
-| Klassifikation | Lokales GGUF-LLM mit strukturiertem JSON-Prompt |
-| Low-Value-Matching | SQL mit optionalem EXISTS-Subquery über `items/services/contracts` |
-| Sender-Lernen | Häufigkeitsanalyse + manuelle Review-Pins |
+| Thema | Kapitel |
+|-------|---------|
+| Pipeline & Import | [`technical/01-pipeline-and-import.md`](technical/01-pipeline-and-import.md) |
+| Suche & Filter | [`technical/02-documents-search-and-filter.md`](technical/02-documents-search-and-filter.md) |
+| Ignore / Lock | [`technical/03-ignore-lock.md`](technical/03-ignore-lock.md) |
+| Low-Value-Rules | [`technical/04-low-value-rules.md`](technical/04-low-value-rules.md) |
+| Duplikate | [`technical/05-duplicates.md`](technical/05-duplicates.md) |
+| Absender | [`technical/06-senders.md`](technical/06-senders.md) |
+| Steuer-Modul | [`technical/07-tax-module.md`](technical/07-tax-module.md) |
 
 ## Siehe auch
 
-- [`docs/USER_GUIDE.md`](USER_GUIDE.md) – Bedienungsanleitung
-- [`docs/technical/`](technical/) – Detaillierte technische Kapitel
+- [`USER_GUIDE.md`](USER_GUIDE.md) – Bedienungsanleitung
+- [`UI_REFERENCE.md`](UI_REFERENCE.md) – UI-Elemente

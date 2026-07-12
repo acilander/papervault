@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Feature: Geringer-Wert-Regeln (Low Value Rules) – PaperVault Doku</title>
+  <title>Feature Low Value Rules – PaperVault Doku</title>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
@@ -170,11 +170,10 @@
     </nav>
   </aside>
   <main>
-<h1 id="feature-geringer-wert-regeln-low-value-rules">Feature: Geringer-Wert-Regeln (Low Value Rules)</h1>
+<p>﻿# Feature: Geringer-Wert-Regeln (Low Value Rules)</p>
 <h2 id="uberblick">Überblick</h2>
-<p>Mit Geringer-Wert-Regeln lassen sich Dokumente automatisch als <code>low_value = 1</code> markieren, wenn sie bestimmte Kriterien erfüllen. Das hilft, unwichtige Belege (z. B. kleine Rechnungen, alte Tankquittungen) von wichtigen Dokumenten zu trennen.</p>
+<p>Regeln markieren Dokumente automatisch als low_value = 1, wenn sie bestimmte Kriterien erfüllen. Damit lassen sich unwichtige Belege von wichtigen Dokumenten trennen.</p>
 <h2 id="regel-kriterien">Regel-Kriterien</h2>
-<p>Eine Regel kann aus beliebiger Kombination dieser Bedingungen bestehen:</p>
 <table>
 <thead>
 <tr>
@@ -184,189 +183,71 @@
 </thead>
 <tbody>
 <tr>
-<td><code>name</code></td>
+<td>Name</td>
 <td>Anzeigename der Regel</td>
 </tr>
 <tr>
-<td><code>category</code></td>
-<td>Dokument muss dieser Kategorie zugeordnet sein</td>
+<td>Kategorie</td>
+<td>Optional: Dokument muss dieser Kategorie zugeordnet sein</td>
 </tr>
 <tr>
-<td><code>document_type</code></td>
-<td>Dokument muss diesem Dokumententyp entsprechen</td>
+<td>Dokumententyp</td>
+<td>Optional: Dokument muss diesem Typ entsprechen</td>
 </tr>
 <tr>
-<td><code>max_amount</code></td>
-<td>Maximaler Betrag in EUR; geprüft gegen <code>items.total_price</code>, <code>services.amount</code> und <code>contracts.amount</code></td>
+<td>Maximalbetrag</td>
+<td>Optional: Betrag in EUR; geprüft gegen items, services, contracts</td>
 </tr>
 <tr>
-<td><code>older_than_days</code></td>
-<td>Dokument muss älter als X Tage sein (basierend auf <code>archived_at</code>)</td>
+<td>Älter als (Tage)</td>
+<td>Optional: Mindestalter des Dokuments</td>
 </tr>
 <tr>
-<td><code>active</code></td>
-<td>Regel ist aktiv/inaktiv</td>
+<td>Aktiv</td>
+<td>Regel ein-/ausschalten</td>
 </tr>
 </tbody>
 </table>
-<h2 id="betragsprufung">Betragsprüfung</h2>
-<p>Wenn <code>max_amount</code> gesetzt ist, sucht die Regel in den verknüpften Tabellen <code>items</code>, <code>services</code> und <code>contracts</code> nach einem Betrag, der kleiner oder gleich dem angegebenen Limit ist:</p>
-<pre><code class="language-sql">EXISTS (
-  SELECT 1 FROM (
-    SELECT total_price AS amount FROM items WHERE document_id = d.id AND total_price IS NOT NULL
-    UNION ALL
-    SELECT amount FROM services WHERE document_id = d.id AND amount IS NOT NULL
-    UNION ALL
-    SELECT amount FROM contracts WHERE document_id = d.id AND amount IS NOT NULL
-  ) WHERE amount &lt;= :max_amount
-)
-</code></pre>
-<h2 id="vorgehen">Vorgehen</h2>
-<h3 id="regel-erstellen">Regel erstellen</h3>
-<ol>
-<li>Menü <strong>„Geringer Wert“</strong> in der Sidebar öffnen.</li>
-<li>Name und gewünschte Bedingungen eintragen.</li>
-<li><strong>„Regel erstellen“</strong> klicken.</li>
-</ol>
-<h3 id="regel-testen">Regel testen</h3>
-<ul>
-<li><strong>Vorschau</strong>-Icon (Auge) klicken.</li>
-<li>Zeigt alle Dokumente an, die zur Regel passen würden, ohne sie zu verändern.</li>
-</ul>
-<h3 id="regel-anwenden">Regel anwenden</h3>
-<ul>
-<li><strong>Anwenden</strong>-Icon (Play) klicken.</li>
-<li>Passende Dokumente werden auf <code>low_value = 1</code> gesetzt.</li>
-<li>Ergebnis: Anzahl der Treffer und tatsächlich aktualisierten Dokumente.</li>
-</ul>
-<h3 id="regel-aktivierendeaktivieren">Regel aktivieren/deaktivieren</h3>
-<ul>
-<li>Toggle-Schalter in der Liste verwenden.</li>
-<li>Inaktive Regeln werden beim Anwenden übersprungen.</li>
-</ul>
-<h3 id="regel-loschen">Regel löschen</h3>
-<ul>
-<li>Mülleimer-Icon klicken, Bestätigung erteilen.</li>
-</ul>
-<h2 id="api-endpunkte">API-Endpunkte</h2>
+<h2 id="bedienung">Bedienung</h2>
 <table>
 <thead>
 <tr>
-<th>Methode</th>
-<th>Pfad</th>
-<th>Beschreibung</th>
+<th>Aktion</th>
+<th>Vorgehen</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>GET</td>
-<td><code>/low-value-rules/</code></td>
-<td>Alle Regeln auflisten</td>
+<td><strong>Regel erstellen</strong></td>
+<td>Menü <strong>Geringer Wert</strong> öffnen, Name und Bedingungen eintragen, <strong>Regel erstellen</strong> klicken.</td>
 </tr>
 <tr>
-<td>POST</td>
-<td><code>/low-value-rules/</code></td>
-<td>Neue Regel erstellen</td>
+<td><strong>Vorschau</strong></td>
+<td>Augen-Icon klicken: Zeigt Treffer ohne Änderung.</td>
 </tr>
 <tr>
-<td>GET</td>
-<td><code>/low-value-rules/{id}</code></td>
-<td>Einzelne Regel abrufen</td>
+<td><strong>Anwenden</strong></td>
+<td>Play-Icon klicken: Markiert alle passenden Dokumente mit low_value = 1.</td>
 </tr>
 <tr>
-<td>PATCH</td>
-<td><code>/low-value-rules/{id}</code></td>
-<td>Regel bearbeiten</td>
+<td><strong>Aktivieren/Deaktivieren</strong></td>
+<td>Toggle-Schalter in der Liste verwenden.</td>
 </tr>
 <tr>
-<td>DELETE</td>
-<td><code>/low-value-rules/{id}</code></td>
-<td>Regel löschen</td>
-</tr>
-<tr>
-<td>POST</td>
-<td><code>/low-value-rules/{id}/preview</code></td>
-<td>Vorschau der Treffer</td>
-</tr>
-<tr>
-<td>POST</td>
-<td><code>/low-value-rules/{id}/apply</code></td>
-<td>Regel anwenden</td>
+<td><strong>Löschen</strong></td>
+<td>Mülleimer-Icon klicken und bestätigen.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="datenbank">Datenbank</h2>
-<p><strong>Tabelle <code>low_value_rules</code>:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Spalte</th>
-<th>Typ</th>
-<th>Bedeutung</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>id</td>
-<td>INTEGER PK</td>
-<td>Regel-ID</td>
-</tr>
-<tr>
-<td>name</td>
-<td>TEXT</td>
-<td>Name</td>
-</tr>
-<tr>
-<td>category</td>
-<td>TEXT</td>
-<td>Optional: Kategorie</td>
-</tr>
-<tr>
-<td>document_type</td>
-<td>TEXT</td>
-<td>Optional: Dokumententyp</td>
-</tr>
-<tr>
-<td>max_amount</td>
-<td>REAL</td>
-<td>Optional: Maximalbetrag</td>
-</tr>
-<tr>
-<td>older_than_days</td>
-<td>INTEGER</td>
-<td>Optional: Alter in Tagen</td>
-</tr>
-<tr>
-<td>active</td>
-<td>INTEGER</td>
-<td>1 = aktiv, 0 = inaktiv</td>
-</tr>
-<tr>
-<td>created_at</td>
-<td>TEXT</td>
-<td>Zeitstempel</td>
-</tr>
-</tbody>
-</table>
-<h2 id="anzeige-im-frontend">Anzeige im Frontend</h2>
+<h2 id="anzeige">Anzeige</h2>
 <ul>
-<li>In der Sidebar wird die Anzahl der <code>low_value</code>-Dokumente angezeigt.</li>
-<li>In der Dokumentenliste kann über den Button <strong>„Geringer Wert“</strong> gefiltert werden.</li>
+<li>Sidebar-Badge zeigt die Anzahl der low_value-Dokumente an.</li>
+<li>In der Dokumentenliste kann über <strong>Geringer Wert</strong> gefiltert werden.</li>
 </ul>
-<h2 id="bekannte-einschrankungen">Bekannte Einschränkungen</h2>
-<ul>
-<li>Der Betrag wird nur aus <code>items</code>, <code>services</code> und <code>contracts</code> gelesen, nicht aus dem reinen Dokumententext.</li>
-<li>Eine Regel prüft Beträge nur auf <code>&lt;= max_amount</code>, nicht auf <code>&gt;= 0</code>.</li>
-</ul>
-<h2 id="tests">Tests</h2>
-<p>Siehe <code>tests/test_low_value_rules.py</code>:</p>
-<ul>
-<li>Auflisten und Erstellen</li>
-<li>Aktivieren/Deaktivieren</li>
-<li>Löschen</li>
-<li>Vorschau und Anwenden</li>
-<li>Prüfung, dass <code>/low-value-rules/</code> immer ein Array zurückgibt</li>
-</ul>
+<h2 id="technische-details">Technische Details</h2>
+<blockquote>
+<p>Architektur, SQL-Matching, API, Mathematik und Tests: <a href="technical/04-low-value-rules.md">   echnical/04-low-value-rules.md</a></p>
+</blockquote>
     <footer>
       PaperVault Dokumentation · Generiert aus Markdown
     </footer>
