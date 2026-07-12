@@ -62,24 +62,70 @@ def relative_url(source: Path, target: Path) -> str:
     return "/".join(parts + list(target_rel.parts))
 
 
+NAV_ORDER: list[tuple[str | None, str]] = [
+    ("index.html", "Übersicht"),
+    ("USER_GUIDE.html", "Bedienungsanleitung"),
+    ("UI_REFERENCE.html", "UI-Referenz"),
+    ("FEATURES.html", "Feature-Liste"),
+    ("ARCHITECTURE.html", "Systemarchitektur"),
+]
+
+TECHNICAL_CHAPTERS: list[tuple[str, str]] = [
+    ("technical/01-pipeline-and-import.html", "01 Pipeline & Import"),
+    ("technical/02-documents-search-and-filter.html", "02 Suche & Filter"),
+    ("technical/03-ignore-lock.html", "03 Ignore / Lock"),
+    ("technical/04-low-value-rules.html", "04 Low-Value-Rules"),
+    ("technical/05-duplicates.html", "05 Duplikate"),
+    ("technical/06-senders.html", "06 Absender"),
+    ("technical/07-tax-module.html", "07 Steuer-Modul"),
+    ("technical/08-collections.html", "08 Sammlungen"),
+    ("technical/09-chat-and-llm.html", "09 KI-Suche"),
+    ("technical/10-monitor.html", "10 Monitor"),
+    ("technical/11-feedback.html", "11 Feedback"),
+    ("technical/12-settings-and-config.html", "12 Einstellungen"),
+    ("technical/13-inventory-contracts-services.html", "13 Inventar / Verträge / Ausgaben"),
+]
+
+FEATURE_DOCS: list[tuple[str, str]] = [
+    ("feature-ignore-lock.html", "Ignore / Lock"),
+    ("feature-low-value-rules.html", "Low-Value-Rules"),
+]
+
+BLUEPRINTS: list[tuple[str, str]] = [
+    ("blueprints/blueprint_tax_module.html", "Steuer-Modul Blueprint"),
+    ("blueprints/cline_blueprint_kv_extraction.html", "KV-Extraction Blueprint"),
+    ("blueprints/cline_blueprint_vision_logo.html", "Vision/Logo Blueprint"),
+]
+
+OTHER: list[tuple[str, str]] = [
+    ("llm-cascade-scenarios.html", "LLM-Cascade-Szenarien"),
+    ("DOCUMENTATION_STRUCTURE.html", "Doku-Struktur"),
+]
+
+ORDERED_PAGES = NAV_ORDER + FEATURE_DOCS + TECHNICAL_CHAPTERS + BLUEPRINTS + OTHER
+
+
+def page_sort_key(path: Path) -> tuple[int, str]:
+    """Sort pages by defined logical order, fallback to alphabetical."""
+    rel = path.relative_to(OUT_DIR).as_posix()
+    for idx, (pattern, _) in enumerate(ORDERED_PAGES):
+        if pattern and rel == pattern:
+            return (idx, rel)
+    return (len(ORDERED_PAGES), rel)
+
+
 def build_nav(current_html: Path, pages: Iterable[Path]) -> str:
     """Build a sidebar navigation linking all generated HTML pages."""
     items: list[str] = []
-    for page in sorted(pages):
+    ordered = sorted(pages, key=page_sort_key)
+    for page in ordered:
+        rel = page.relative_to(OUT_DIR).as_posix()
         title = page.stem.replace("-", " ").replace("_", " ").title()
-        # Custom friendly titles
-        title = {
-            "index": "Übersicht",
-            "user_guide": "Bedienungsanleitung",
-            "features": "Feature-Liste",
-            "architecture": "Systemarchitektur",
-            "documentation_structure": "Doku-Struktur",
-            "feature_ignore_lock": "Ignore / Lock",
-            "feature_low_value_rules": "Low-Value-Rules",
-            "blueprint_tax_module": "Steuer-Modul Blueprint",
-            "cline_blueprint_kv_extraction": "KV-Extraction Blueprint",
-            "cline_blueprint_vision_logo": "Vision/Logo Blueprint",
-        }.get(page.stem, title)
+        # Use friendly titles from ORDERED_PAGES if available
+        for pattern, friendly in ORDERED_PAGES:
+            if pattern and rel == pattern:
+                title = friendly
+                break
         href = relative_url(current_html, page)
         active = " active" if page.name == current_html.name else ""
         items.append(f'<a class="nav-link{active}" href="{href}">{title}</a>')
@@ -238,7 +284,6 @@ def html_body(title: str, content: str, nav: str) -> str:
     </nav>
   </aside>
   <main>
-    <h1>{title}</h1>
 {content}
     <footer>
       PaperVault Dokumentation · Generiert aus Markdown
