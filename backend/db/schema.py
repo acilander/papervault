@@ -48,6 +48,51 @@ CREATE TRIGGER IF NOT EXISTS documents_ad AFTER DELETE ON documents BEGIN
     INSERT INTO documents_fts(documents_fts, rowid, filename, sender, summary, keywords, full_text)
     VALUES ('delete', old.id, old.filename, old.sender, old.summary, old.keywords, old.full_text);
 END;
+
+CREATE TABLE IF NOT EXISTS tax_years (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    year        INTEGER NOT NULL UNIQUE,
+    status      TEXT DEFAULT 'draft',
+    notes       TEXT,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tax_documents (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tax_year_id     INTEGER NOT NULL,
+    document_id     INTEGER NOT NULL,
+    source_type     TEXT NOT NULL,
+    parsed_at       TEXT,
+    verified        INTEGER DEFAULT 0,
+    FOREIGN KEY (tax_year_id) REFERENCES tax_years(id) ON DELETE CASCADE,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+    UNIQUE(tax_year_id, document_id, source_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tax_documents_year ON tax_documents(tax_year_id);
+CREATE INDEX IF NOT EXISTS idx_tax_documents_document ON tax_documents(document_id);
+
+CREATE TABLE IF NOT EXISTS tax_positions (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    tax_year_id         INTEGER NOT NULL,
+    tax_document_id     INTEGER NOT NULL,
+    category            TEXT NOT NULL,
+    subcategory         TEXT,
+    label               TEXT NOT NULL,
+    amount              REAL,
+    amount_assessed     REAL,
+    page                INTEGER,
+    verified            INTEGER DEFAULT 0,
+    source_text         TEXT,
+    created_at          TEXT NOT NULL,
+    FOREIGN KEY (tax_year_id) REFERENCES tax_years(id) ON DELETE CASCADE,
+    FOREIGN KEY (tax_document_id) REFERENCES tax_documents(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_tax_positions_year ON tax_positions(tax_year_id);
+CREATE INDEX IF NOT EXISTS idx_tax_positions_document ON tax_positions(tax_document_id);
+CREATE INDEX IF NOT EXISTS idx_tax_positions_category ON tax_positions(category);
 """
 
 MIGRATIONS = [
@@ -93,3 +138,9 @@ def init_db():
     init_services_table()
     from db.low_value_rules_repo import init_low_value_rules_table
     init_low_value_rules_table()
+    from db.tax_years_repo import init_tax_years_table
+    init_tax_years_table()
+    from db.tax_documents_repo import init_tax_documents_table
+    init_tax_documents_table()
+    from db.tax_positions_repo import init_tax_positions_table
+    init_tax_positions_table()
