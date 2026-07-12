@@ -19,6 +19,7 @@ import Feedback from './pages/Feedback'
 import LowValueRules from './pages/LowValueRules'
 import TaxYears from './pages/tax/TaxYears'
 import TaxYearDetail from './pages/tax/TaxYearDetail'
+import TaxYearComparison from './pages/tax/TaxYearComparison'
 import axios from 'axios'
 import { ConfigProvider } from './ConfigContext'
 
@@ -213,6 +214,7 @@ export default function App() {
             <Route path="/low-value-rules" element={<LowValueRules />} />
             <Route path="/tax/years" element={<TaxYears />} />
             <Route path="/tax/years/:id" element={<TaxYearDetail />} />
+            <Route path="/tax/years/:id/comparison" element={<TaxYearComparison />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>

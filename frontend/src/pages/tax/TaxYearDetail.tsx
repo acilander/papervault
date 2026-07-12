@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Calendar, FileText, Trash2, Plus, Play, Check, X, RefreshCw, Save, AlertCircle, Edit3 } from 'lucide-react'
+import { Calendar, FileText, Trash2, Plus, Play, Check, X, RefreshCw, Save, AlertCircle, Edit3, Scale } from 'lucide-react'
 import {
   getTaxYear, getAvailableTaxDocuments,
   createTaxDocument, deleteTaxDocument, deleteTaxPosition, updateTaxPosition,
@@ -142,6 +142,12 @@ export default function TaxYearDetail() {
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{STATUS_LABELS[year.status] || year.status}{year.notes ? ` · ${year.notes}` : ''}</p>
         </div>
+        <button
+          onClick={() => navigate(`/tax/years/${taxYearId}/comparison`)}
+          className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        >
+          <Scale size={14} /> Vergleich
+        </button>
       </div>
 
       {unverifiedCount > 0 && (
