@@ -103,31 +103,61 @@ OTHER: list[tuple[str, str]] = [
 
 ORDERED_PAGES = NAV_ORDER + FEATURE_DOCS + TECHNICAL_CHAPTERS + BLUEPRINTS + OTHER
 
+NAV_GROUPS: list[tuple[str, list[tuple[str | None, str]]]] = [
+    ("Einstieg", [
+        ("index.html", "Übersicht"),
+        ("USER_GUIDE.html", "Bedienungsanleitung"),
+        ("FEATURES.html", "Feature-Liste"),
+    ]),
+    ("System", [
+        ("ARCHITECTURE.html", "Systemarchitektur"),
+        ("DOCUMENTATION_STRUCTURE.html", "Doku-Struktur"),
+    ]),
+    ("Features", [
+        ("feature-ignore-lock.html", "Ignore / Lock"),
+        ("feature-low-value-rules.html", "Low-Value-Rules"),
+    ]),
+    ("Technische Tiefe", TECHNICAL_CHAPTERS),
+    ("Blueprints", BLUEPRINTS),
+    ("Sonstiges", [
+        ("llm-cascade-scenarios.html", "LLM-Cascade-Szenarien"),
+    ]),
+]
 
-def page_sort_key(path: Path) -> tuple[int, str]:
-    """Sort pages by defined logical order, fallback to alphabetical."""
-    rel = path.relative_to(OUT_DIR).as_posix()
-    for idx, (pattern, _) in enumerate(ORDERED_PAGES):
+
+def _lookup_title(rel: str) -> str:
+    for pattern, title in ORDERED_PAGES:
         if pattern and rel == pattern:
-            return (idx, rel)
-    return (len(ORDERED_PAGES), rel)
+            return title
+    return Path(rel).stem.replace("-", " ").replace("_", " ").title()
+
+
+def page_sort_key(rel: str) -> tuple[int, int]:
+    """Sort a page relative path by its group position and link position."""
+    for group_idx, (_, links) in enumerate(NAV_GROUPS):
+        for link_idx, (pattern, _) in enumerate(links):
+            if pattern and rel == pattern:
+                return (group_idx, link_idx)
+    return (len(NAV_GROUPS), 0)
 
 
 def build_nav(current_html: Path, pages: Iterable[Path]) -> str:
-    """Build a sidebar navigation linking all generated HTML pages."""
+    """Build a grouped sidebar navigation linking all generated HTML pages."""
+    present: set[str] = {p.relative_to(OUT_DIR).as_posix() for p in pages}
     items: list[str] = []
-    ordered = sorted(pages, key=page_sort_key)
-    for page in ordered:
-        rel = page.relative_to(OUT_DIR).as_posix()
-        title = page.stem.replace("-", " ").replace("_", " ").title()
-        # Use friendly titles from ORDERED_PAGES if available
-        for pattern, friendly in ORDERED_PAGES:
-            if pattern and rel == pattern:
-                title = friendly
-                break
-        href = relative_url(current_html, page)
-        active = " active" if page.name == current_html.name else ""
-        items.append(f'<a class="nav-link{active}" href="{href}">{title}</a>')
+    for group_title, links in NAV_GROUPS:
+        group_links: list[str] = []
+        for pattern, title in links:
+            if pattern not in present:
+                continue
+            href = relative_url(current_html, OUT_DIR / pattern)
+            active = " active" if Path(pattern).name == current_html.name else ""
+            group_links.append(f'<a class="nav-link{active}" href="{href}">{title}</a>')
+        if not group_links:
+            continue
+        items.append(f'<div class="nav-group"><h3>{group_title}</h3>')
+        items.extend(group_links)
+        items.append('</div>')
     return "\n".join(items)
 
 
@@ -201,6 +231,15 @@ def html_head(title: str) -> str:
     }}
     .nav-link:hover {{ background: var(--bg); }}
     .nav-link.active {{ background: var(--accent); color: #fff; }}
+    .nav-group {{ margin-bottom: 1rem; }}
+    .nav-group h3 {{
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+      margin: 0 0 .4rem .6rem;
+      font-weight: 600;
+    }}
     main {{
       margin-left: 280px;
       flex: 1;
@@ -342,14 +381,9 @@ def build() -> None:
     # Generate index.html
     cards = []
     content_pages = [p for p in pages if p != index_out]
-    for out in sorted(content_pages, key=page_sort_key):
+    for out in sorted(content_pages, key=lambda p: page_sort_key(p.relative_to(OUT_DIR).as_posix())):
         href = out.relative_to(OUT_DIR).as_posix()
-        rel = href
-        title = out.stem.replace("-", " ").replace("_", " ").title()
-        for pattern, friendly in ORDERED_PAGES:
-            if pattern and rel == pattern:
-                title = friendly
-                break
+        title = _lookup_title(href)
         cards.append(
             f'<a class="card" href="{href}"><h3>{title}</h3></a>'
         )

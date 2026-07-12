@@ -67,6 +67,15 @@
     }
     .nav-link:hover { background: var(--bg); }
     .nav-link.active { background: var(--accent); color: #fff; }
+    .nav-group { margin-bottom: 1rem; }
+    .nav-group h3 {
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+      margin: 0 0 .4rem .6rem;
+      font-weight: 600;
+    }
     main {
       margin-left: 280px;
       flex: 1;
@@ -142,12 +151,20 @@
   <aside>
     <h1>📚 PaperVault Doku</h1>
     <nav>
+<div class="nav-group"><h3>Einstieg</h3>
 <a class="nav-link" href="../index.html">Übersicht</a>
 <a class="nav-link" href="../USER_GUIDE.html">Bedienungsanleitung</a>
 <a class="nav-link" href="../FEATURES.html">Feature-Liste</a>
+</div>
+<div class="nav-group"><h3>System</h3>
 <a class="nav-link" href="../ARCHITECTURE.html">Systemarchitektur</a>
+<a class="nav-link" href="../DOCUMENTATION_STRUCTURE.html">Doku-Struktur</a>
+</div>
+<div class="nav-group"><h3>Features</h3>
 <a class="nav-link" href="../feature-ignore-lock.html">Ignore / Lock</a>
 <a class="nav-link" href="../feature-low-value-rules.html">Low-Value-Rules</a>
+</div>
+<div class="nav-group"><h3>Technische Tiefe</h3>
 <a class="nav-link" href="../technical/01-pipeline-and-import.html">01 Pipeline & Import</a>
 <a class="nav-link" href="../technical/02-documents-search-and-filter.html">02 Suche & Filter</a>
 <a class="nav-link" href="../technical/03-ignore-lock.html">03 Ignore / Lock</a>
@@ -161,11 +178,15 @@
 <a class="nav-link" href="../technical/11-feedback.html">11 Feedback</a>
 <a class="nav-link active" href="../technical/12-settings-and-config.html">12 Einstellungen</a>
 <a class="nav-link" href="../technical/13-inventory-contracts-services.html">13 Inventar / Verträge / Ausgaben</a>
+</div>
+<div class="nav-group"><h3>Blueprints</h3>
 <a class="nav-link" href="../blueprints/blueprint_tax_module.html">Steuer-Modul Blueprint</a>
 <a class="nav-link" href="../blueprints/cline_blueprint_kv_extraction.html">KV-Extraction Blueprint</a>
 <a class="nav-link" href="../blueprints/cline_blueprint_vision_logo.html">Vision/Logo Blueprint</a>
+</div>
+<div class="nav-group"><h3>Sonstiges</h3>
 <a class="nav-link" href="../llm-cascade-scenarios.html">LLM-Cascade-Szenarien</a>
-<a class="nav-link" href="../DOCUMENTATION_STRUCTURE.html">Doku-Struktur</a>
+</div>
     </nav>
   </aside>
   <main>
