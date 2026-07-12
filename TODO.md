@@ -33,13 +33,15 @@
 
 ### 🟡 Offen (mittel)
 
-**Zirkulärer Import als Workaround (`storage.py`)**
-`import db as _db` innerhalb von `load_hashes()` ist ein Workaround für einen zirkulären Import. Fix: `db` per Dependency Injection übergeben.
+### ✅ Erledigt
 
-### 🟢 Offen (niedrig)
+**Zirkulärer Import als Workaround (`storage.py`)**
+`import db as _db` innerhalb von `load_sender_registry()` entfernt; Modul-Import `import db` wird bereits am Dateianfang verwendet.
 
 **`vision._model` als globale Variable**
-Funktioniert, aber eine `VisionService`-Klasse mit lazy-load wäre sauberer und testbarer.
+In `VisionService`-Klasse mit lazy-load umgewandelt; `analyze_logo()` delegiert an Singleton-Instanz.
+
+### 🟢 Offen (niedrig)
 
 **Kein einheitlicher Error-Boundary in der Pipeline**
 Jeder Step in `core.py` hat seinen eigenen Fehler-Pfad. Ein zentraler Pipeline-Runner mit einheitlicher Fehlerbehandlung wäre wartbarer.

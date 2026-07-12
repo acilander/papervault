@@ -10,47 +10,69 @@ logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 logging.getLogger("transformers").setLevel(logging.ERROR)
 warnings.filterwarnings("ignore", category=UserWarning, module="transformers")
 
-_model = None
-_tokenizer = None
-_MODEL_ID = "vikhyatk/moondream2"
-_REVISION = "2025-01-09"
-
 _PROMPT = (
     "Welche Firma, Marke oder Organisation ist auf diesem Logo/Briefkopf zu sehen? "
     "Antworte kurz und nur mit dem Namen."
 )
 
 
-def _load_model():
-    global _model, _tokenizer
-    if _model is not None:
-        return
-    import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-    if not torch.cuda.is_available():
-        raise RuntimeError(
-            "Vision-Modell (moondream2) erfordert CUDA. "
-            "Keine GPU verfügbar – bitte torch mit CUDA installieren: "
-            "pip install torch torchvision --index-url https://download.pytorch.org/whl/cu132"
-        )
-    dtype = torch.float16
-    device = "cuda"
-    _stderr, sys.stderr = sys.stderr, io.StringIO()
-    try:
-        _tokenizer = AutoTokenizer.from_pretrained(_MODEL_ID, revision=_REVISION)
-        _model = AutoModelForCausalLM.from_pretrained(
-            _MODEL_ID, trust_remote_code=True, revision=_REVISION, torch_dtype=dtype,
-        ).to(device)
-        _model.eval()
-    finally:
-        sys.stderr = _stderr
+class VisionService:
+    """Lazy-loading wrapper for the moondream2 vision model."""
+
+    _MODEL_ID = "vikhyatk/moondream2"
+    _REVISION = "2025-01-09"
+
+    def __init__(self):
+        self._model = None
+        self._tokenizer = None
+
+    def _load(self):
+        if self._model is not None:
+            return
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "Vision-Modell (moondream2) erfordert CUDA. "
+                "Keine GPU verfügbar – bitte torch mit CUDA installieren: "
+                "pip install torch torchvision --index-url https://download.pytorch.org/whl/cu132"
+            )
+        dtype = torch.float16
+        device = "cuda"
+        _stderr, sys.stderr = sys.stderr, io.StringIO()
+        try:
+            self._tokenizer = AutoTokenizer.from_pretrained(self._MODEL_ID, revision=self._REVISION)
+            self._model = AutoModelForCausalLM.from_pretrained(
+                self._MODEL_ID, trust_remote_code=True, revision=self._REVISION, torch_dtype=dtype,
+            ).to(device)
+            self._model.eval()
+        finally:
+            sys.stderr = _stderr
+
+    def analyze_logo(self, image_path: str) -> str:
+        """Analyze a header image and return the detected company/brand name."""
+        from PIL import Image
+        self._load()
+        image = Image.open(image_path).convert("RGB")
+        enc_image = self._model.encode_image(image)
+        answer = self._model.query(enc_image, _PROMPT)["answer"]
+        return answer.strip()
+
+    @property
+    def loaded(self) -> bool:
+        return self._model is not None
+
+
+# Singleton instance for backwards compatibility.
+_service: VisionService | None = None
+
+
+def _get_service() -> VisionService:
+    global _service
+    if _service is None:
+        _service = VisionService()
+    return _service
 
 
 def analyze_logo(image_path: str) -> str:
-    """Analyze a header image and return the detected company/brand name."""
-    from PIL import Image
-    _load_model()
-    image = Image.open(image_path).convert("RGB")
-    enc_image = _model.encode_image(image)
-    answer = _model.query(enc_image, _PROMPT)["answer"]
-    return answer.strip()
+    return _get_service().analyze_logo(image_path)
