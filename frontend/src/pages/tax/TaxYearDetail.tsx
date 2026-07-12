@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Calendar, FileText, Trash2, Plus, Play, Check, X, RefreshCw, Save, AlertCircle, Edit3, Scale } from 'lucide-react'
 import {
-  getTaxYear, getAvailableTaxDocuments,
+  getTaxYear, getAvailableTaxDocuments, getTaxCategories,
   createTaxDocument, deleteTaxDocument, deleteTaxPosition, updateTaxPosition,
   extractTaxDocumentPositions, type TaxYear, type TaxDocument, type TaxPosition
 } from '../../api'
@@ -19,17 +19,6 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   assessment_notice: 'Finanzamtsbescheid',
 }
 
-const TAX_CATEGORIES = [
-  'Einkünfte',
-  'Werbungskosten',
-  'Sonderausgaben',
-  'Außergewöhnliche Belastungen',
-  'Steuerliche Ergebnisse',
-  'Vermietung und Verpachtung',
-  'Selbstständige Einkünfte',
-  'Sonstiges',
-]
-
 export default function TaxYearDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -38,6 +27,7 @@ export default function TaxYearDetail() {
   const [year, setYear] = useState<TaxYear | null>(null)
   const [documents, setDocuments] = useState<TaxDocument[]>([])
   const [positions, setPositions] = useState<TaxPosition[]>([])
+  const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [extracting, setExtracting] = useState<number | null>(null)
   const [showLinkForm, setShowLinkForm] = useState(false)
@@ -60,6 +50,10 @@ export default function TaxYearDetail() {
   }
 
   useEffect(() => { load() }, [taxYearId])
+
+  useEffect(() => {
+    getTaxCategories().then(setCategories).catch(() => setCategories([]))
+  }, [])
 
   const searchAvailable = async () => {
     const docs = await getAvailableTaxDocuments(availableQuery, 20)
@@ -288,7 +282,7 @@ export default function TaxYearDetail() {
                             onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
                             className="text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded px-2 py-1 w-full"
                           >
-                            {TAX_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
                         </td>
                         <td className="px-3 py-2">

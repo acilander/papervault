@@ -95,6 +95,28 @@ def llm_json_completion(system: str, user: str, max_tokens: int = 512, temperatu
         return None
 
 
+def llm_completion(system: str, user: str, max_tokens: int = 1024, temperature: float = 0.3) -> str | None:
+    """Run a chat completion and return the raw text response."""
+    load_model()
+    from config import MOCK_LLM
+    if MOCK_LLM:
+        return None
+    try:
+        with _llm_lock:
+            result = _llm.create_chat_completion(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+        return result["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        log(f"[LLM] completion failed: {e}")
+        return None
+
+
 def normalize_sender(sender):
     """Match sender against known senders (and their aliases) using exact + fuzzy matching.
     Always returns the canonical registry key name."""

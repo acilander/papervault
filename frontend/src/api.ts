@@ -352,6 +352,8 @@ export interface TaxPosition {
   source_type: string
 }
 
+export const getTaxCategories = () => api.get<string[]>('/tax/categories').then(r => r.data)
+
 export const getTaxYears = () => api.get<TaxYear[]>('/tax/years').then(r => r.data)
 
 export const createTaxYear = (data: { year: number; status?: string; notes?: string | null }) =>
@@ -393,3 +395,6 @@ export const getAvailableTaxDocuments = (q?: string, limit: number = 50) =>
 
 export const extractTaxDocumentPositions = (taxDocumentId: number) =>
   api.post<{ tax_document_id: number; positions: TaxPosition[] }>(`/tax/documents/${taxDocumentId}/extract`).then(r => r.data)
+
+export const askTaxQuestion = (question: string) =>
+  api.post<{ answer: string }>('/tax/chat', { question }).then(r => r.data)

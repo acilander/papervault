@@ -213,8 +213,8 @@ def test_sender_counts_and_get(in_memory_db):
     resp = client.get("/senders/counts")
     assert resp.status_code == 200
     counts = resp.json()
-    assert counts.get("Telekom") == 1
-    assert counts.get("AOK") == 1
+    assert counts.get("Telekom") == {"ok": 1, "review": 1}
+    assert counts.get("AOK") == {"ok": 1, "review": 0}
 
     resp = client.get("/senders/Telekom")
     assert resp.status_code == 200

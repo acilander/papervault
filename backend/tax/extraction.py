@@ -75,13 +75,17 @@ def extract_tax_positions(tax_document_id: int) -> list[dict]:
         category = _validate_category(item.get("category"))
         label = str(item.get("label") or "").strip() or "Unbekannte Position"
         subcategory = str(item.get("subcategory") or "").strip() or None
-        amount = _normalize_amount(item.get("amount"))
+        raw_amount = _normalize_amount(item.get("amount"))
         page = item.get("page")
         try:
             page = int(page) if page is not None else None
         except (ValueError, TypeError):
             page = None
         source_text = str(item.get("source_text") or "").strip() or None
+
+        # Assessment notices fill the assessed column; tax program exports fill amount.
+        amount = raw_amount if source_type == "tax_program_export" else None
+        amount_assessed = raw_amount if source_type == "assessment_notice" else None
 
         position_id = tax_positions_repo.insert(
             tax_year_id=tax_doc["tax_year_id"],
@@ -90,6 +94,7 @@ def extract_tax_positions(tax_document_id: int) -> list[dict]:
             subcategory=subcategory,
             label=label,
             amount=amount,
+            amount_assessed=amount_assessed,
             page=page,
             source_text=source_text,
             verified=False,

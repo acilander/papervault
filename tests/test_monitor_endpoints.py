@@ -1,6 +1,6 @@
 """Tests for /monitor/duplicates, /monitor/validation, /monitor/generate-thumbnails
 and /documents/{id}/thumbnail endpoints."""
-import sys, os
+import sys, os, json
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 import pytest
@@ -243,6 +243,20 @@ class TestValidationEndpoint:
         assert resp.json()["total_groups"] == 0
 
 
+def _parse_sse_done(resp):
+    """Extract the final 'done' JSON event from an SSE streaming response."""
+    for line in resp.text.splitlines():
+        if line.startswith("data:"):
+            payload = line[5:].strip()
+            try:
+                event = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+            if event.get("type") == "done":
+                return event
+    return None
+
+
 # ── /monitor/generate-thumbnails ──────────────────────────────────────────────
 
 class TestGenerateThumbnailsJob:
@@ -253,7 +267,8 @@ class TestGenerateThumbnailsJob:
 
     def test_response_has_counts(self):
         resp = client.post("/monitor/generate-thumbnails")
-        data = resp.json()
+        data = _parse_sse_done(resp)
+        assert data is not None
         assert "generated" in data
         assert "skipped" in data
         assert "failed" in data
@@ -271,7 +286,9 @@ class TestGenerateThumbnailsJob:
             thumb.write_bytes(b"EXISTING")
             with patch("pdf_utils.generate_thumbnail") as mock_gen:
                 resp = client.post("/monitor/generate-thumbnails")
-            assert resp.json()["skipped"] >= 1
+            data = _parse_sse_done(resp)
+            assert data is not None
+            assert data["skipped"] >= 1
             mock_gen.assert_not_called()
         finally:
             pu.THUMBNAILS_DIR = original_dir

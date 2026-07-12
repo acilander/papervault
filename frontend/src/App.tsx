@@ -20,6 +20,8 @@ import LowValueRules from './pages/LowValueRules'
 import TaxYears from './pages/tax/TaxYears'
 import TaxYearDetail from './pages/tax/TaxYearDetail'
 import TaxYearComparison from './pages/tax/TaxYearComparison'
+import TaxDevelopment from './pages/tax/TaxDevelopment'
+import TaxChat from './pages/tax/TaxChat'
 import axios from 'axios'
 import { ConfigProvider } from './ConfigContext'
 
@@ -215,6 +217,8 @@ export default function App() {
             <Route path="/tax/years" element={<TaxYears />} />
             <Route path="/tax/years/:id" element={<TaxYearDetail />} />
             <Route path="/tax/years/:id/comparison" element={<TaxYearComparison />} />
+            <Route path="/tax/development" element={<TaxDevelopment />} />
+            <Route path="/tax/chat" element={<TaxChat />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>

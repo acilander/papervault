@@ -1,5 +1,5 @@
 """Tests for /monitor endpoints."""
-import sys, os
+import sys, os, json
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 import pytest
@@ -100,6 +100,19 @@ def test_validation_report_inconsistent_category(tmp_path):
     assert any(i["type"] == "inconsistent_category" for g in data["groups"] for i in g["issues"])
 
 
+def _parse_sse_done(resp):
+    for line in resp.text.splitlines():
+        if line.startswith("data:"):
+            payload = line[5:].strip()
+            try:
+                event = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+            if event.get("type") == "done":
+                return event
+    return None
+
+
 def test_generate_thumbnails(tmp_path, monkeypatch):
     import pdf_utils
     doc_id, path = _insert_pdf(tmp_path, name="thumb.pdf")
@@ -107,7 +120,8 @@ def test_generate_thumbnails(tmp_path, monkeypatch):
     monkeypatch.setattr(pdf_utils, "get_thumbnail_path", lambda _id: path)
     resp = client.post("/monitor/generate-thumbnails")
     assert resp.status_code == 200
-    data = resp.json()
+    data = _parse_sse_done(resp)
+    assert data is not None
     assert data["generated"] + data["skipped"] >= 1
 
 

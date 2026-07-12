@@ -291,6 +291,14 @@ Der LLM neigt dazu, generische Begriffe wie „IBAN" oder „Vertragsnummer" als
 - **Orphan-Panel** – PDFs im Archiv ohne DB-Eintrag, Checkbox-Auswahl, Bulk-Import
 - **Fehlende-Dateien-Panel** – Scan-Button + Liste der `missing`-Einträge + „Alle löschen"-Button
 
+### Steuer-Modul
+- **Steuerjahre** – Jahre anlegen, Status verwalten (Entwurf / Abgegeben / Bescheid erhalten / Abgeschlossen)
+- **Dokumentenverknüpfung** – Steuerprogramm-Exporte und Finanzamtsbescheide aus der Dokumenten-DB verknüpfen
+- **LLM-Extraktion** – steuerrelevante Positionen automatisch extrahieren, korrigieren und verifizieren
+- **Export vs. Bescheid** – automatischer Vergleich der Positionen zwischen Steuerprogramm und Finanzamt
+- **Entwicklung** – Liniendiagramm und Tabelle pro Kategorie über mehrere Jahre
+- **Steuer-Assistent** – lokaler Chat mit Kontext zu Steuerjahren und Positionen (keine Steuerberatung)
+
 ### Sidebar (global)
 - Badge „Absender": unbestätigte Absender
 - Badge „Monitor": Anzahl PDFs in Inbox
@@ -327,7 +335,17 @@ document_processor/
 │       ├── stats.py      KPI-Aggregation, by_category, by_year, by_status
 │       ├── monitor.py    SSE-Log, Archiver-Control, Inbox, Scan-Missing,
 │       │                  Delete-Missing, Orphan-Scan, Orphan-Import
-│       └── tax.py        ZIP-Export steuerrelevanter PDFs
+│       └── tax.py        Steuerjahre, Dokumente, Positionen, Extraktion, Vergleich, Chat
+│
+├── tax/
+│   ├── extraction.py    LLM-Extraktion steuerrelevanter Positionen
+│   ├── prompts.py       Prompts für Steuerprogramm-Export und Bescheid
+│   └── chat.py          Steuer-Assistent mit lokalem Kontext
+│
+├── db/
+│   ├── tax_years_repo.py      CRUD für Steuerjahre
+│   ├── tax_documents_repo.py  Verknüpfung Dokumente ↔ Steuerjahr
+│   └── tax_positions_repo.py  CRUD für Steuerpositionen, Summen, Entwicklung
 │
 ├── frontend/
 │   └── src/
@@ -338,7 +356,13 @@ document_processor/
 │           ├── Documents.tsx     (URL-basierte Filter)
 │           ├── DocumentDetail.tsx
 │           ├── Senders.tsx       (Rename-Modal, Doc-Count-Badge)
-│           └── Monitor.tsx       (SSE, Orphan-Panel, Missing-Panel)
+│           ├── Monitor.tsx       (SSE, Orphan-Panel, Missing-Panel)
+│           └── tax/
+│               ├── TaxYears.tsx          Übersicht Steuerjahre
+│               ├── TaxYearDetail.tsx       Dokumente + Positionen + Review
+│               ├── TaxYearComparison.tsx   Export vs. Bescheid
+│               ├── TaxDevelopment.tsx      Entwicklung über Jahre
+│               └── TaxChat.tsx            Steuer-Assistent
 │
 ├── tests/
 │   ├── test_db.py               Basis-CRUD, Suche, Stats
@@ -449,7 +473,7 @@ TARGET_BASE/
 
 ```bash
 python -m pytest tests/ -v
-# 92 Tests in 9 Dateien
+# 454 Tests in 12 Dateien
 ```
 
 | Testdatei | Abgedeckte Bereiche |
@@ -463,6 +487,9 @@ python -m pytest tests/ -v
 | `test_pdf_utils.py` | Text-Extraktion, Dateinamen-Generierung |
 | `test_config.py` | System-Prompt, Kategorienliste |
 | `test_validate.py` | Datum-Validierung, Kategorie-Check |
+| `test_tax_repos.py` | Steuerjahre, Steuerdokumente, Steuerpositionen |
+| `test_tax_extraction.py` | LLM-Extraktion, Kategorie-Normalisierung, Bescheid vs. Export |
+| `test_tax_api.py` | `/tax/*` Endpunkte, Vergleich, Extraktion |
 
 ---
 
@@ -482,6 +509,15 @@ python scripts/migrate_to_db.py
 ---
 
 ## Changelog
+
+### 2026-07-12
+- **feat**: Steuer-Modul vollständig implementiert: Steuerjahre, Dokumentenverknüpfung, LLM-Extraktion, Review, Vergleich Export vs. Bescheid, Entwicklungsdiagramm, Steuer-Assistent
+- **fix**: Bescheidspositionen werden in `amount_assessed` gespeichert, damit der Vergleich Export vs. Bescheid funktioniert
+- **fix**: `tax/chat.py` prüft jetzt korrekt auf `source_type == "assessment_notice"`
+- **feat**: `GET /tax/categories` liefert Steuerkategorien an das Frontend
+- **feat**: `TaxYearDetail` lädt Kategorien dynamisch aus der API
+- **chore**: Dedizierte Tax-Tests hinzugefügt (`test_tax_repos.py`, `test_tax_extraction.py`, `test_tax_api.py`)
+- **fix**: 11 bestehende Test-Fehler behoben (Monitor-Thumbnails SSE, `prepare_text_long_trimmed`, `senders/~rebuild` mit `review`-Status, `senders/counts`, Vision-Tests für `VisionService`)
 
 ### 2026-06-28
 - **fix**: `scan-missing` prüft jetzt alle DB-Einträge (nicht nur `status=ok`)

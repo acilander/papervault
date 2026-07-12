@@ -38,7 +38,7 @@ def rebuild_senders():
     added = 0
     with db.get_conn() as conn:
         rows = conn.execute(
-            "SELECT sender, category FROM documents WHERE sender IS NOT NULL AND sender != '' AND status = 'ok'"
+            "SELECT sender, category FROM documents WHERE sender IS NOT NULL AND sender != '' AND status IN ('ok', 'review')"
         ).fetchall()
         for row in rows:
             if sender_repo.record_category(row["sender"], row["category"]):
@@ -56,13 +56,13 @@ def list_senders():
 
 @router.post("/~cleanup")
 def cleanup_senders():
-    """Delete all senders that have no documents with status='ok'."""
+    """Delete all senders that have no documents with status='ok' or 'review'."""
     with db.get_conn() as conn:
         rows = conn.execute(
             """SELECT name FROM senders
                WHERE name NOT IN (
                    SELECT DISTINCT sender FROM documents
-                   WHERE status = 'ok' AND sender IS NOT NULL AND sender != ''
+                   WHERE status IN ('ok', 'review') AND sender IS NOT NULL AND sender != ''
                )"""
         ).fetchall()
     deleted_names = [row["name"] for row in rows]

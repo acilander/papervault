@@ -8,12 +8,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 
 @pytest.fixture(autouse=True)
-def reset_vision_model():
-    """Reset cached model between tests."""
+def reset_vision_service():
+    """Reset cached vision service between tests."""
     import vision
-    vision._model = None
+    vision._service = None
     yield
-    vision._model = None
+    vision._service = None
 
 
 def make_test_image(tmp_path, color=(255, 255, 255)) -> str:
@@ -30,10 +30,11 @@ class TestAnalyzeLogo:
         mock_model = MagicMock()
         mock_model.query.return_value = {"answer": "Sparkasse"}
 
-        with patch("vision._load_model"), patch("vision._model", mock_model, create=True):
-            import vision
-            vision._model = mock_model
-            result = vision.analyze_logo(img_path)
+        import vision
+        service = vision.VisionService()
+        service._model = mock_model
+        vision._service = service
+        result = vision.analyze_logo(img_path)
 
         assert isinstance(result, str)
         assert result == "Sparkasse"
@@ -45,7 +46,9 @@ class TestAnalyzeLogo:
         mock_model.query.return_value = {"answer": "  Deutsche Bank  "}
 
         import vision
-        vision._model = mock_model
+        service = vision.VisionService()
+        service._model = mock_model
+        vision._service = service
         result = vision.analyze_logo(img_path)
 
         assert result == "Deutsche Bank"
@@ -57,65 +60,53 @@ class TestAnalyzeLogo:
         mock_model.query.return_value = {"answer": "  "}
 
         import vision
-        vision._model = mock_model
+        service = vision.VisionService()
+        service._model = mock_model
+        vision._service = service
         result = vision.analyze_logo(img_path)
 
         assert result == ""
 
-    def test_load_model_skipped_when_already_cached(self):
-        """_load_model does nothing if _model is already set (caching guard)."""
+    def test_load_skipped_when_already_cached(self):
+        """VisionService._load does nothing if _model is already set (caching guard)."""
         import vision
-        try:
-            import moondream as md
-        except ModuleNotFoundError:
-            pytest.skip("moondream SDK nicht installiert")
+        service = vision.VisionService()
         sentinel = MagicMock()
-        vision._model = sentinel
+        service._model = sentinel
 
-        load_calls = {"n": 0}
-        original_vl = md.vl
+        with patch("torch.cuda.is_available", return_value=True), \
+             patch("transformers.AutoModelForCausalLM.from_pretrained") as mock_from_pretrained, \
+             patch("transformers.AutoTokenizer.from_pretrained") as mock_tokenizer:
+            service._load()
 
-        def counting_vl(*args, **kwargs):
-            load_calls["n"] += 1
-            return original_vl(*args, **kwargs)
-
-        with patch.object(md, "vl", side_effect=counting_vl):
-            vision._load_model()
-            vision._load_model()
-
-        assert load_calls["n"] == 0, "moondream.vl() called despite model already cached"
-        assert vision._model is sentinel
+        mock_from_pretrained.assert_not_called()
+        mock_tokenizer.assert_not_called()
+        assert service._model is sentinel
 
     def test_transformers_not_imported_at_module_level(self):
-        """transformers must only be imported lazily inside _load_model, not at module top-level."""
+        """transformers must only be imported lazily inside VisionService._load, not at module top-level."""
         import vision
         import inspect
         source = inspect.getsource(vision)
         lines = source.splitlines()
-        # Find module-level lines (before any def)
+        # Find module-level lines (before any class/def)
         top_level = []
         for line in lines:
-            if line.startswith("def "):
+            if line.startswith("def ") or line.startswith("class "):
                 break
             top_level.append(line)
         top_level_src = "\n".join(top_level)
         assert "from transformers" not in top_level_src
         assert "import transformers" not in top_level_src
 
-    def test_moondream_sdk_importable(self):
-        """moondream SDK must be installed and importable without errors."""
-        try:
-            import moondream as md
-        except ModuleNotFoundError:
-            pytest.skip("moondream SDK nicht installiert")
-        assert hasattr(md, "vl")
-
     def test_analyze_logo_raises_on_missing_file(self, tmp_path):
         """analyze_logo raises FileNotFoundError for non-existent image."""
         import vision
         mock_model = MagicMock()
         mock_model.query.return_value = {"answer": "test"}
-        vision._model = mock_model
+        service = vision.VisionService()
+        service._model = mock_model
+        vision._service = service
 
         with pytest.raises(Exception):
             vision.analyze_logo(str(tmp_path / "nonexistent.png"))

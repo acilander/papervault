@@ -9,6 +9,8 @@ import db.tax_documents_repo as tax_documents_repo
 import db.tax_positions_repo as tax_positions_repo
 from api.models import DocumentListOut
 from tax.extraction import extract_tax_positions
+from tax.chat import answer_tax_question
+from tax.prompts import TAX_CATEGORIES
 
 router = APIRouter(prefix="/tax", tags=["tax"])
 
@@ -51,6 +53,11 @@ class TaxPositionUpdate(BaseModel):
     page: Optional[int] = None
     source_text: Optional[str] = None
     verified: Optional[bool] = None
+
+
+@router.get("/categories")
+def list_tax_categories():
+    return TAX_CATEGORIES
 
 
 @router.get("/years")
@@ -278,3 +285,17 @@ def list_available_documents(
         offset=0,
     )
     return docs
+
+
+class TaxChatRequest(BaseModel):
+    question: str
+
+
+class TaxChatResponse(BaseModel):
+    answer: str
+
+
+@router.post("/chat")
+def tax_chat(payload: TaxChatRequest) -> TaxChatResponse:
+    answer = answer_tax_question(payload.question)
+    return TaxChatResponse(answer=answer)

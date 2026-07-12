@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Calendar, Edit3 } from 'lucide-react'
+import { Plus, Trash2, Calendar, Edit3, TrendingUp, MessageSquare } from 'lucide-react'
 import { getTaxYears, createTaxYear, deleteTaxYear, type TaxYear } from '../../api'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -56,11 +56,27 @@ export default function TaxYears() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Steuerjahre</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Verwalte deine Steuererklärungen pro Jahr.
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Steuerjahre</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Verwalte deine Steuererklärungen pro Jahr.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/tax/chat"
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <MessageSquare size={14} /> Assistent
+          </Link>
+          <Link
+            to="/tax/development"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            <TrendingUp size={14} /> Entwicklung
+          </Link>
+        </div>
       </div>
 
       <form onSubmit={create} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
