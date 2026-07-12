@@ -37,7 +37,9 @@ docs_md = [
     and p.name not in {bp.name for bp in root_blueprints}
 ]
 
-DOC_SOURCES = docs_md + root_blueprints
+# Blueprints are development planning documents; keep the source .md files
+# but do not include them in the generated HTML documentation.
+DOC_SOURCES = docs_md
 
 MD = markdown.Markdown(
     extensions=[
@@ -120,7 +122,6 @@ NAV_GROUPS: list[tuple[str, list[tuple[str | None, str]]]] = [
     ("Tiefe", [
         ("technical/index.html", "Technische Tiefe"),
     ]),
-    ("Blueprints", BLUEPRINTS),
     ("Sonstiges", [
         ("llm-cascade-scenarios.html", "LLM-Cascade-Szenarien"),
     ]),
