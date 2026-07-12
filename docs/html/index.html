@@ -176,31 +176,87 @@
   <p>Vollständige Bedienungsanleitung, Systemarchitektur und technische Tiefe.</p>
 </div>
 <div class="grid">
-<a class="card" href="ARCHITECTURE.html"><h3>Architecture</h3></a>
-<a class="card" href="blueprints/blueprint_tax_module.html"><h3>Blueprint Tax Module</h3></a>
-<a class="card" href="blueprints/cline_blueprint_kv_extraction.html"><h3>Cline Blueprint Kv Extraction</h3></a>
-<a class="card" href="blueprints/cline_blueprint_vision_logo.html"><h3>Cline Blueprint Vision Logo</h3></a>
-<a class="card" href="DOCUMENTATION_STRUCTURE.html"><h3>Documentation Structure</h3></a>
-<a class="card" href="feature-ignore-lock.html"><h3>Feature Ignore Lock</h3></a>
-<a class="card" href="feature-low-value-rules.html"><h3>Feature Low Value Rules</h3></a>
-<a class="card" href="FEATURES.html"><h3>Features</h3></a>
-<a class="card" href="llm-cascade-scenarios.html"><h3>Llm Cascade Scenarios</h3></a>
-<a class="card" href="technical/01-pipeline-and-import.html"><h3>01 Pipeline And Import</h3></a>
-<a class="card" href="technical/02-documents-search-and-filter.html"><h3>02 Documents Search And Filter</h3></a>
-<a class="card" href="technical/03-ignore-lock.html"><h3>03 Ignore Lock</h3></a>
-<a class="card" href="technical/04-low-value-rules.html"><h3>04 Low Value Rules</h3></a>
-<a class="card" href="technical/05-duplicates.html"><h3>05 Duplicates</h3></a>
-<a class="card" href="technical/06-senders.html"><h3>06 Senders</h3></a>
-<a class="card" href="technical/07-tax-module.html"><h3>07 Tax Module</h3></a>
-<a class="card" href="technical/08-collections.html"><h3>08 Collections</h3></a>
-<a class="card" href="technical/09-chat-and-llm.html"><h3>09 Chat And Llm</h3></a>
+<a class="card" href="USER_GUIDE.html"><h3>Bedienungsanleitung</h3></a>
+<a class="card" href="UI_REFERENCE.html"><h3>UI-Referenz</h3></a>
+<a class="card" href="FEATURES.html"><h3>Feature-Liste</h3></a>
+<a class="card" href="ARCHITECTURE.html"><h3>Systemarchitektur</h3></a>
+<a class="card" href="feature-ignore-lock.html"><h3>Ignore / Lock</h3></a>
+<a class="card" href="feature-low-value-rules.html"><h3>Low-Value-Rules</h3></a>
+<a class="card" href="technical/01-pipeline-and-import.html"><h3>01 Pipeline & Import</h3></a>
+<a class="card" href="technical/02-documents-search-and-filter.html"><h3>02 Suche & Filter</h3></a>
+<a class="card" href="technical/03-ignore-lock.html"><h3>03 Ignore / Lock</h3></a>
+<a class="card" href="technical/04-low-value-rules.html"><h3>04 Low-Value-Rules</h3></a>
+<a class="card" href="technical/05-duplicates.html"><h3>05 Duplikate</h3></a>
+<a class="card" href="technical/06-senders.html"><h3>06 Absender</h3></a>
+<a class="card" href="technical/07-tax-module.html"><h3>07 Steuer-Modul</h3></a>
+<a class="card" href="technical/08-collections.html"><h3>08 Sammlungen</h3></a>
+<a class="card" href="technical/09-chat-and-llm.html"><h3>09 KI-Suche</h3></a>
 <a class="card" href="technical/10-monitor.html"><h3>10 Monitor</h3></a>
 <a class="card" href="technical/11-feedback.html"><h3>11 Feedback</h3></a>
-<a class="card" href="technical/12-settings-and-config.html"><h3>12 Settings And Config</h3></a>
-<a class="card" href="technical/13-inventory-contracts-services.html"><h3>13 Inventory Contracts Services</h3></a>
-<a class="card" href="UI_REFERENCE.html"><h3>Ui Reference</h3></a>
-<a class="card" href="USER_GUIDE.html"><h3>User Guide</h3></a>
+<a class="card" href="technical/12-settings-and-config.html"><h3>12 Einstellungen</h3></a>
+<a class="card" href="technical/13-inventory-contracts-services.html"><h3>13 Inventar / Verträge / Ausgaben</h3></a>
+<a class="card" href="blueprints/blueprint_tax_module.html"><h3>Steuer-Modul Blueprint</h3></a>
+<a class="card" href="blueprints/cline_blueprint_kv_extraction.html"><h3>KV-Extraction Blueprint</h3></a>
+<a class="card" href="blueprints/cline_blueprint_vision_logo.html"><h3>Vision/Logo Blueprint</h3></a>
+<a class="card" href="llm-cascade-scenarios.html"><h3>LLM-Cascade-Szenarien</h3></a>
+<a class="card" href="DOCUMENTATION_STRUCTURE.html"><h3>Doku-Struktur</h3></a>
 </div>
+
+<div class="diagram">
+  <h2>Datenfluss beim Import</h2>
+  <pre class="mermaid">
+flowchart TD
+    A[PDF landet in Inbox] --> B[Textextraktion]
+    B --> C{OCR nötig?}
+    C -->|Ja| D[OCR mit Tesseract]
+    C -->|Nein| E[Nativer Text]
+    D --> F[SHA256-Hash]
+    E --> F
+    F --> G{Hash geschützt?}
+    G -->|Ignored| H[Nach ignored/ verschieben]
+    G -->|Locked| I[Nach duplicates/ verschieben]
+    G -->|Bekannt| I
+    G -->|Neu| J[LLM-Klassifikation]
+    J --> K[Metadaten extrahieren]
+    K --> L[Datei archivieren]
+    L --> M[(SQLite-Eintrag)]
+  </pre>
+</div>
+
+<div class="diagram">
+  <h2>Systemarchitektur</h2>
+  <pre class="mermaid">
+flowchart LR
+    subgraph Frontend
+        React["React + Vite"]
+    end
+    subgraph Backend
+        FastAPI["FastAPI"]
+        SQLite[(SQLite DB)]
+    end
+    subgraph Pipeline
+        OCR["OCR / Text"]
+        LLM["Lokales LLM"]
+    end
+    React -->|REST| FastAPI
+    FastAPI --> SQLite
+    FastAPI -->|startet| Pipeline
+  </pre>
+</div>
+
+<div class="diagram">
+  <h2>Duplikat-Check</h2>
+  <pre class="mermaid">
+flowchart TD
+    A[Hash berechnen] --> B{Geschützter Hash?}
+    B -->|Ignored| C[Status: ignored]
+    B -->|Locked| D[Status: duplicate]
+    B -->|Nein| E{Dokument mit Hash vorhanden?}
+    E -->|Ja| D
+    E -->|Nein| F[Weiter zur Klassifikation]
+  </pre>
+</div>
+
 <style>
   .hero { text-align: center; margin-bottom: 2rem; }
   .hero h1 { font-size: 2.5rem; }
@@ -217,6 +273,9 @@
   }
   .card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.08); }
   .card h3 { margin: 0; font-size: 1rem; }
+  .diagram { background: var(--surface); border: 1px solid var(--border); border-radius: .5rem; padding: 1.5rem; margin: 2rem 0; }
+  .diagram h2 { margin-top: 0; }
+  .diagram .mermaid { background: transparent; border: none; padding: 0; }
 </style>
 
     <footer>

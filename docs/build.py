@@ -342,13 +342,17 @@ def build() -> None:
 
     # Generate index.html
     cards = []
-    for out in sorted(pages):
-        if out == index_out:
-            continue
+    content_pages = [p for p in pages if p != index_out]
+    for out in sorted(content_pages, key=page_sort_key):
         href = out.relative_to(OUT_DIR).as_posix()
-        name = out.stem.replace("-", " ").replace("_", " ").title()
+        rel = href
+        title = out.stem.replace("-", " ").replace("_", " ").title()
+        for pattern, friendly in ORDERED_PAGES:
+            if pattern and rel == pattern:
+                title = friendly
+                break
         cards.append(
-            f'<a class="card" href="{href}"><h3>{name}</h3></a>'
+            f'<a class="card" href="{href}"><h3>{title}</h3></a>'
         )
 
     index_content = f"""
@@ -359,6 +363,62 @@ def build() -> None:
 <div class="grid">
 {chr(10).join(cards)}
 </div>
+
+<div class="diagram">
+  <h2>Datenfluss beim Import</h2>
+  <pre class="mermaid">
+flowchart TD
+    A[PDF landet in Inbox] --> B[Textextraktion]
+    B --> C{{OCR nötig?}}
+    C -->|Ja| D[OCR mit Tesseract]
+    C -->|Nein| E[Nativer Text]
+    D --> F[SHA256-Hash]
+    E --> F
+    F --> G{{Hash geschützt?}}
+    G -->|Ignored| H[Nach ignored/ verschieben]
+    G -->|Locked| I[Nach duplicates/ verschieben]
+    G -->|Bekannt| I
+    G -->|Neu| J[LLM-Klassifikation]
+    J --> K[Metadaten extrahieren]
+    K --> L[Datei archivieren]
+    L --> M[(SQLite-Eintrag)]
+  </pre>
+</div>
+
+<div class="diagram">
+  <h2>Systemarchitektur</h2>
+  <pre class="mermaid">
+flowchart LR
+    subgraph Frontend
+        React["React + Vite"]
+    end
+    subgraph Backend
+        FastAPI["FastAPI"]
+        SQLite[(SQLite DB)]
+    end
+    subgraph Pipeline
+        OCR["OCR / Text"]
+        LLM["Lokales LLM"]
+    end
+    React -->|REST| FastAPI
+    FastAPI --> SQLite
+    FastAPI -->|startet| Pipeline
+  </pre>
+</div>
+
+<div class="diagram">
+  <h2>Duplikat-Check</h2>
+  <pre class="mermaid">
+flowchart TD
+    A[Hash berechnen] --> B{{Geschützter Hash?}}
+    B -->|Ignored| C[Status: ignored]
+    B -->|Locked| D[Status: duplicate]
+    B -->|Nein| E{{Dokument mit Hash vorhanden?}}
+    E -->|Ja| D
+    E -->|Nein| F[Weiter zur Klassifikation]
+  </pre>
+</div>
+
 <style>
   .hero {{ text-align: center; margin-bottom: 2rem; }}
   .hero h1 {{ font-size: 2.5rem; }}
@@ -375,6 +435,9 @@ def build() -> None:
   }}
   .card:hover {{ transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.08); }}
   .card h3 {{ margin: 0; font-size: 1rem; }}
+  .diagram {{ background: var(--surface); border: 1px solid var(--border); border-radius: .5rem; padding: 1.5rem; margin: 2rem 0; }}
+  .diagram h2 {{ margin-top: 0; }}
+  .diagram .mermaid {{ background: transparent; border: none; padding: 0; }}
 </style>
 """
     index_nav = build_nav(index_out, pages)
