@@ -144,7 +144,6 @@
     <nav>
 <a class="nav-link" href="./index.html">Übersicht</a>
 <a class="nav-link active" href="./USER_GUIDE.html">Bedienungsanleitung</a>
-<a class="nav-link" href="./UI_REFERENCE.html">UI-Referenz</a>
 <a class="nav-link" href="./FEATURES.html">Feature-Liste</a>
 <a class="nav-link" href="./ARCHITECTURE.html">Systemarchitektur</a>
 <a class="nav-link" href="./feature-ignore-lock.html">Ignore / Lock</a>
@@ -254,6 +253,48 @@ npm run dev
 <li>Mehrere Dokumente über Checkboxen auswählen.</li>
 <li>Mit den Buttons oben alle ausgewählten Dokumente bestätigen oder neu verarbeiten.</li>
 </ul>
+<h3 id="wichtige-ui-elemente">Wichtige UI-Elemente</h3>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Typ</th>
+<th>Funktion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Zu überprüfen / In Verarbeitung / Fehlgeschlagen</td>
+<td>Tabs</td>
+<td>Wechselt die Dokumentengruppe</td>
+</tr>
+<tr>
+<td>Checkbox</td>
+<td>Checkbox</td>
+<td>Dokument für Massenaktion selektieren</td>
+</tr>
+<tr>
+<td>Expand-Icon</td>
+<td>Button</td>
+<td>Klappbare Detail-Bearbeitung öffnen</td>
+</tr>
+<tr>
+<td>Sender / Datum / Kategorie / Typ</td>
+<td>Eingabe- und Dropdown-Felder</td>
+<td>Metadaten im Expand-Bereich korrigieren</td>
+</tr>
+<tr>
+<td>Öffnen / Bestätigen / Neu verarbeiten / Löschen</td>
+<td>Buttons</td>
+<td>Aktionen pro Dokument</td>
+</tr>
+<tr>
+<td>Alle bestätigen / Alle neu verarbeiten</td>
+<td>Buttons</td>
+<td>Massenaktionen für selektierte Dokumente</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="4-dokumente-durchsuchen">4. Dokumente durchsuchen</h2>
 <p>Unter <strong>Dokumente</strong> befindet sich die zentrale Übersicht aller archivierten Dokumente.</p>
@@ -297,6 +338,78 @@ npm run dev
 <li>Oben rechts „Bulk-Edit“: Feld wählen (z. B. Kategorie, Steuerjahr, Tags), Wert eingeben, auf alle ausgewählten Dokumente anwenden.</li>
 <li>Rückgängig machen über den gelben Undo-Banner, der nach einem Bulk-Edit erscheint.</li>
 </ul>
+<h3 id="wichtige-ui-elemente_1">Wichtige UI-Elemente</h3>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Typ</th>
+<th>Funktion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Volltext suchen</td>
+<td>Eingabefeld</td>
+<td>Volltextsuche über Dateiname, Sender, Summary, Keywords</td>
+</tr>
+<tr>
+<td>Kategorie / Jahr / Status</td>
+<td>Dropdowns</td>
+<td>Filter nach Kategorie, Archivierungsjahr oder Status</td>
+</tr>
+<tr>
+<td>Steuer / Läuft ab / Kein Absender / Geringer Wert</td>
+<td>Toggle-Buttons</td>
+<td>Schnellfilter umschalten</td>
+</tr>
+<tr>
+<td>Confidence</td>
+<td>Dropdown</td>
+<td>Filter nach Klassifikations-Confidence</td>
+</tr>
+<tr>
+<td>Suchen</td>
+<td>Button</td>
+<td>Lädt Ergebnisse mit aktiven Filtern</td>
+</tr>
+<tr>
+<td>Zurücksetzen</td>
+<td>Button</td>
+<td>Entfernt alle Filter</td>
+</tr>
+<tr>
+<td>Aktive Filter-Pills</td>
+<td>Badges</td>
+<td>Zeigt gesetzte Filter mit ✕ zum Entfernen</td>
+</tr>
+<tr>
+<td>CSV</td>
+<td>Link</td>
+<td>Exportiert gefilterte Liste als CSV</td>
+</tr>
+<tr>
+<td>Listen-/Grid-Ansicht</td>
+<td>Buttons</td>
+<td>Wechselt zwischen Tabelle und Thumbnails</td>
+</tr>
+<tr>
+<td>Checkboxen in Tabelle</td>
+<td>Checkboxen</td>
+<td>Selektion für Bulk-Edit</td>
+</tr>
+<tr>
+<td>Dateiname</td>
+<td>Link</td>
+<td>Öffnet Dokumenten-Detailansicht</td>
+</tr>
+<tr>
+<td>Pagination</td>
+<td>Buttons</td>
+<td>Blättern zwischen Seiten</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="5-dokument-bearbeiten">5. Dokument bearbeiten</h2>
 <p>Klick auf einen Dateinamen öffnet die Detailansicht.</p>
@@ -335,6 +448,73 @@ npm run dev
 <li><strong>Sperren / Entsperren</strong></li>
 <li><strong>Löschen</strong>: Dokument samt Datei entfernen.</li>
 </ul>
+<h3 id="wichtige-ui-elemente_2">Wichtige UI-Elemente</h3>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Typ</th>
+<th>Funktion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Zurück</td>
+<td>Button</td>
+<td>Zurück zur Dokumentenliste</td>
+</tr>
+<tr>
+<td>Dateiname</td>
+<td>Eingabefeld</td>
+<td>Umbenennen (gesperrt bei locked/ignored)</td>
+</tr>
+<tr>
+<td>Sender</td>
+<td>Eingabefeld mit Autocomplete</td>
+<td>Absender ändern</td>
+</tr>
+<tr>
+<td>Datum / Typ / Kategorie</td>
+<td>Eingabe- und Dropdown-Felder</td>
+<td>Metadaten bearbeiten</td>
+</tr>
+<tr>
+<td>Zusammenfassung / Notizen</td>
+<td>Textareas</td>
+<td>Freitext</td>
+</tr>
+<tr>
+<td>Tags</td>
+<td>Eingabefeld</td>
+<td>Kommaseparierte Tags</td>
+</tr>
+<tr>
+<td>Steuerrelevant / Steuerjahr / Läuft ab</td>
+<td>Checkbox / Felder</td>
+<td>Steuer- und Ablaufdaten</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>Dropdown</td>
+<td>Dokumentenstatus ändern</td>
+</tr>
+<tr>
+<td>Speichern</td>
+<td>Button</td>
+<td>Speichert alle Änderungen</td>
+</tr>
+<tr>
+<td>PDF-Vorschau</td>
+<td>Bereich</td>
+<td>Zeigt die PDF-Datei an</td>
+</tr>
+<tr>
+<td>Neu verarbeiten / Bestätigen / Ignorieren / Sperren / Löschen</td>
+<td>Buttons</td>
+<td>Dokumentenaktionen</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="6-duplikate">6. Duplikate</h2>
 <p>Unter <strong>Duplikate</strong> werden Dokumente angezeigt, die denselben Inhaltshash haben.</p>
@@ -376,6 +556,58 @@ npm run dev
 <li>Unreviewte Absender werden im Sidebar-Badge angezeigt.</li>
 <li>Eine feste Kategorie beschleunigt die zukünftige Klassifikation.</li>
 </ul>
+<h3 id="wichtige-ui-elemente_3">Wichtige UI-Elemente</h3>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Typ</th>
+<th>Funktion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Suche</td>
+<td>Eingabefeld</td>
+<td>Filter nach Absendernamen</td>
+</tr>
+<tr>
+<td>Nur Unreviewed</td>
+<td>Toggle</td>
+<td>Zeigt nur unreviewte Absender</td>
+</tr>
+<tr>
+<td>Neu laden / Neu aufbauen / Audit</td>
+<td>Buttons</td>
+<td>Registry-Verwaltung</td>
+</tr>
+<tr>
+<td>Name / Anzahl / Kategorien / Gepinnt</td>
+<td>Tabellenspalten</td>
+<td>Absenderübersicht</td>
+</tr>
+<tr>
+<td>Gepinnte Kategorie / Gepinnter Typ</td>
+<td>Dropdowns</td>
+<td>Inline-Edit für Kategorie/Typ</td>
+</tr>
+<tr>
+<td>Reviewed</td>
+<td>Checkbox</td>
+<td>Absender als geprüft markieren</td>
+</tr>
+<tr>
+<td>Zusammenführen</td>
+<td>Dropdown</td>
+<td>Merge-Ziel für Absender wählen</td>
+</tr>
+<tr>
+<td>Umbenennen / Löschen</td>
+<td>Buttons</td>
+<td>Absender-Änderungen</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="8-geringer-wert-regeln">8. Geringer-Wert-Regeln</h2>
 <p>Siehe auch: <a href="feature-low-value-rules.md"><code>feature-low-value-rules.md</code></a></p>
@@ -401,6 +633,43 @@ npm run dev
 <ul>
 <li>Über den Button <strong>Geringer Wert</strong> oder den Sidebar-Schnellfilter lassen sich als gering markierte Dokumente anzeigen.</li>
 </ul>
+<h3 id="wichtige-ui-elemente_4">Wichtige UI-Elemente</h3>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Typ</th>
+<th>Funktion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Name / Kategorie / Typ / Maximalbetrag / Alter</td>
+<td>Eingabe- und Dropdown-Felder</td>
+<td>Regelkriterien</td>
+</tr>
+<tr>
+<td>Aktiv</td>
+<td>Checkbox</td>
+<td>Regel ein-/ausschalten</td>
+</tr>
+<tr>
+<td>Regel erstellen</td>
+<td>Button</td>
+<td>Speichert neue Regel</td>
+</tr>
+<tr>
+<td>Aktiv-Toggle</td>
+<td>Schalter</td>
+<td>Regel (de-)aktivieren</td>
+</tr>
+<tr>
+<td>Vorschau / Anwenden / Löschen</td>
+<td>Buttons</td>
+<td>Regel testen, anwenden oder entfernen</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="9-ignorieren-und-sperren">9. Ignorieren und Sperren</h2>
 <p>Siehe auch: <a href="feature-ignore-lock.md"><code>feature-ignore-lock.md</code></a></p>
@@ -445,6 +714,48 @@ npm run dev
 <ul>
 <li>Sammlungen können als ZIP heruntergeladen werden.</li>
 </ul>
+<h3 id="wichtige-ui-elemente_5">Wichtige UI-Elemente</h3>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Typ</th>
+<th>Funktion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Neue Sammlung</td>
+<td>Button</td>
+<td>Formular öffnen</td>
+</tr>
+<tr>
+<td>Name / Beschreibung / Farbe</td>
+<td>Eingabe- und Auswahlfelder</td>
+<td>Sammlung anlegen</td>
+</tr>
+<tr>
+<td>Sammlungskachel</td>
+<td>Card</td>
+<td>Link zur Detailansicht</td>
+</tr>
+<tr>
+<td>Zurück / Bearbeiten / Löschen</td>
+<td>Buttons</td>
+<td>Sammlung verwalten</td>
+</tr>
+<tr>
+<td>ZIP-Download</td>
+<td>Link</td>
+<td>Alle Dokumente als ZIP</td>
+</tr>
+<tr>
+<td>Dokumentenliste in Sammlung</td>
+<td>Tabelle</td>
+<td>Zugeordnete Dokumente</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="11-steuer-modul">11. Steuer-Modul</h2>
 <p>Detaillierte Architektur und Planung: <a href="blueprint_tax_module.md"><code>blueprint_tax_module.md</code></a></p>
@@ -482,6 +793,63 @@ npm run dev
 <li><strong>Vergleich</strong>: Jahr gegen Jahr vergleichen.</li>
 <li><strong>Steuer-Assistent</strong>: KI-Chat für Steuerfragen.</li>
 </ul>
+<h3 id="wichtige-ui-elemente_6">Wichtige UI-Elemente</h3>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Typ</th>
+<th>Funktion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Jahr anlegen</td>
+<td>Formular</td>
+<td>Neues Steuerjahr erstellen</td>
+</tr>
+<tr>
+<td>Jahreskachel / Liste</td>
+<td>Card / Tabelle</td>
+<td>Zeigt Jahr, Status, Anzahl Positionen</td>
+</tr>
+<tr>
+<td>Dokument verknüpfen</td>
+<td>Button</td>
+<td>Steuerprogramm-Export oder Bescheid hinzufügen</td>
+</tr>
+<tr>
+<td>Extrahieren</td>
+<td>Button</td>
+<td>Startet LLM-Extraktion der Positionen</td>
+</tr>
+<tr>
+<td>Positionen-Tabelle</td>
+<td>Tabelle</td>
+<td>Zeigt extrahierte Positionen</td>
+</tr>
+<tr>
+<td>Betrag / Kategorie / Unterkategorie / Bezeichnung</td>
+<td>Eingabefelder</td>
+<td>Position korrigieren</td>
+</tr>
+<tr>
+<td>Verifiziert</td>
+<td>Checkbox</td>
+<td>Position als geprüft markieren</td>
+</tr>
+<tr>
+<td>Position löschen</td>
+<td>Button</td>
+<td>Falsche Position entfernen</td>
+</tr>
+<tr>
+<td>Vergleich / Entwicklung / Steuer-Assistent</td>
+<td>Tabs / Links</td>
+<td>Weitere Steuer-Ansichten</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="12-inventar-vertrage-ausgaben">12. Inventar, Verträge, Ausgaben</h2>
 <p>Diese Module erfassen spezifische Informationen aus Dokumenten.</p>

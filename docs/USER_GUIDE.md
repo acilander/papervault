@@ -99,6 +99,17 @@ Die Inbox zeigt Dokumente, die noch nicht als endgültig klassifiziert sind.
 - Mehrere Dokumente über Checkboxen auswählen.
 - Mit den Buttons oben alle ausgewählten Dokumente bestätigen oder neu verarbeiten.
 
+### Wichtige UI-Elemente
+
+| Element | Typ | Funktion |
+|---------|-----|----------|
+| Zu überprüfen / In Verarbeitung / Fehlgeschlagen | Tabs | Wechselt die Dokumentengruppe |
+| Checkbox | Checkbox | Dokument für Massenaktion selektieren |
+| Expand-Icon | Button | Klappbare Detail-Bearbeitung öffnen |
+| Sender / Datum / Kategorie / Typ | Eingabe- und Dropdown-Felder | Metadaten im Expand-Bereich korrigieren |
+| Öffnen / Bestätigen / Neu verarbeiten / Löschen | Buttons | Aktionen pro Dokument |
+| Alle bestätigen / Alle neu verarbeiten | Buttons | Massenaktionen für selektierte Dokumente |
+
 ---
 
 ## 4. Dokumente durchsuchen
@@ -147,6 +158,23 @@ Klick auf einen Schnellfilter öffnet die Dokumentenliste mit dem passenden Filt
 - Oben rechts „Bulk-Edit“: Feld wählen (z. B. Kategorie, Steuerjahr, Tags), Wert eingeben, auf alle ausgewählten Dokumente anwenden.
 - Rückgängig machen über den gelben Undo-Banner, der nach einem Bulk-Edit erscheint.
 
+### Wichtige UI-Elemente
+
+| Element | Typ | Funktion |
+|---------|-----|----------|
+| Volltext suchen | Eingabefeld | Volltextsuche über Dateiname, Sender, Summary, Keywords |
+| Kategorie / Jahr / Status | Dropdowns | Filter nach Kategorie, Archivierungsjahr oder Status |
+| Steuer / Läuft ab / Kein Absender / Geringer Wert | Toggle-Buttons | Schnellfilter umschalten |
+| Confidence | Dropdown | Filter nach Klassifikations-Confidence |
+| Suchen | Button | Lädt Ergebnisse mit aktiven Filtern |
+| Zurücksetzen | Button | Entfernt alle Filter |
+| Aktive Filter-Pills | Badges | Zeigt gesetzte Filter mit ✕ zum Entfernen |
+| CSV | Link | Exportiert gefilterte Liste als CSV |
+| Listen-/Grid-Ansicht | Buttons | Wechselt zwischen Tabelle und Thumbnails |
+| Checkboxen in Tabelle | Checkboxen | Selektion für Bulk-Edit |
+| Dateiname | Link | Öffnet Dokumenten-Detailansicht |
+| Pagination | Buttons | Blättern zwischen Seiten |
+
 ---
 
 ## 5. Dokument bearbeiten
@@ -188,6 +216,22 @@ Folgende Felder können geändert werden:
 - **Ignorieren / Wiederherstellen**
 - **Sperren / Entsperren**
 - **Löschen**: Dokument samt Datei entfernen.
+
+### Wichtige UI-Elemente
+
+| Element | Typ | Funktion |
+|---------|-----|----------|
+| Zurück | Button | Zurück zur Dokumentenliste |
+| Dateiname | Eingabefeld | Umbenennen (gesperrt bei locked/ignored) |
+| Sender | Eingabefeld mit Autocomplete | Absender ändern |
+| Datum / Typ / Kategorie | Eingabe- und Dropdown-Felder | Metadaten bearbeiten |
+| Zusammenfassung / Notizen | Textareas | Freitext |
+| Tags | Eingabefeld | Kommaseparierte Tags |
+| Steuerrelevant / Steuerjahr / Läuft ab | Checkbox / Felder | Steuer- und Ablaufdaten |
+| Status | Dropdown | Dokumentenstatus ändern |
+| Speichern | Button | Speichert alle Änderungen |
+| PDF-Vorschau | Bereich | Zeigt die PDF-Datei an |
+| Neu verarbeiten / Bestätigen / Ignorieren / Sperren / Löschen | Buttons | Dokumentenaktionen |
 
 ---
 
@@ -236,6 +280,19 @@ Unter **Absender** werden alle erkannten Absender aufgelistet.
 - Unreviewte Absender werden im Sidebar-Badge angezeigt.
 - Eine feste Kategorie beschleunigt die zukünftige Klassifikation.
 
+### Wichtige UI-Elemente
+
+| Element | Typ | Funktion |
+|---------|-----|----------|
+| Suche | Eingabefeld | Filter nach Absendernamen |
+| Nur Unreviewed | Toggle | Zeigt nur unreviewte Absender |
+| Neu laden / Neu aufbauen / Audit | Buttons | Registry-Verwaltung |
+| Name / Anzahl / Kategorien / Gepinnt | Tabellenspalten | Absenderübersicht |
+| Gepinnte Kategorie / Gepinnter Typ | Dropdowns | Inline-Edit für Kategorie/Typ |
+| Reviewed | Checkbox | Absender als geprüft markieren |
+| Zusammenführen | Dropdown | Merge-Ziel für Absender wählen |
+| Umbenennen / Löschen | Buttons | Absender-Änderungen |
+
 ---
 
 ## 8. Geringer-Wert-Regeln
@@ -265,6 +322,16 @@ Dokumente automatisch als „geringer Wert“ markieren, um unwichtige Belege zu
 ### Filter in Dokumentenliste
 
 - Über den Button **Geringer Wert** oder den Sidebar-Schnellfilter lassen sich als gering markierte Dokumente anzeigen.
+
+### Wichtige UI-Elemente
+
+| Element | Typ | Funktion |
+|---------|-----|----------|
+| Name / Kategorie / Typ / Maximalbetrag / Alter | Eingabe- und Dropdown-Felder | Regelkriterien |
+| Aktiv | Checkbox | Regel ein-/ausschalten |
+| Regel erstellen | Button | Speichert neue Regel |
+| Aktiv-Toggle | Schalter | Regel (de-)aktivieren |
+| Vorschau / Anwenden / Löschen | Buttons | Regel testen, anwenden oder entfernen |
 
 ---
 
@@ -316,6 +383,17 @@ Unter **Sammlungen** können Dokumente thematisch gruppiert werden (z. B. „Umb
 
 - Sammlungen können als ZIP heruntergeladen werden.
 
+### Wichtige UI-Elemente
+
+| Element | Typ | Funktion |
+|---------|-----|----------|
+| Neue Sammlung | Button | Formular öffnen |
+| Name / Beschreibung / Farbe | Eingabe- und Auswahlfelder | Sammlung anlegen |
+| Sammlungskachel | Card | Link zur Detailansicht |
+| Zurück / Bearbeiten / Löschen | Buttons | Sammlung verwalten |
+| ZIP-Download | Link | Alle Dokumente als ZIP |
+| Dokumentenliste in Sammlung | Tabelle | Zugeordnete Dokumente |
+
 ---
 
 ## 11. Steuer-Modul
@@ -355,6 +433,20 @@ Detaillierte Architektur und Planung: [`blueprint_tax_module.md`](blueprint_tax_
 - **Entwicklung**: Zeitreihe der Beträge pro Kategorie über mehrere Jahre.
 - **Vergleich**: Jahr gegen Jahr vergleichen.
 - **Steuer-Assistent**: KI-Chat für Steuerfragen.
+
+### Wichtige UI-Elemente
+
+| Element | Typ | Funktion |
+|---------|-----|----------|
+| Jahr anlegen | Formular | Neues Steuerjahr erstellen |
+| Jahreskachel / Liste | Card / Tabelle | Zeigt Jahr, Status, Anzahl Positionen |
+| Dokument verknüpfen | Button | Steuerprogramm-Export oder Bescheid hinzufügen |
+| Extrahieren | Button | Startet LLM-Extraktion der Positionen |
+| Positionen-Tabelle | Tabelle | Zeigt extrahierte Positionen |
+| Betrag / Kategorie / Unterkategorie / Bezeichnung | Eingabefelder | Position korrigieren |
+| Verifiziert | Checkbox | Position als geprüft markieren |
+| Position löschen | Button | Falsche Position entfernen |
+| Vergleich / Entwicklung / Steuer-Assistent | Tabs / Links | Weitere Steuer-Ansichten |
 
 ---
 

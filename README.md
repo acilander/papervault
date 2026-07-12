@@ -512,8 +512,7 @@ python scripts/migrate_to_db.py
 
 - **HTML-Übersicht**: `docs/html/index.html` im Browser öffnen (mit Mermaid-Diagrammen)
 - **HTML neu bauen**: `.venv\Scripts\python docs\build.py`
-- **Bedienungsanleitung**: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
-- **UI-Referenz**: [`docs/UI_REFERENCE.md`](docs/UI_REFERENCE.md) – alle Tabs, Buttons, Dropdowns, Tabellen, Filter
+- **Bedienungsanleitung inkl. UI-Referenz**: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
 - **Systemarchitektur**: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - **Technische Tiefe**: [`docs/technical/`](docs/technical/)
 - Feature-Übersicht und aktuelle Liste: [`docs/FEATURES.md`](docs/FEATURES.md)

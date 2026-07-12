@@ -65,7 +65,6 @@ def relative_url(source: Path, target: Path) -> str:
 NAV_ORDER: list[tuple[str | None, str]] = [
     ("index.html", "Übersicht"),
     ("USER_GUIDE.html", "Bedienungsanleitung"),
-    ("UI_REFERENCE.html", "UI-Referenz"),
     ("FEATURES.html", "Feature-Liste"),
     ("ARCHITECTURE.html", "Systemarchitektur"),
 ]
