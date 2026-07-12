@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Technisch: Monitor – PaperVault Doku</title>
+  <title>Technische Tiefe – PaperVault Doku</title>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
@@ -152,7 +152,7 @@
     <h1>📚 PaperVault Doku</h1>
     <nav>
 <div class="nav-group"><h3>Einstieg</h3>
-<a class="nav-link" href="../index.html">Übersicht</a>
+<a class="nav-link active" href="../index.html">Übersicht</a>
 <a class="nav-link" href="../USER_GUIDE.html">Bedienungsanleitung</a>
 <a class="nav-link" href="../FEATURES.html">Feature-Liste</a>
 </div>
@@ -165,7 +165,7 @@
 <a class="nav-link" href="../feature-low-value-rules.html">Low-Value-Rules</a>
 </div>
 <div class="nav-group"><h3>Tiefe</h3>
-<a class="nav-link" href="../technical/index.html">Technische Tiefe</a>
+<a class="nav-link active" href="../technical/index.html">Technische Tiefe</a>
 </div>
 <div class="nav-group"><h3>Blueprints</h3>
 <a class="nav-link" href="../blueprints/blueprint_tax_module.html">Steuer-Modul Blueprint</a>
@@ -185,7 +185,7 @@
 <a class="nav-link" href="../technical/07-tax-module.html">07 Steuer-Modul</a>
 <a class="nav-link" href="../technical/08-collections.html">08 Sammlungen</a>
 <a class="nav-link" href="../technical/09-chat-and-llm.html">09 KI-Suche</a>
-<a class="nav-link active" href="../technical/10-monitor.html">10 Monitor</a>
+<a class="nav-link" href="../technical/10-monitor.html">10 Monitor</a>
 <a class="nav-link" href="../technical/11-feedback.html">11 Feedback</a>
 <a class="nav-link" href="../technical/12-settings-and-config.html">12 Einstellungen</a>
 <a class="nav-link" href="../technical/13-inventory-contracts-services.html">13 Inventar / Verträge / Ausgaben</a>
@@ -193,58 +193,85 @@
     </nav>
   </aside>
   <main>
-<h1 id="technisch-monitor">Technisch: Monitor</h1>
-<h2 id="1-ziel">1. Ziel</h2>
-<p>Live-Überwachung des Inbox-Ordners und der laufenden Verarbeitung.</p>
-<h2 id="2-technik">2. Technik</h2>
-<ul>
-<li><strong>SSE (Server-Sent Events)</strong>: <code>GET /monitor/stream</code></li>
-<li><strong>Polling</strong>: <code>GET /monitor/inbox</code></li>
-</ul>
-<h2 id="3-sse-stream">3. SSE-Stream</h2>
-<p>Backend sendet Events an den Browser:</p>
-<pre><code class="language-json">{
-  &quot;type&quot;: &quot;status_update&quot;,
-  &quot;document_id&quot;: 123,
-  &quot;status&quot;: &quot;processing&quot;,
-  &quot;message&quot;: &quot;OCR läuft...&quot;
-}
-</code></pre>
-<h3 id="konfiguration-im-vite-proxy">Konfiguration im Vite-Proxy</h3>
-<pre><code class="language-js">'/monitor': {
-  target: 'http://localhost:8000',
-  configure: (proxy) =&gt; {
-    proxy.on('proxyRes', (proxyRes) =&gt; {
-      proxyRes.headers['x-accel-buffering'] = 'no'
-    })
-  }
-}
-</code></pre>
-<p><code>x-accel-buffering: no</code> verhindert, dass Proxys oder Webserver den Stream puffern.</p>
-<h2 id="4-frontend">4. Frontend</h2>
-<ul>
-<li>Seite <code>Monitor.tsx</code> verbindet sich mit SSE.</li>
-<li>Auto-Reconnect alle 3 Sekunden bei Verbindungsabbruch.</li>
-<li>Zeigt Inbox-Dateien und Verarbeitungsstatus.</li>
-</ul>
-<h2 id="5-ablauf">5. Ablauf</h2>
-<ol>
-<li>Nutzer öffnet Monitor-Seite.</li>
-<li>SSE-Verbindung wird aufgebaut.</li>
-<li>Archiver startet automatisch.</li>
-<li>Jede Statusänderung eines Dokuments wird per SSE an den Browser geschickt.</li>
-<li>Frontend aktualisiert die Anzeige ohne Reload.</li>
-</ol>
-<h2 id="6-api-endpunkte">6. API-Endpunkte</h2>
-<ul>
-<li><code>GET /monitor/stream</code> – SSE-Stream</li>
-<li><code>GET /monitor/inbox</code> – Aktuelle Dateien im Inbox-Ordner</li>
-<li><code>GET /monitor/duplicates/count</code> – Anzahl Duplikate</li>
-</ul>
-<h2 id="7-tests">7. Tests</h2>
-<ul>
-<li>Monitor-Tests in <code>tests/</code></li>
-</ul>
+<h1 id="technische-tiefe">Technische Tiefe</h1>
+<p>Detaillierte Dokumentation für Entwickler und Power-User: Architektur, Logik, Mathematik und Algorithmik pro Feature.</p>
+<h2 id="kapitel">Kapitel</h2>
+<table>
+<thead>
+<tr>
+<th>Nr.</th>
+<th>Thema</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>01</td>
+<td><a href="01-pipeline-and-import.md">Pipeline und Import</a></td>
+<td>Textextraktion, OCR, Hash, Duplikat-Check, LLM-Klassifikation, Archivierung</td>
+</tr>
+<tr>
+<td>02</td>
+<td><a href="02-documents-search-and-filter.md">Dokumente: Suche und Filter</a></td>
+<td>FTS5, Filter-Logik, Sortierung, Pagination, Bulk-Edit</td>
+</tr>
+<tr>
+<td>03</td>
+<td><a href="03-ignore-lock.md">Ignore / Lock</a></td>
+<td>Hash-Registry, Schutzmechanismen, API, Dateisystem-Auswirkungen</td>
+</tr>
+<tr>
+<td>04</td>
+<td><a href="04-low-value-rules.md">Geringer-Wert-Regeln</a></td>
+<td>Regel-Matching, SQL, Betragsprüfung, API</td>
+</tr>
+<tr>
+<td>05</td>
+<td><a href="05-duplicates.md">Duplikate</a></td>
+<td>SHA256-Hash-basierte Duplikat-Erkennung</td>
+</tr>
+<tr>
+<td>06</td>
+<td><a href="06-senders.md">Absender</a></td>
+<td>Sender-Registry, Kategorie-Pins, Merge, Audit</td>
+</tr>
+<tr>
+<td>07</td>
+<td><a href="07-tax-module.md">Steuer-Modul</a></td>
+<td>Steuerjahre, Positionen, Extraktion, Vergleich</td>
+</tr>
+<tr>
+<td>08</td>
+<td><a href="08-collections.md">Sammlungen</a></td>
+<td>Collections, Dokumenten-Zuordnung, ZIP-Export</td>
+</tr>
+<tr>
+<td>09</td>
+<td><a href="09-chat-and-llm.md">KI-Suche und Chat</a></td>
+<td>LLM-Integration, Prompting, Token-Management</td>
+</tr>
+<tr>
+<td>10</td>
+<td><a href="10-monitor.md">Monitor</a></td>
+<td>SSE-Stream, Live-Verarbeitung, Archiver</td>
+</tr>
+<tr>
+<td>11</td>
+<td><a href="11-feedback.md">Feedback</a></td>
+<td>Feedback-Erfassung und Migration</td>
+</tr>
+<tr>
+<td>12</td>
+<td><a href="12-settings-and-config.md">Einstellungen</a></td>
+<td>Konfiguration, Pfade, Umgebungsvariablen</td>
+</tr>
+<tr>
+<td>13</td>
+<td><a href="13-inventory-contracts-services.md">Inventar, Verträge, Ausgaben</a></td>
+<td>Entitäten-Module und Datenmodelle</td>
+</tr>
+</tbody>
+</table>
     <footer>
       PaperVault Dokumentation · Generiert aus Markdown
     </footer>

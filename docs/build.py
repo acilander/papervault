@@ -117,7 +117,9 @@ NAV_GROUPS: list[tuple[str, list[tuple[str | None, str]]]] = [
         ("feature-ignore-lock.html", "Ignore / Lock"),
         ("feature-low-value-rules.html", "Low-Value-Rules"),
     ]),
-    ("Technische Tiefe", TECHNICAL_CHAPTERS),
+    ("Tiefe", [
+        ("technical/index.html", "Technische Tiefe"),
+    ]),
     ("Blueprints", BLUEPRINTS),
     ("Sonstiges", [
         ("llm-cascade-scenarios.html", "LLM-Cascade-Szenarien"),
@@ -126,6 +128,11 @@ NAV_GROUPS: list[tuple[str, list[tuple[str | None, str]]]] = [
 
 
 def _lookup_title(rel: str) -> str:
+    # Check NAV_GROUPS first for friendly titles
+    for _, links in NAV_GROUPS:
+        for pattern, title in links:
+            if pattern and rel == pattern:
+                return title
     for pattern, title in ORDERED_PAGES:
         if pattern and rel == pattern:
             return title
@@ -141,23 +148,38 @@ def page_sort_key(rel: str) -> tuple[int, int]:
     return (len(NAV_GROUPS), 0)
 
 
+def _build_group(current_html: Path, present: set[str], group_title: str, links: list[tuple[str | None, str]]) -> str:
+    """Build one navigation group."""
+    group_links: list[str] = []
+    for pattern, title in links:
+        if pattern not in present:
+            continue
+        href = relative_url(current_html, OUT_DIR / pattern)
+        active = " active" if Path(pattern).name == current_html.name else ""
+        group_links.append(f'<a class="nav-link{active}" href="{href}">{title}</a>')
+    if not group_links:
+        return ""
+    return f'<div class="nav-group"><h3>{group_title}</h3>\n' + "\n".join(group_links) + '\n</div>'
+
+
 def build_nav(current_html: Path, pages: Iterable[Path]) -> str:
     """Build a grouped sidebar navigation linking all generated HTML pages."""
     present: set[str] = {p.relative_to(OUT_DIR).as_posix() for p in pages}
     items: list[str] = []
+
+    # Main navigation
     for group_title, links in NAV_GROUPS:
-        group_links: list[str] = []
-        for pattern, title in links:
-            if pattern not in present:
-                continue
-            href = relative_url(current_html, OUT_DIR / pattern)
-            active = " active" if Path(pattern).name == current_html.name else ""
-            group_links.append(f'<a class="nav-link{active}" href="{href}">{title}</a>')
-        if not group_links:
-            continue
-        items.append(f'<div class="nav-group"><h3>{group_title}</h3>')
-        items.extend(group_links)
-        items.append('</div>')
+        group_html = _build_group(current_html, present, group_title, links)
+        if group_html:
+            items.append(group_html)
+
+    # Sub-navigation for technical chapters when viewing a technical page
+    current_rel = current_html.relative_to(OUT_DIR).as_posix()
+    if current_rel.startswith("technical/"):
+        tech_group = _build_group(current_html, present, "Kapitel", TECHNICAL_CHAPTERS)
+        if tech_group:
+            items.append(tech_group)
+
     return "\n".join(items)
 
 
@@ -378,12 +400,19 @@ def build() -> None:
         out.write_text(full, encoding="utf-8")
         print(f"  wrote {out.relative_to(PROJECT_ROOT)}")
 
-    # Generate index.html
+    # Generate index.html cards only for top-level pages defined in NAV_GROUPS
+    present: set[str] = {p.relative_to(OUT_DIR).as_posix() for p in pages}
     cards = []
-    content_pages = [p for p in pages if p != index_out]
-    for out in sorted(content_pages, key=lambda p: page_sort_key(p.relative_to(OUT_DIR).as_posix())):
-        href = out.relative_to(OUT_DIR).as_posix()
-        title = _lookup_title(href)
+    top_level: set[str] = set()
+    for _, links in NAV_GROUPS:
+        for pattern, _ in links:
+            if pattern:
+                top_level.add(pattern)
+    for rel in sorted(top_level, key=page_sort_key):
+        if rel not in present:
+            continue
+        href = rel
+        title = _lookup_title(rel)
         cards.append(
             f'<a class="card" href="{href}"><h3>{title}</h3></a>'
         )
