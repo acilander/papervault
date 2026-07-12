@@ -32,6 +32,8 @@ def list_documents(
     no_sender: Optional[int] = Query(None),
     low_value: Optional[int] = Query(None),
     confidence: Optional[str] = Query(None, description="Filter by confidence: low, medium, high"),
+    sort_by: Optional[str] = Query("archived_at", description="Column to sort by"),
+    sort_dir: Optional[str] = Query("desc", description="Sort direction: asc or desc"),
     limit: int = Query(100, le=500),
     offset: int = Query(0, ge=0),
     response: Response = None,
@@ -41,7 +43,8 @@ def list_documents(
         status=status, tax_relevant=tax_relevant, tag=tag,
         no_sender=bool(no_sender), low_value=low_value, confidence=confidence,
     )
-    docs = db.search_documents(**filter_kwargs, limit=limit, offset=offset)
+    sort_kwargs = dict(sort_by=sort_by, sort_dir=sort_dir)
+    docs = db.search_documents(**filter_kwargs, **sort_kwargs, limit=limit, offset=offset)
     total = db.count_documents(**filter_kwargs)
     if response is not None:
         response.headers["X-Total-Count"] = str(total)

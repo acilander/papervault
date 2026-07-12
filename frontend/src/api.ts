@@ -238,6 +238,7 @@ export const addDocumentToCollection = (collectionId: number, documentId: number
 export const getDocumentsPage = async (params: {
   q?: string; category?: string; year?: string; sender?: string; status?: string
   tax_relevant?: number; tag?: string; no_sender?: number; low_value?: number
+  confidence?: string; sort_by?: string; sort_dir?: string
   limit: number; offset: number
 }): Promise<{ docs: Document[]; total: number }> => {
   const r = await api.get<Document[]>('/documents/', { params })

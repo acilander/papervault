@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search, Filter, LayoutList, LayoutGrid, Download, X, Undo2, FolderPlus } from 'lucide-react'
+import { Search, Filter, LayoutList, LayoutGrid, Download, X, Undo2, FolderPlus, ArrowUpDown } from 'lucide-react'
 import { getDocumentsPage, getExpiring, thumbnailUrl, bulkUpdate, csvExportUrl, getCollections, addDocumentToCollection, type Document, type Collection } from '../api'
 import { useConfig } from '../ConfigContext'
 import Pagination from '../components/Pagination'
@@ -35,6 +35,8 @@ export default function Documents() {
   const [bulkField, setBulkField] = useState('')
   const [bulkValue, setBulkValue] = useState('')
   const [bulkLoading, setBulkLoading] = useState(false)
+  const [sortBy, setSortBy] = useState(searchParams.get('sort_by') || 'archived_at')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>((searchParams.get('sort_dir') as 'asc' | 'desc') || 'desc')
   // Fix 18: Undo bulk edit
   const [undoSnapshot, setUndoSnapshot] = useState<{ docs: Document[]; label: string } | null>(null)
   // Fix 19: Bulk-add to collection
@@ -110,7 +112,9 @@ export default function Documents() {
     low_value: lowValueFilter ? 1 : undefined,
     confidence: confidenceFilter || undefined,
     tag: tagFilter || undefined,
-  }), [q, category, year, sender, status, taxFilter, noSenderFilter, lowValueFilter, confidenceFilter, tagFilter])
+    sort_by: sortBy,
+    sort_dir: sortDir,
+  }), [q, category, year, sender, status, taxFilter, noSenderFilter, lowValueFilter, confidenceFilter, tagFilter, sortBy, sortDir])
 
   const load = useCallback(async (p = page) => {
     setLoading(true)
@@ -138,6 +142,15 @@ export default function Documents() {
   }
 
   useEffect(() => { setPage(1); load(1) }, [buildFilterParams, expiresFilter])
+
+  const handleSort = (col: string) => {
+    if (sortBy === col) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(col)
+      setSortDir('asc')
+    }
+  }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { getCollections().then(setCollections).catch(() => {}) }, [])
 
@@ -439,12 +452,27 @@ export default function Documents() {
                     <input type="checkbox" checked={docs.length > 0 && selected.size === docs.length}
                       onChange={toggleAll} className="rounded" />
                   </th>
-                  <th className="px-4 py-2 font-medium">Dateiname</th>
-                  <th className="px-4 py-2 font-medium">Absender</th>
-                  <th className="px-4 py-2 font-medium">Kategorie</th>
-                  <th className="px-4 py-2 font-medium">Datum</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium">Archiviert</th>
+                  <th className="px-4 py-2 font-medium cursor-pointer hover:text-gray-700 dark:hover:text-gray-200" onClick={() => handleSort('filename')}>
+                    <span className="inline-flex items-center gap-1">Dateiname {sortBy === 'filename' && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}</span>
+                  </th>
+                  <th className="px-4 py-2 font-medium cursor-pointer hover:text-gray-700 dark:hover:text-gray-200" onClick={() => handleSort('sender')}>
+                    <span className="inline-flex items-center gap-1">Absender {sortBy === 'sender' && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}</span>
+                  </th>
+                  <th className="px-4 py-2 font-medium cursor-pointer hover:text-gray-700 dark:hover:text-gray-200" onClick={() => handleSort('category')}>
+                    <span className="inline-flex items-center gap-1">Kategorie {sortBy === 'category' && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}</span>
+                  </th>
+                  <th className="px-4 py-2 font-medium cursor-pointer hover:text-gray-700 dark:hover:text-gray-200" onClick={() => handleSort('document_type')}>
+                    <span className="inline-flex items-center gap-1">Typ {sortBy === 'document_type' && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}</span>
+                  </th>
+                  <th className="px-4 py-2 font-medium cursor-pointer hover:text-gray-700 dark:hover:text-gray-200" onClick={() => handleSort('date')}>
+                    <span className="inline-flex items-center gap-1">Datum {sortBy === 'date' && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}</span>
+                  </th>
+                  <th className="px-4 py-2 font-medium cursor-pointer hover:text-gray-700 dark:hover:text-gray-200" onClick={() => handleSort('status')}>
+                    <span className="inline-flex items-center gap-1">Status {sortBy === 'status' && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}</span>
+                  </th>
+                  <th className="px-4 py-2 font-medium cursor-pointer hover:text-gray-700 dark:hover:text-gray-200" onClick={() => handleSort('archived_at')}>
+                    <span className="inline-flex items-center gap-1">Archiviert {sortBy === 'archived_at' && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -468,6 +496,7 @@ export default function Documents() {
                         <span className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 rounded-full text-xs whitespace-nowrap">{doc.category}</span>
                       )}
                     </td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{doc.document_type ?? '–'}</td>
                     <td className="px-4 py-2 text-gray-500 dark:text-gray-400 whitespace-nowrap">{doc.date ?? '–'}</td>
                     <td className="px-4 py-2">
                       <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status}</span>
@@ -476,7 +505,7 @@ export default function Documents() {
                   </tr>
                 ))}
                 {docs.length === 0 && !loading && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Keine Dokumente gefunden</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Keine Dokumente gefunden</td></tr>
                 )}
               </tbody>
             </table>

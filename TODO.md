@@ -51,3 +51,10 @@ Jeder Step in `core.py` hat seinen eigenen Fehler-Pfad. Ein zentraler Pipeline-R
 - [ ] Bulk-Reprocessing für Dokumente ohne Absender
 - [ ] GUI-Seite für Feedback-Verwaltung (Few-Shot-Beispiele einsehen/löschen)
 - [ ] Bulk-`low_value`-Markierung per Regel (Kategorie, Typ, Betragsschwelle)
+
+## Meine Anmerkungen
+- [ ] neue Dokumente werden noch immer alls REchnung klassifiziert, obwohl wir neue Typen definiert haben
+- [x] in Dokumente Liste feht die Typ Spalte
+- [x] die Dokumente Liste lässt sich nicht nach den Spalten sortieren
+- [x] wenn in der absender liste dokumente als review sind, die aber eine falsche Kategorie haben, wie kann ich alle auf die richtige Kategorie setzen?
+- [ ] alle tabellen sollen sich nach spalten sortieren lassen

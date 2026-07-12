@@ -92,8 +92,12 @@ _LIST_COLS = """
 """
 
 
+_VALID_SORT_COLS = {"filename", "sender", "category", "document_type", "date", "status", "archived_at", "confidence"}
+
+
 def search_documents(query=None, category=None, year=None, sender=None,
-                     status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None, confidence=None, limit=100, offset=0):
+                     status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None, confidence=None,
+                     sort_by=None, sort_dir=None, limit=100, offset=0):
     """Full-text search + optional filters. Returns list of dicts (no full_text/sim_hash/keywords)."""
     with get_conn() as conn:
         if query:
@@ -137,7 +141,9 @@ def search_documents(query=None, category=None, year=None, sender=None,
             sql += " AND d.confidence = ?"
             params.append(confidence)
 
-        sql += " ORDER BY d.archived_at DESC LIMIT ? OFFSET ?"
+        order_col = sort_by if sort_by in _VALID_SORT_COLS else "archived_at"
+        direction = "ASC" if str(sort_dir).upper() == "ASC" else "DESC"
+        sql += f" ORDER BY d.{order_col} {direction} LIMIT ? OFFSET ?"
         params += [limit, offset]
 
         rows = conn.execute(sql, params).fetchall()
