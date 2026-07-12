@@ -508,9 +508,22 @@ python scripts/migrate_to_db.py
 
 ---
 
+## Dokumentation
+
+- Feature-Übersicht und aktuelle Liste: [`docs/FEATURES.md`](docs/FEATURES.md)
+- Vorgeschlagene Dokumentationsstruktur: [`docs/DOCUMENTATION_STRUCTURE.md`](docs/DOCUMENTATION_STRUCTURE.md)
+- Ignore / Lock: [`docs/feature-ignore-lock.md`](docs/feature-ignore-lock.md)
+- Geringer-Wert-Regeln: [`docs/feature-low-value-rules.md`](docs/feature-low-value-rules.md)
+- API-Details: Backend starten und `/docs` öffnen (automatische OpenAPI-Doku)
+
+---
+
 ## Changelog
 
 ### 2026-07-12
+- **feat**: Dokumentenschutz (Ignore / Lock) implementiert: Status `ignored`/`locked`, Hash-Registry, API-Endpunkte, UI-Integration
+- **fix**: Low-Value-Regeln crashen nicht mehr, Vite-Proxy für `/low-value-rules` ergänzt, Fehlerbehandlung im Frontend
+- **fix**: Fehlende schließende Klammer im `EXISTS`-Subquery von `find_matching_docs` korrigiert
 - **feat**: Steuer-Modul vollständig implementiert: Steuerjahre, Dokumentenverknüpfung, LLM-Extraktion, Review, Vergleich Export vs. Bescheid, Entwicklungsdiagramm, Steuer-Assistent
 - **fix**: Bescheidspositionen werden in `amount_assessed` gespeichert, damit der Vergleich Export vs. Bescheid funktioniert
 - **fix**: `tax/chat.py` prüft jetzt korrekt auf `source_type == "assessment_notice"`
