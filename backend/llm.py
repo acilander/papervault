@@ -60,6 +60,41 @@ def load_model():
         log(f"Modell geladen: {model_name} in {elapsed:.1f}s [GPU-Layer: {N_GPU_LAYERS}]")
 
 
+def llm_json_completion(system: str, user: str, max_tokens: int = 512, temperature: float = 0.0) -> dict | list | None:
+    """Run a chat completion and parse the response as JSON.
+
+    Returns parsed JSON (dict or list) or None on failure.
+    """
+    load_model()
+    from config import MOCK_LLM
+    if MOCK_LLM:
+        return None
+    try:
+        with _llm_lock:
+            result = _llm.create_chat_completion(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+        raw = result["choices"][0]["message"]["content"]
+        cleaned = raw.replace("```json", "").replace("```", "").strip()
+        start = cleaned.find("[")
+        if start == -1:
+            start = cleaned.find("{")
+        end = cleaned.rfind("]")
+        if end == -1:
+            end = cleaned.rfind("}")
+        if start >= 0 and end >= start:
+            cleaned = cleaned[start:end + 1]
+        return json.loads(cleaned)
+    except Exception as e:
+        log(f"[LLM] JSON completion failed: {e}")
+        return None
+
+
 def normalize_sender(sender):
     """Match sender against known senders (and their aliases) using exact + fuzzy matching.
     Always returns the canonical registry key name."""

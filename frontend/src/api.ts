@@ -390,3 +390,6 @@ export const getTaxDevelopment = (category?: string) =>
 
 export const getAvailableTaxDocuments = (q?: string, limit: number = 50) =>
   api.get<Document[]>('/tax/documents/available', { params: { q, limit } }).then(r => r.data)
+
+export const extractTaxDocumentPositions = (taxDocumentId: number) =>
+  api.post<{ tax_document_id: number; positions: TaxPosition[] }>(`/tax/documents/${taxDocumentId}/extract`).then(r => r.data)

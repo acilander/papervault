@@ -8,6 +8,7 @@ import db.tax_years_repo as tax_years_repo
 import db.tax_documents_repo as tax_documents_repo
 import db.tax_positions_repo as tax_positions_repo
 from api.models import DocumentListOut
+from tax.extraction import extract_tax_positions
 
 router = APIRouter(prefix="/tax", tags=["tax"])
 
@@ -210,6 +211,20 @@ def delete_tax_position(position_id: int):
         raise HTTPException(status_code=404, detail="Position nicht gefunden")
     tax_positions_repo.delete(position_id)
     return None
+
+
+@router.post("/documents/{tax_document_id}/extract")
+def extract_tax_document_positions(tax_document_id: int):
+    tax_doc = tax_documents_repo.get(tax_document_id)
+    if not tax_doc:
+        raise HTTPException(status_code=404, detail="Steuerdokument nicht gefunden")
+    try:
+        positions = extract_tax_positions(tax_document_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Extraktion fehlgeschlagen: {e}")
+    return {"tax_document_id": tax_document_id, "positions": positions}
 
 
 @router.get("/years/{tax_year_id}/summary")
