@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
-import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
@@ -10,6 +10,8 @@ export default function DocumentDetail() {
   const { categories: CATEGORIES } = useConfig()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const navState = (location.state as { docIds?: number[]; currentIndex?: number; search?: string } | null) ?? null
   const [doc, setDoc] = useState<Document | null>(null)
   const [edit, setEdit] = useState<DocumentUpdate>({})
   const [saving, setSaving] = useState(false)
@@ -126,10 +128,50 @@ export default function DocumentDetail() {
       {/* Right: Metadata editor */}
       <div className="w-80 bg-white dark:bg-gray-900 flex flex-col">
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center gap-2">
-          <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-gray-700">
+          <button
+            onClick={() => {
+              if (navState?.search) {
+                navigate(`/documents?${navState.search}`)
+              } else {
+                navigate(-1)
+              }
+            }}
+            className="text-gray-400 hover:text-gray-700"
+          >
             <ArrowLeft size={16} />
           </button>
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate flex-1">{doc.filename}</h2>
+          {navState?.docIds && navState.docIds.length > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  if (!navState.docIds || navState.currentIndex == null) return
+                  const prevIndex = Math.max(0, navState.currentIndex - 1)
+                  navigate(`/documents/${navState.docIds[prevIndex]}`, { state: { ...navState, currentIndex: prevIndex } })
+                }}
+                disabled={navState.currentIndex === 0}
+                className="p-1 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Vorheriges Dokument"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <span className="text-xs text-gray-400 tabular-nums">
+                {navState.currentIndex != null ? navState.currentIndex + 1 : 0} / {navState.docIds.length}
+              </span>
+              <button
+                onClick={() => {
+                  if (!navState.docIds || navState.currentIndex == null) return
+                  const nextIndex = Math.min(navState.docIds.length - 1, navState.currentIndex + 1)
+                  navigate(`/documents/${navState.docIds[nextIndex]}`, { state: { ...navState, currentIndex: nextIndex } })
+                }}
+                disabled={navState.currentIndex === navState.docIds.length - 1}
+                className="p-1 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Nächstes Dokument"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">

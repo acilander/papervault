@@ -476,7 +476,7 @@ export default function Documents() {
                 </tr>
               </thead>
               <tbody>
-                {docs.map(doc => (
+                {docs.map((doc, index) => (
                   <tr key={doc.id}
                     className={`border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 ${
                       selected.has(doc.id) ? 'bg-indigo-50/60 dark:bg-indigo-900/20' : ''
@@ -486,7 +486,11 @@ export default function Documents() {
                         onChange={() => toggleSelect(doc.id)} className="rounded" />
                     </td>
                     <td className="px-4 py-2 max-w-xs">
-                      <Link to={`/documents/${doc.id}`} className="text-blue-600 hover:underline truncate block">
+                      <Link
+                        to={`/documents/${doc.id}`}
+                        state={{ docIds: docs.map(d => d.id), currentIndex: index, search: searchParams.toString() }}
+                        className="text-blue-600 hover:underline truncate block"
+                      >
                         {doc.filename}
                       </Link>
                     </td>
@@ -512,8 +516,9 @@ export default function Documents() {
           </div>
         ) : (
           <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {docs.map(doc => (
+            {docs.map((doc, index) => (
               <Link key={doc.id} to={`/documents/${doc.id}`}
+                state={{ docIds: docs.map(d => d.id), currentIndex: index, search: searchParams.toString() }}
                 className="group flex flex-col rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all bg-white dark:bg-gray-900">
                 <div className="aspect-[3/4] bg-gray-100 dark:bg-gray-800 overflow-hidden">
                   <img
