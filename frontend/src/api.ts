@@ -310,3 +310,83 @@ export const previewLowValueRule = (id: number) =>
 
 export const applyLowValueRule = (id: number) =>
   api.post<{ rule: LowValueRule; matched: number; updated: number }>(`/low-value-rules/${id}/apply`).then(r => r.data)
+
+export interface TaxYear {
+  id: number
+  year: number
+  status: 'draft' | 'submitted' | 'assessed' | 'final'
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface TaxDocument {
+  id: number
+  tax_year_id: number
+  document_id: number
+  source_type: 'tax_program_export' | 'assessment_notice'
+  parsed_at: string | null
+  verified: boolean
+  filename: string
+  sender: string | null
+  document_type: string | null
+  category: string | null
+  date: string | null
+  archived_at: string
+}
+
+export interface TaxPosition {
+  id: number
+  tax_year_id: number
+  tax_document_id: number
+  category: string
+  subcategory: string | null
+  label: string
+  amount: number | null
+  amount_assessed: number | null
+  page: number | null
+  verified: boolean
+  source_text: string | null
+  created_at: string
+  filename: string
+  source_type: string
+}
+
+export const getTaxYears = () => api.get<TaxYear[]>('/tax/years').then(r => r.data)
+
+export const createTaxYear = (data: { year: number; status?: string; notes?: string | null }) =>
+  api.post<TaxYear>('/tax/years', data).then(r => r.data)
+
+export const updateTaxYear = (id: number, data: Partial<{ year: number; status: string; notes: string | null }>) =>
+  api.patch<TaxYear>(`/tax/years/${id}`, data).then(r => r.data)
+
+export const deleteTaxYear = (id: number) => api.delete(`/tax/years/${id}`)
+
+export const getTaxYear = (id: number) =>
+  api.get<TaxYear & { documents: TaxDocument[]; positions: TaxPosition[]; summary: { category: string; total_amount: number; total_assessed: number; position_count: number }[] }>(`/tax/years/${id}`).then(r => r.data)
+
+export const getTaxDocuments = (taxYearId: number) => api.get<TaxDocument[]>(`/tax/years/${taxYearId}/documents`).then(r => r.data)
+
+export const createTaxDocument = (taxYearId: number, data: { document_id: number; source_type: string }) =>
+  api.post<TaxDocument>(`/tax/years/${taxYearId}/documents`, data).then(r => r.data)
+
+export const deleteTaxDocument = (id: number) => api.delete(`/tax/documents/${id}`)
+
+export const getTaxPositions = (taxYearId: number) => api.get<TaxPosition[]>(`/tax/years/${taxYearId}/positions`).then(r => r.data)
+
+export const createTaxPosition = (taxYearId: number, data: Omit<TaxPosition, 'id' | 'tax_year_id' | 'created_at' | 'filename' | 'source_type'>) =>
+  api.post<TaxPosition>(`/tax/years/${taxYearId}/positions`, data).then(r => r.data)
+
+export const updateTaxPosition = (id: number, data: Partial<Omit<TaxPosition, 'id' | 'tax_year_id' | 'tax_document_id' | 'created_at' | 'filename' | 'source_type'>>) =>
+  api.patch<TaxPosition>(`/tax/positions/${id}`, data).then(r => r.data)
+
+export const deleteTaxPosition = (id: number) => api.delete(`/tax/positions/${id}`)
+
+export const getTaxYearComparison = (id: number) =>
+  api.get<{ tax_year: TaxYear; positions: (TaxPosition & { difference: number })[]; summary: { category: string; total_amount: number; total_assessed: number; position_count: number }[] }>(`/tax/years/${id}/comparison`).then(r => r.data)
+
+export const getTaxDevelopment = (category?: string) =>
+  api.get<{ year: number; category: string; total_amount: number; total_assessed: number; position_count: number }[]>('/tax/development', { params: { category } }).then(r => r.data)
+
+export const getAvailableTaxDocuments = (q?: string, limit: number = 50) =>
+  api.get<Document[]>('/tax/documents/available', { params: { q, limit } }).then(r => r.data)
