@@ -91,3 +91,5 @@ def init_db():
     init_contracts_table()
     from db.services_repo import init_services_table
     init_services_table()
+    from db.low_value_rules_repo import init_low_value_rules_table
+    init_low_value_rules_table()

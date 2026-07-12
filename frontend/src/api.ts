@@ -278,3 +278,35 @@ export interface FeedbackEntry {
 export const getFeedback = () => api.get<FeedbackEntry[]>('/feedback/').then(r => r.data)
 
 export const deleteFeedback = (id: number) => api.delete(`/feedback/${id}`)
+
+export interface LowValueRule {
+  id: number
+  name: string
+  category: string | null
+  document_type: string | null
+  max_amount: number | null
+  older_than_days: number | null
+  active: boolean
+  created_at: string
+}
+
+export interface LowValueRulePreview {
+  rule: LowValueRule
+  matches: { id: number; filename: string; sender: string | null; document_type: string | null; category: string | null; date: string | null; archived_at: string }[]
+}
+
+export const getLowValueRules = () => api.get<LowValueRule[]>('/low-value-rules/').then(r => r.data)
+
+export const createLowValueRule = (data: Omit<LowValueRule, 'id' | 'created_at'>) =>
+  api.post<LowValueRule>('/low-value-rules/', data).then(r => r.data)
+
+export const updateLowValueRule = (id: number, data: Partial<Omit<LowValueRule, 'id' | 'created_at'>>) =>
+  api.patch<LowValueRule>(`/low-value-rules/${id}`, data).then(r => r.data)
+
+export const deleteLowValueRule = (id: number) => api.delete(`/low-value-rules/${id}`)
+
+export const previewLowValueRule = (id: number) =>
+  api.post<LowValueRulePreview>(`/low-value-rules/${id}/preview`).then(r => r.data)
+
+export const applyLowValueRule = (id: number) =>
+  api.post<{ rule: LowValueRule; matched: number; updated: number }>(`/low-value-rules/${id}/apply`).then(r => r.data)

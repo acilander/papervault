@@ -50,7 +50,7 @@ Jeder Step in `core.py` hat seinen eigenen Fehler-Pfad. Ein zentraler Pipeline-R
 
 - [x] Bulk-Reprocessing für Dokumente ohne Absender
 - [x] GUI-Seite für Feedback-Verwaltung (Few-Shot-Beispiele einsehen/löschen)
-- [ ] Bulk-`low_value`-Markierung per Regel (Kategorie, Typ, Betragsschwelle)
+- [x] Bulk-`low_value`-Markierung per Regel (Kategorie, Typ, Betragsschwelle)
 
 ## Meine Anmerkungen
 - [ ] neue Dokumente werden noch immer alls REchnung klassifiziert, obwohl wir neue Typen definiert haben
