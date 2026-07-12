@@ -16,7 +16,7 @@ JSON-Schema (alle Felder sind Pflicht):
 Erlaubte Werte fuer document_type (NUR diese 13, keine anderen erfinden):
 - Warenrechnung         – Rechnung die ausschliesslich physische Produkte/Waren enthaelt (Elektronik, Moebel, Kleidung, Lebensmittel, Ersatzteile, etc.)
 - Dienstleistungsrechnung – Rechnung fuer Dienstleistungen ohne physische Waren (Handwerker-Arbeitsleistung, Arztbehandlung, Reise, Reinigung, Reparaturarbeit, Beratung, Montage, etc.)
-- Rechnung       – Gemischte Rechnung mit Waren UND Dienstleistungen, oder wenn eine Unterscheidung nicht moeglich ist
+- Rechnung       – NUR fuer gemischte Rechnung mit Waren UND Dienstleistungen, oder wenn eine Unterscheidung wirklich nicht moeglich ist. Vermeide diesen Typen, wenn das Dokument eindeutig Waren ODER Dienstleistungen enthaelt.
 - Abrechnung     – Periodische Aufstellung ohne direkte Zahlungsaufforderung: Lohnabrechnung, Entgeltabrechnung, Gehaltsnachweis, Nebenkostenabrechnung, Jahresabrechnung, Kreditkartenabrechnung
 - Vertrag        – Vereinbarungen, Vertraege, AGB, Mietvertraege, Arbeitsvertraege
 - Versicherungsschein – Police, Versicherungsbestaetigung, Deckungsbestaetigung
@@ -61,4 +61,5 @@ Wichtige Regeln:
 - 'keywords' sollen spezifische, durchsuchbare Begriffe sein (keine allgemeinen Woerter wie 'Dokument' oder 'Brief').
 - 'iban': Extrahiere die IBAN nur wenn sie eindeutig im Dokument steht (Format DE + 20 Ziffern). Bei Kontoauszügen: die eigene Konto-IBAN. Bei Rechnungen: die IBAN des Absenders/Empfängers. Entferne alle Leerzeichen. Wenn keine DE-IBAN vorhanden: null.
 - 'low_value': Setze true wenn das Dokument langfristig kaum Archivwert hat. Typische Faelle: Kassenbons unter ca. 10 EUR, reine Versandbenachrichtigungen ohne Bestelldetails, Marketing-Newsletter, automatische Bestellbestaetigung ohne Rechnungsnummer, Parkscheine. Setze false fuer Rechnungen, Vertraege, Abrechnungen, Bescheide, Versicherungsscheine und alle Dokumente mit rechtlicher oder finanzieller Relevanz.
+- Rechnungen ALTIMER spezifisch klassifizieren: Wenn das Dokument eindeutig Waren ODER Dienstleistungen enthaelt, waehle NIEMALS den generischen Typ "Rechnung", sondern immer "Warenrechnung" oder "Dienstleistungsrechnung". Nur bei echter Vermischung beider Leistungsarten oder wenn keine Entscheidung moeglich ist, darf "Rechnung" verwendet werden.
 - Der extrahierte Text kann OCR-Fehler enthalten (z.B. 'Bodan-Württemberg' statt 'Baden-Württemberg', 'Telecon' statt 'Telekom', '0' statt 'O', 'rn' statt 'm'). Korrigiere offensichtliche Fehler in Absender, Keywords und anderen Feldern, wenn die korrekte Schreibweise eindeutig ist. Erfinde dabei keine Informationen, die nicht im Dokument enthalten sind."""

@@ -323,7 +323,9 @@ def build_feature_prompt(features):
     if features.get("category_candidates"):
         lines.append("  Wahrscheinliche Kategorien (Keyword-Match): " + ", ".join(features["category_candidates"]))
     tc = features.get("type_from_filename") or features.get("type_candidate")
-    if tc:
+    # Do not surface the generic "Rechnung" fallback as a confident hint; let the LLM decide between
+    # Warenrechnung and Dienstleistungsrechnung based on the actual document content.
+    if tc and tc != "Rechnung":
         lines.append(f"  Wahrscheinlicher Dokumenttyp: {tc}")
     if features.get("header_zone"):
         lines.append(f"  Briefkopf (erste 30% der Seite): {features['header_zone'][:200]}")
