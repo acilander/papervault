@@ -510,6 +510,7 @@ python scripts/migrate_to_db.py
 
 ## Dokumentation
 
+- **HTML-Übersicht**: [`docs/index.html`](docs/index.html) im Browser öffnen (mit Mermaid-Diagrammen)
 - **Bedienungsanleitung**: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
 - **Systemarchitektur**: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - **Technische Tiefe**: [`docs/technical/`](docs/technical/)
