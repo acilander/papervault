@@ -146,7 +146,11 @@ def update_document(doc_id: int, body: DocumentUpdate):
         current_path = updated_doc.get("file_path")
         if current_path and os.path.exists(current_path):
             current_name = os.path.basename(current_path)
-            new_name = build_filename(updated_doc, current_name)
+            # Word and Excel files must never be renamed!
+            if current_path.lower().endswith(".pdf"):
+                new_name = build_filename(updated_doc, current_name)
+            else:
+                new_name = current_name
             if new_name != current_name:
                 new_path = os.path.join(os.path.dirname(current_path), new_name)
                 new_path = unique_path(new_path)
@@ -460,7 +464,11 @@ def confirm_document(doc_id: int):
 
     try:
         # Regenerate filename from current (possibly user-corrected) metadata
-        new_name = build_filename(doc, current_name)
+        # Word and Excel files must never be renamed!
+        if path.lower().endswith(".pdf"):
+            new_name = build_filename(doc, current_name)
+        else:
+            new_name = current_name
         if new_name != current_name:
             renamed_path = os.path.join(os.path.dirname(path), new_name)
             if not os.path.exists(renamed_path):

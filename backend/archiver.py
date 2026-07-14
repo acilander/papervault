@@ -41,7 +41,7 @@ def _worker():
 
 class Handler(FileSystemEventHandler):
     def on_created(self, event):
-        if event.src_path.endswith(".pdf"):
+        if event.src_path.lower().endswith((".pdf", ".docx", ".xlsx")):
             if wait_for_file(event.src_path):
                 _pdf_queue.put(event.src_path)
             else:
@@ -87,18 +87,18 @@ if __name__ == "__main__":
             # Don't recurse into target subdirectories (review, failed, etc.)
             dirs[:] = [d for d in dirs if os.path.join(root, d) != TARGET_BASE]
             for f in files:
-                if f.lower().endswith(".pdf"):
+                if f.lower().endswith((".pdf", ".docx", ".xlsx")):
                     fp = os.path.join(root, f)
                     if fp not in known_paths:
                         existing.append(fp)
     if existing:
-        log(f"Startup-Scan: {len(existing)} neue PDF(s) gefunden - verarbeite zuerst...")
+        log(f"Startup-Scan: {len(existing)} neue Datei(en) gefunden - verarbeite zuerst...")
         for filepath in existing:
             _pdf_queue.put(filepath)
         _pdf_queue.join()
         log("Startup-Scan abgeschlossen.")
     else:
-        log("Startup-Scan: Keine neuen PDFs im Inbox-Ordner.")
+        log("Startup-Scan: Keine neuen Dateien im Inbox-Ordner.")
 
     log("Warte auf neue PDF-Dateien... (Strg+C zum Beenden)")
     observer = Observer()

@@ -53,8 +53,45 @@ def _extract_page_blocks(page):
     return "\n".join([b[4].strip() for b in blocks if b[6] == 0])
 
 def extract_text(file_path):
-    """Open PDF and extract embedded text. Returns (text, status) where status is
+    """Open PDF, Word, or Excel file and extract text. Returns (text, status) where status is
     'ok', 'encrypted', or 'corrupt'."""
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext == ".docx":
+        import zipfile
+        import xml.etree.ElementTree as ET
+        try:
+            with zipfile.ZipFile(file_path) as z:
+                xml_content = z.read("word/document.xml")
+            root = ET.fromstring(xml_content)
+            namespaces = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+            paragraphs = []
+            for p in root.findall(".//w:p", namespaces):
+                texts = [r.text for r in p.findall(".//w:t", namespaces) if r.text]
+                if texts:
+                    paragraphs.append("".join(texts))
+            return "\n".join(paragraphs), "ok"
+        except Exception as e:
+            log(f"Word-Lesefehler ({os.path.basename(file_path)}): {e}")
+            return "", "corrupt"
+            
+    elif ext == ".xlsx":
+        import zipfile
+        import xml.etree.ElementTree as ET
+        try:
+            texts = []
+            with zipfile.ZipFile(file_path) as z:
+                if "xl/sharedStrings.xml" in z.namelist():
+                    xml_content = z.read("xl/sharedStrings.xml")
+                    root = ET.fromstring(xml_content)
+                    namespaces = {"ns": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+                    for t in root.findall(".//ns:t", namespaces):
+                        if t.text:
+                            texts.append(t.text)
+            return "\n".join(texts), "ok"
+        except Exception as e:
+            log(f"Excel-Lesefehler ({os.path.basename(file_path)}): {e}")
+            return "", "corrupt"
+
     import io
     import sys
     doc = None
