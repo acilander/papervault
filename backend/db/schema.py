@@ -93,6 +93,16 @@ CREATE TABLE IF NOT EXISTS tax_positions (
 CREATE INDEX IF NOT EXISTS idx_tax_positions_year ON tax_positions(tax_year_id);
 CREATE INDEX IF NOT EXISTS idx_tax_positions_document ON tax_positions(tax_document_id);
 CREATE INDEX IF NOT EXISTS idx_tax_positions_category ON tax_positions(category);
+
+CREATE TABLE IF NOT EXISTS document_embeddings (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id  INTEGER NOT NULL UNIQUE,
+    embedding    BLOB NOT NULL,
+    created_at   TEXT NOT NULL,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_embeddings_document ON document_embeddings(document_id);
 """
 
 MIGRATIONS = [
@@ -127,6 +137,16 @@ MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_documents_vehicle_id ON documents(vehicle_id)",
     "ALTER TABLE documents ADD COLUMN child_name TEXT DEFAULT NULL",
     "CREATE INDEX IF NOT EXISTS idx_documents_child_name ON documents(child_name)",
+    """
+    CREATE TABLE IF NOT EXISTS document_embeddings (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        document_id  INTEGER NOT NULL UNIQUE,
+        embedding    BLOB NOT NULL,
+        created_at   TEXT NOT NULL,
+        FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_embeddings_document ON document_embeddings(document_id)",
 ]
 
 def init_db():
@@ -144,6 +164,8 @@ def init_db():
                 pass
     init_sender_table()
     init_feedback_table()
+    from db.embeddings_repo import init_embeddings_table
+    init_embeddings_table()
     from db.collections_repo import init_collections_table
     init_collections_table()
     from db.items_repo import init_items_table

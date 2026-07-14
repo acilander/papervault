@@ -12,3 +12,7 @@ from db.protected_hashes_repo import (
     is_hash_protected, list_protected_hashes,
 )
 from db.stats_repo import get_stats
+
+from db.embeddings_repo import (
+    insert_embedding, get_embedding, get_all_embeddings, delete_embedding
+)
