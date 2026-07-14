@@ -11,7 +11,6 @@ import db.sender_repo as sender_repo
 # ── Locks & In-memory state ───────────────────────────────────────────────────
 _registry_lock = threading.RLock()
 sender_registry: dict = {}
-content_hashes: dict = {}
 
 
 # ── Processing log ────────────────────────────────────────────────────────────
@@ -44,23 +43,6 @@ def processing_log(filename, status, data=None, error=None, features=None, user_
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         except Exception:
             pass
-
-
-# ── Hash registry ─────────────────────────────────────────────────────────────
-
-def load_hashes():
-    global content_hashes
-    with _registry_lock:
-        try:
-            with db.get_conn() as conn:
-                rows = conn.execute(
-                    "SELECT content_hash, file_path FROM documents WHERE content_hash IS NOT NULL AND status='ok'"
-                ).fetchall()
-            content_hashes = {r["content_hash"]: r["file_path"] for r in rows}
-            log(f"Hash-Register geladen: {len(content_hashes)} Eintraege (aus DB).")
-        except Exception as e:
-            log(f"Hash-Register konnte nicht aus DB geladen werden: {e}")
-            content_hashes = {}
 
 
 # ── Sender registry ───────────────────────────────────────────────────────────
@@ -141,6 +123,10 @@ def apply_sender_overrides(data):
         fallback = next((c for c in entry.get("categories", []) if c not in excluded), "Sonstiges")
         log(f"Kategorie '{data['category']}' ist gesperrt fuer '{sender}', verwende '{fallback}'")
         data["category"] = fallback
+    if pinned_type == "Rechnung":
+        # Legacy override: ignore "Rechnung" pin to let the LLM's specific Warenrechnung or Dienstleistungsrechnung stand
+        pinned_type = None
+
     if pinned_type and pinned_type in DOCUMENT_TYPES:
         if data.get("document_type") != pinned_type:
             log(f"Dokumenttyp durch Absender-Register ueberschrieben: '{data.get('document_type')}' -> '{pinned_type}' (Absender: {sender})")

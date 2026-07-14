@@ -72,21 +72,6 @@ def test_processing_log_writes_jsonl(tmp_path, monkeypatch):
     assert entry["status"] == "ok"
 
 
-def test_load_hashes_from_db(tmp_path, monkeypatch):
-    _reset()
-    import db
-    test_db = str(tmp_path / "test.db")
-    monkeypatch.setattr(db, "DB_PATH", test_db)
-    db.init_db()
-    with db.get_conn() as conn:
-        conn.execute(
-            "INSERT INTO documents (file_path, filename, content_hash, status, archived_at) VALUES (?,?,?,?,?)",
-            ("/a/x.pdf", "x.pdf", "h123", "ok", "2025-01-01")
-        )
-    storage.load_hashes()
-    assert storage.content_hashes.get("h123") == "/a/x.pdf"
-
-
 def test_migrate_from_json_old_format(tmp_path, monkeypatch):
     _reset()
     test_db = str(tmp_path / "test.db")
