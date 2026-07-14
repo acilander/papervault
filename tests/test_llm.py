@@ -26,13 +26,15 @@ def test_load_model_skips_when_mock(monkeypatch):
 
 
 def test_get_llm_loads_model(monkeypatch):
+    monkeypatch.setattr("llm.driver.assert_gpu_support", MagicMock())
     fake = MagicMock()
     fake.tokenize = lambda s: s.split()
-    monkeypatch.setattr(llm, "_llm", fake)
+    monkeypatch.setattr(llm.driver, "_llm", fake)
     assert llm.get_llm() is fake
 
 
 def test_classify_document_real_mode_returns_data(monkeypatch, tmp_path):
+    monkeypatch.setattr("llm.driver.assert_gpu_support", MagicMock())
     test_db = str(tmp_path / "test.db")
     monkeypatch.setattr(db, "DB_PATH", test_db)
     db.DB_PATH = test_db
@@ -50,7 +52,7 @@ def test_classify_document_real_mode_returns_data(monkeypatch, tmp_path):
             "keywords": "Sparkasse, Kontoauszug",
         })}}]
     }
-    monkeypatch.setattr(llm, "_llm", fake_llm)
+    monkeypatch.setattr(llm.driver, "_llm", fake_llm)
 
     result = llm.classify_document("Sparkasse Kontoauszug März 2025", filename="Sparkasse_Kontoauszug_2025.pdf")
     assert result is not None
@@ -60,6 +62,7 @@ def test_classify_document_real_mode_returns_data(monkeypatch, tmp_path):
 
 
 def test_classify_document_retries_on_invalid_json(monkeypatch, tmp_path):
+    monkeypatch.setattr("llm.driver.assert_gpu_support", MagicMock())
     test_db = str(tmp_path / "test.db")
     monkeypatch.setattr(db, "DB_PATH", test_db)
     db.DB_PATH = test_db
@@ -70,7 +73,7 @@ def test_classify_document_retries_on_invalid_json(monkeypatch, tmp_path):
     fake_llm.create_chat_completion.return_value = {
         "choices": [{"message": {"content": "not json"}}]
     }
-    monkeypatch.setattr(llm, "_llm", fake_llm)
+    monkeypatch.setattr(llm.driver, "_llm", fake_llm)
 
     result = llm.classify_document("Text", filename="doc.pdf")
     assert result is None
