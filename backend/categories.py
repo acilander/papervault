@@ -39,7 +39,7 @@ CATEGORIES_CONFIG = {
 
 DOCUMENT_TYPES = [
     "Warenrechnung", "Dienstleistungsrechnung",
-    "Abrechnung", "Vertrag", "Versicherungsschein", "Mahnung", "Kündigung",
+    "Abrechnung", "Vertrag", "Versicherungsschein", "Abonnement", "Mahnung", "Kündigung",
     "Bescheid", "Lieferschein", "Kontoauszug", "Angebot", "Sonstiges",
 ]
 

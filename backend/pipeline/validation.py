@@ -31,21 +31,21 @@ def check_sender_semantic(predicted_sender, raw_text):
     Excludes very generic placeholder words."""
     if not predicted_sender or predicted_sender.lower() in ("null", "unbekannt", "n/a", "???", ""):
         return False
-    
+
     sender_norm = normalize_umlauts(predicted_sender)
     text_norm = normalize_umlauts(raw_text)
-    
+
     # 1. Direct substring match
     if sender_norm in text_norm:
         return True
-        
+
     # 2. Check if first two meaningful words (>=3 chars) are in the text
     # (e.g. "CinemaXX Entertainment" -> "cinemaxx" or "entertainment")
     words = [w for w in re.split(r'\W+', sender_norm) if len(w) >= 3]
     if words:
         if any(w in text_norm for w in words[:2]):
             return True
-            
+
     return False
 
 def validate_classification(data):

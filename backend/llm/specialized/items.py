@@ -1,14 +1,13 @@
 import json
 from datetime import datetime
 
-from llm.driver import _llm, _llm_lock, load_model
+from llm.driver import get_llm, _llm_lock
 from utils import log
 
 def extract_items_from_invoice(text: str, filename: str = "", vendor: str = "", purchase_date: str = "") -> list[dict]:
     """Extract line items from an invoice using the LLM.
     Returns a list of item dicts or empty list on failure.
     Call for document_type 'Warenrechnung'."""
-    load_model()
     safe_text = text[:3000]
 
     ITEM_CATEGORIES = [
@@ -42,8 +41,9 @@ def extract_items_from_invoice(text: str, filename: str = "", vendor: str = "", 
     )
 
     try:
+        _llm_instance = get_llm()
         with _llm_lock:
-            result = _llm.create_chat_completion(
+            result = _llm_instance.create_chat_completion(
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},

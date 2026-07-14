@@ -1,13 +1,12 @@
 import json
 
-from llm.driver import _llm, _llm_lock, load_model
+from llm.driver import get_llm, _llm_lock
 from utils import log
 
 def extract_contract_from_document(text: str, filename: str = "", sender: str = "", doc_type: str = "") -> dict | None:
     """Extract contract/subscription details from a document using the LLM.
     Returns a dict or None on failure.
     Only call for document_type in ('Vertrag', 'Kündigung', 'Mahnung', 'Abonnement')."""
-    load_model()
     safe_text = text[:3000]
 
     CONTRACT_CATEGORIES = [
@@ -47,8 +46,9 @@ def extract_contract_from_document(text: str, filename: str = "", sender: str = 
     )
 
     try:
+        _llm_instance = get_llm()
         with _llm_lock:
-            result = _llm.create_chat_completion(
+            result = _llm_instance.create_chat_completion(
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},

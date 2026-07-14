@@ -492,7 +492,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
 
             passes_semantic = check_sender_semantic(data.get("sender"), safe_text)
             errors = validate_classification(data)
-            
+
             if not errors:
                 if rule_sender:
                     confidence = "high"

@@ -1,13 +1,12 @@
 import json
 
-from llm.driver import _llm, _llm_lock, load_model
+from llm.driver import get_llm, _llm_lock
 from utils import log
 
 def extract_services_from_invoice(text: str, filename: str = "", vendor: str = "", invoice_date: str = "") -> list[dict]:
     """Extract service/expense entries from a non-goods invoice (handcraft, travel, medical, etc.).
     Returns a list of service dicts or empty list on failure.
     Call for document_type 'Dienstleistungsrechnung'."""
-    load_model()
     safe_text = text[:3000]
 
     SERVICE_CATEGORIES = [
@@ -43,8 +42,9 @@ def extract_services_from_invoice(text: str, filename: str = "", vendor: str = "
     )
 
     try:
+        _llm_instance = get_llm()
         with _llm_lock:
-            result = _llm.create_chat_completion(
+            result = _llm_instance.create_chat_completion(
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},

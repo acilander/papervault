@@ -14,12 +14,13 @@ JSON-Schema (alle Felder sind Pflicht):
   "iban": "DE-IBAN des Kontos (nur Buchstaben und Ziffern, kein Leerzeichen, z.B. DE89370400440532013000) oder null"
 }
 
-Erlaubte Werte fuer document_type (NUR diese 12, keine anderen erfinden):
+Erlaubte Werte fuer document_type (NUR diese 13, keine anderen erfinden):
 - Warenrechnung         – Rechnung, Beleg oder Kassenbon, der primär physische Produkte/Waren enthält (Elektronik, Möbel, Kleidung, Lebensmittel, Ersatzteile, Baumaterial, etc.). Bei gemischten Belegen mit Dienstleistungen gilt dieser Typ, wenn die physischen Waren wertmäßig überwiegen.
 - Dienstleistungsrechnung – Rechnung für Dienstleistungen ohne physische Waren oder wenn Dienstleistungen wertmäßig überwiegen (Handwerker-Arbeitsleistung, Arztbehandlung, Reise, Reinigung, Reparaturarbeit, Beratung, Montage, etc.).
 - Abrechnung     – Periodische Aufstellung ohne direkte Zahlungsaufforderung: Lohnabrechnung, Entgeltabrechnung, Gehaltsnachweis, Nebenkostenabrechnung, Jahresabrechnung, Kreditkartenabrechnung
 - Vertrag        – Vereinbarungen, Vertraege, AGB, Mietvertraege, Arbeitsvertraege
 - Versicherungsschein – Police, Versicherungsbestaetigung, Deckungsbestaetigung
+- Abonnement     – Wiederkehrende Service-Zahlungsbelege, Abonnements, Dauerauftragsrechnungen (z.B. Netflix, Spotify, Fitnessstudio, Software-Abos)
 - Mahnung        – Zahlungserinnerung, Mahnschreiben, Inkasso
 - Kündigung      – Kündigungsschreiben, Vertragsende-Bestätigung
 - Bescheid       – Behoerdliche Entscheidungen, Steuerbescheid, Beitragsbescheid, Rentenbescheid (NICHT Lohnabrechnung)

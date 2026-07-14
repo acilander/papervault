@@ -84,11 +84,28 @@ def archiver_stop():
     global _archiver_proc
     if not _proc_running():
         raise HTTPException(status_code=409, detail="Archiver läuft nicht")
-    _archiver_proc.terminate()
-    try:
-        _archiver_proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        _archiver_proc.kill()
+
+    if _archiver_proc is not None:
+        _archiver_proc.terminate()
+        try:
+            _archiver_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            _archiver_proc.kill()
+        _archiver_proc = None
+    elif os.path.exists(_ARCHIVER_PID_FILE):
+        try:
+            pid = int(open(_ARCHIVER_PID_FILE).read().strip())
+            try:
+                import psutil
+                proc = psutil.Process(pid)
+                proc.terminate()
+                proc.wait(timeout=5)
+            except Exception:
+                # Windows fallback: taskkill
+                subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
+        except Exception as e:
+            log(f"Fehler beim Stoppen des Archivers via PID: {e}")
+
     try:
         os.remove(_ARCHIVER_PID_FILE)
     except OSError:

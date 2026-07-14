@@ -47,7 +47,7 @@ class RepairService:
                 repaired += 1
             else:
                 still_missing.append(doc)
-                
+
         return {"repaired": repaired, "still_missing": len(still_missing), "details": still_missing}
 
     def delete_missing(self):
@@ -66,14 +66,14 @@ class RepairService:
             rows = conn.execute("SELECT file_path FROM documents WHERE file_path IS NOT NULL").fetchall()
         db_paths = {os.path.normpath(r["file_path"]) for r in rows}
         orphans = []
-        
+
         # Don't scan special folders like failed/ duplicates/ review/
         SKIP_DIRS = {"duplicates", "failed", "encrypted", "review"}
-        
+
         for root, dirs, files in os.walk(config.TARGET_BASE):
             # Mutate dirs in-place to skip
             dirs[:] = [d for d in dirs if d.lower() not in SKIP_DIRS]
-            
+
             for fname in files:
                 if fname.lower().endswith(".pdf"):
                     full_path = os.path.normpath(os.path.join(root, fname))
@@ -113,7 +113,7 @@ class RepairService:
             except Exception as e:
                 skipped += 1
                 errors.append(f"{fname}: {e}")
-                
+
         return {"imported": imported, "skipped": skipped, "errors": errors}
 
     def cleanup_empty_folders(self):
@@ -125,7 +125,7 @@ class RepairService:
         for root, dirs, files in os.walk(target, topdown=False):
             if os.path.abspath(root) == target:
                 continue
-            
+
             is_top_level = os.path.dirname(root) == target
             if is_top_level and os.path.basename(root).lower() in SKIP_TOPLEVEL:
                 continue
@@ -136,7 +136,7 @@ class RepairService:
                     removed.append(os.path.relpath(root, target))
                 except OSError as e:
                     log(f"Fehler beim Loeschen von '{root}': {e}")
-                    
+
         return {"removed_count": len(removed), "removed_folders": removed}
 
 repair_service = RepairService()
