@@ -53,13 +53,23 @@ def compute_content_hash(file_path: str, text: str) -> tuple[str, str]:
     Returns (hash, type) where type is 'text' or 'binary'.
     """
     cleaned_text = text.strip()
-    if len(cleaned_text) >= 100:
+    
+    # Check if filename or text indicates a periodic recurring document
+    # where text-based duplicate collisions are highly likely (e.g. payslips, bank statements)
+    fname = os.path.basename(file_path or "").lower()
+    text_lower = cleaned_text.lower()
+    
+    is_periodic = any(w in fname or w in text_lower for w in (
+        "lohn", "entgelt", "gehalt", "abrechnung", "kontoauszug", "kreditkarte", "gehaltsnachweis"
+    ))
+
+    if len(cleaned_text) >= 100 and not is_periodic:
         content_hash = hashlib.sha256(cleaned_text.encode("utf-8")).hexdigest()[:16]
         hash_type = "text"
     else:
         # [Fix: False-Collision Prevention]
-        # If text is too short or empty (e.g., OCR failed or broken PDF),
-        # fall back to binary file hashing to prevent false duplicate collisions on generic text like "Page 1".
+        # If text is too short or empty (e.g., OCR failed or broken PDF), or the document is periodic,
+        # fall back to binary file hashing to prevent false duplicate collisions on generic text or boilerplate.
         try:
             with open(file_path, "rb") as f:
                 content_hash = hashlib.sha256(f.read()).hexdigest()[:16]

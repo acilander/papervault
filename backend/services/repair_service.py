@@ -23,7 +23,9 @@ class RepairService:
 
     def repair_missing(self):
         """Fix DB entries pointing to missing files by searching the archive."""
-        missing = self.scan_missing()
+        with db.get_conn() as conn:
+            rows = conn.execute("SELECT id, file_path, filename FROM documents WHERE status='missing'").fetchall()
+        missing = [dict(r) for r in rows]
         if not missing:
             return {"repaired": 0, "still_missing": 0}
 
@@ -38,10 +40,10 @@ class RepairService:
         repaired = 0
         still_missing = []
         for doc in missing:
-            fname = doc["filename"]
+            fname = doc["filename"] or os.path.basename(doc["file_path"] or "")
             if fname in file_map:
                 new_path = file_map[fname]
-                db.update_document(doc["id"], file_path=new_path)
+                db.update_document(doc["id"], file_path=new_path, status="ok")
                 repaired += 1
             else:
                 still_missing.append(doc)
@@ -50,10 +52,11 @@ class RepairService:
 
     def delete_missing(self):
         """Delete DB entries where the file is missing and cannot be found."""
-        missing = self.scan_missing()
+        with db.get_conn() as conn:
+            rows = conn.execute("SELECT id FROM documents WHERE status='missing'").fetchall()
         deleted = 0
-        for doc in missing:
-            db.delete_document(doc["id"])
+        for r in rows:
+            db.delete_document(r["id"])
             deleted += 1
         return {"deleted": deleted}
 
@@ -89,42 +92,29 @@ class RepairService:
         return orphans
 
     def import_orphans(self, paths: list):
-        """Import specific orphan files back into the DB without moving them."""
-        imported = 0
-        errors = []
+        """Import selected orphan PDFs by moving them into the Inbox so the archiver picks them up."""
+        from pdf_utils import unique_path
+        os.makedirs(config.SOURCE_DIR, exist_ok=True)
+        imported, skipped, errors = 0, 0, []
         for fpath in paths:
+            fpath = os.path.normpath(fpath)
             if not os.path.exists(fpath):
                 errors.append(f"Nicht gefunden: {fpath}")
                 continue
-            
+            fname = os.path.basename(fpath)
             try:
-                fname = os.path.basename(fpath)
-                from pdf_utils import extract_text
-                text, status = extract_text(fpath)
-                summary = "Wiederhergestellt (Orphan)"
-                doc_status = "ok"
-                if status == "encrypted":
-                    doc_status = "encrypted"
-                    summary = "Wiederhergestellt (Verschlüsselt)"
-                elif status == "corrupt":
-                    doc_status = "corrupt"
-                    summary = "Wiederhergestellt (Defekt)"
-                
-                db.upsert_document(
-                    file_path=fpath,
-                    filename=fname,
-                    sender=None,
-                    date=None,
-                    document_type=None,
-                    category=None,
-                    summary=summary,
-                    status=doc_status
-                )
+                inbox_path = unique_path(os.path.join(config.SOURCE_DIR, fname))
+                shutil.move(fpath, inbox_path)
+                # Remove stale DB entry at old path if present
+                existing = db.get_document_by_path(fpath)
+                if existing:
+                    db.delete_document(existing["id"])
                 imported += 1
             except Exception as e:
-                errors.append(f"Fehler bei {os.path.basename(fpath)}: {str(e)}")
+                skipped += 1
+                errors.append(f"{fname}: {e}")
                 
-        return {"imported": imported, "errors": errors}
+        return {"imported": imported, "skipped": skipped, "errors": errors}
 
     def cleanup_empty_folders(self):
         """Remove empty directories inside TARGET_BASE (bottom-up)."""
