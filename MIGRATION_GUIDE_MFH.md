@@ -1,0 +1,208 @@
+# MIGRATION GUIDE: Upgrade to Custom Multi-Family House (MFH) Architecture
+
+This document serves as an exhaustive, step-by-step instruction manual for developers or local LLM assistants (e.g., Cline, Gemini CLI) to execute the migration of a live PaperVault archive containing 5,000+ documents from the old generic flat categories to the new highly specialized **Multi-Family House (MFH)** architecture.
+
+---
+
+## Objective
+Upgrade the SQLite database schema, translate the old categories into the new streamlined ones, and physically relocate all 5,000+ archived PDF files on disk into the newly designed root subdirectories (`1_Privat_und_Alltag` and `2_Mehrfamilienhaus_Verwaltung`) without re-running LLM inferences.
+
+---
+
+## PHASE 1: Safety Backup (Pre-Flight Checks)
+Before running any script, execute these safety commands on the production machine:
+
+1.  **Stop all processes:** Ensure that the FastAPI backend, the React frontend, and the Watchdog thread (`archiver.py`) are completely stopped.
+2.  **Backup the SQLite Database:** Locate your active `archive.db` (usually at `C:/Archive/archive.db` or configured in `.env`). Create a copy of this file:
+    ```bash
+    cp C:/Archive/archive.db C:/Archive/archive_backup_before_mfh.db
+    ```
+3.  **Verify DB connection:** Ensure that the backup database is not corrupted.
+
+---
+
+## PHASE 2: Database Schema Upgrade (Automated)
+Start the FastAPI backend once or run `python -c "import sys; sys.path.insert(0, 'backend'); import db; db.init_db()"` to run the database migrations.
+*   **What this does:** The migration array in `schema.py` automatically appends the `property_unit` column and its lookup index `idx_documents_property_unit` to the SQLite `documents` table. Existing documents will default to `NULL`.
+
+---
+
+## PHASE 3: Physical Folder and Metadata Migration
+
+Write the following Python script as `migrate_to_mfh.py` in the root folder of the workspace on the production machine:
+
+```python
+# migrate_to_mfh.py
+"""
+PaperVault - Live Archive Migration Script
+Upgrades categories, assigns initial property units, moves files physically on disk,
+and updates database file paths for 5,000+ records.
+"""
+import os
+import shutil
+import sqlite3
+import re
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DB_PATH = os.environ.get("DB_PATH", "C:/Archive/archive.db")
+TARGET_BASE = os.environ.get("TARGET_BASE", "C:/Archive")
+
+# 1. Old-to-new category translation map
+CATEGORY_TRANSLATION = {
+    "Versicherung":           "Privatversicherungen",
+    "Fahrzeug & Werkstatt":   "Fahrzeug",
+    "Einkauf & Bestellungen": "Einkauf & Konsum",
+    "Kassenbon & Quittung":   "Einkauf & Konsum",
+    "Geräte & Garantie":      "Einkauf & Konsum",
+    "Kommunikation":          "Sonstiges",
+    "Behörde & Urkunden":     "Sonstiges",
+    "Ausbildung & Verein":    "Sonstiges",
+}
+
+# 2. Sequential flat folder name mappings starting with numeric prefixes
+NEW_FOLDER_MAP = {
+    "Arbeit & Rente":         "01_Arbeit_und_Rente",
+    "Bank & Finanzen":        "02_Banken_und_Finanzen",
+    "Gesundheit":             "03_Gesundheit_und_Vorsorge",
+    "Eigene_Wohnung":         "04_Eigene_Wohnung_Kosten",
+    "Fahrzeug":               "05_Fahrzeug",
+    "Einkauf & Konsum":       "06_Konsum_und_Einkauf",
+    "Haus_Gemeinkosten":      "07_Gesamthaus_Gemeinkosten",
+    "Wohnung_1_Miete":        "08_Vermietung_Wohnung_1",
+    "Wohnung_2_Miete":        "09_Vermietung_Wohnung_2",
+    "Privatversicherungen":   "10_Versicherungen",
+    "Sonstiges":              "11_Sonstiges",
+}
+
+# 3. Dynamic root directory mappings
+ROOT_MAP = {
+    "Haus_Gemeinkosten":      "2_Mehrfamilienhaus_Verwaltung",
+    "Wohnung_1_Miete":        "2_Mehrfamilienhaus_Verwaltung",
+    "Wohnung_2_Miete":        "2_Mehrfamilienhaus_Verwaltung",
+} # All others default to "1_Privat_und_Alltag"
+
+def migrate():
+    DB_PATH_NORM = os.path.normpath(DB_PATH)
+    TARGET_BASE_NORM = os.path.normpath(TARGET_BASE)
+    
+    if not os.path.exists(DB_PATH_NORM):
+        print(f"Error: Database file not found at {DB_PATH_NORM}")
+        return
+
+    print(f"Starting migration on database: {DB_PATH_NORM}")
+    print(f"Archive storage base path: {TARGET_BASE_NORM}")
+    
+    conn = sqlite3.connect(DB_PATH_NORM)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # Query all active documents
+    docs = cursor.execute("SELECT id, file_path, category, sender, date, document_type, filename FROM documents").fetchall()
+    print(f"Retrieved {len(docs)} documents from database.")
+
+    migrated_count = 0
+    skipped_count = 0
+
+    for doc in docs:
+        old_path = doc["file_path"]
+        if not old_path or not os.path.exists(old_path):
+            skipped_count += 1
+            continue
+
+        # A. Translate Category
+        cat = doc["category"] or "Sonstiges"
+        new_cat = CATEGORY_TRANSLATION.get(cat, cat)
+
+        # B. Assign Property Unit (Heuristic based on sender / annotations)
+        property_unit = None
+        sender_lower = (doc["sender"] or "").lower()
+        
+        # Simple heuristics for automatic mapping (customize if needed)
+        if "gemeinkosten" in sender_lower or "gebäudeversicherung" in sender_lower or "schornsteinfeger" in sender_lower:
+            new_cat = "Haus_Gemeinkosten"
+            property_unit = "Gesamthaus"
+        elif "mieter 1" in sender_lower or "wohnung 1" in sender_lower or "eg links" in sender_lower:
+            new_cat = "Wohnung_1_Miete"
+            property_unit = "Wohnung_1"
+        elif "mieter 2" in sender_lower or "wohnung 2" in sender_lower or "og rechts" in sender_lower:
+            new_cat = "Wohnung_2_Miete"
+            property_unit = "Wohnung_2"
+        elif new_cat == "Eigene_Wohnung":
+            property_unit = "Eigene_Wohnung"
+
+        # C. Compute final directory structure
+        folder_name = NEW_FOLDER_MAP.get(new_cat, "11_Sonstiges")
+        root_dir = ROOT_MAP.get(new_cat, "1_Privat_und_Alltag")
+        use_year = new_cat != "Privatversicherungen" # Policies are timeless
+        
+        # Extract year
+        year_match = re.search(r'\b(\d{4})\b', str(doc["date"] or ""))
+        year = year_match.group() if year_match else "Unbekannt"
+        
+        # Clean sender
+        safe_sender = re.sub(r'[\\/:*?"<>|\r\n\t]', '_', doc["sender"])[:50].strip() if doc["sender"] else "Unbekannt"
+        
+        # Form final folder path
+        if use_year:
+            new_dir = os.path.join(TARGET_BASE_NORM, root_dir, folder_name, safe_sender, year)
+        else:
+            new_dir = os.path.join(TARGET_BASE_NORM, root_dir, folder_name, safe_sender)
+            
+        os.makedirs(new_dir, exist_ok=True)
+        new_path = os.path.normpath(os.path.join(new_dir, doc["filename"]))
+
+        # D. Move physical file (NFH instant-move)
+        if os.path.abspath(old_path) != os.path.abspath(new_path):
+            try:
+                # Handle filename collisions
+                if os.path.exists(new_path):
+                    base, ext = os.path.splitext(new_path)
+                    counter = 1
+                    while os.path.exists(f"{base}_{counter}{ext}"):
+                        counter += 1
+                    new_path = f"{base}_{counter}{ext}"
+                
+                shutil.move(old_path, new_path)
+            except Exception as e:
+                print(f"Error moving file {old_path} -> {new_path}: {e}")
+                continue
+
+        # E. Update SQLite Record
+        cursor.execute(
+            "UPDATE documents SET file_path = ?, category = ?, property_unit = ? WHERE id = ?",
+            (new_path, new_cat, property_unit, doc["id"])
+        )
+        migrated_count += 1
+
+    conn.commit()
+    conn.close()
+
+    print("\n" + "="*80)
+    print("MIGRATION COMPLETED SUCCESSFULLY!")
+    print(f"Physically migrated & updated: {migrated_count} documents.")
+    print(f"Skipped (physical file not found): {skipped_count} documents.")
+    print("="*80)
+
+if __name__ == "__main__":
+    migrate()
+```
+
+### Execution:
+Execute the script using the project's Python environment:
+```bash
+.venv/Scripts/python migrate_to_mfh.py
+```
+*(Since moving files on the same NTFS filesystem is simply an entry reallocation, moving 5,000+ files will take less than 5 seconds).*
+
+---
+
+## PHASE 4: Post-Migration Cleanup & Curation
+
+1.  **Remove Empty Old Folders:**
+    Start the PaperVault server, log into the Web-UI, navigate to `Monitor` (System), and click **"Leere Ordner bereinigen"** (or trigger `POST /monitor/cleanup-empty-folders` via curl). This will immediately remove all empty deprecated directories (e.g. `09 - Kommunikation`, `06 - Wohnen & Eigentum`) from your disk.
+2.  **Curate Building-level Labels (The final polish):**
+    Because the Python script maps building-level categories naively based on sender names, some invoices (like local water bills or chimney sweeps) might still have `property_unit = null`.
+    *   **To do:** Go to the main **Document List** inside the frontend, filter by the category `Haus_Gemeinkosten` (which now shows all building-level costs), select the corresponding invoices, and use the **Bulk-Edit** interface to set them to `Gesamthaus` (or `Wohnung_1` / `Wohnung_2` for unit-specific maintenance).
+    *   **Locking:** Once verified, these records are locked in the DB, fully protecting your 5,000+ archive from any future automated overrides!
