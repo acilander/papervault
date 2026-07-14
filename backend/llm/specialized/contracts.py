@@ -67,6 +67,26 @@ def extract_contract_from_document(text: str, filename: str = "", sender: str = 
         contract = json.loads(cleaned)
         if not isinstance(contract, dict) or not contract.get("partner"):
             return None
+            
+        # --- Contract Risk Auditor (Phase 4) ---
+        text_lower = text.lower()
+        warnings_list = []
+        if "indexmiete" in text_lower or "verbraucherpreisindex" in text_lower or "wertsicherungs" in text_lower:
+            warnings_list.append("INDEXMIETE: Dieser Mietvertrag enthält eine Wertsicherungsklausel (Indexmiete). Du bist berechtigt, die Miete jährlich an den Verbraucherpreisindex anzupassen.")
+        elif "staffelmiete" in text_lower or "staffel" in text_lower:
+            warnings_list.append("STAFFELMIETE: Dieser Mietvertrag enthält eine Staffelmietvereinbarung. Prüfe die automatischen Erhöhungstermine.")
+            
+        if "selbstbeteiligung" in text_lower:
+            m = re.search(r'selbstbeteiligung\s*(?:von|in\s*höhe\s*von)?\s*(\d+)\s*(?:€|eur)', text_lower)
+            if m:
+                warnings_list.append(f"RISIKO: Vertrag enthält eine Selbstbeteiligung von {m.group(1)} € im Schadensfall.")
+                
+        if warnings_list:
+            audit_notes = " | ".join(warnings_list)
+            existing_notes = contract.get("notes") or ""
+            contract["notes"] = f"{existing_notes} [{audit_notes}]".strip() if existing_notes else f"[{audit_notes}]"
+            log(f"[CONTRACT_AUDITOR] Vertrag {contract.get('partner')} erfolgreich auditiert: {audit_notes}")
+
         # Normalize amount
         val = contract.get("amount")
         if val is not None:

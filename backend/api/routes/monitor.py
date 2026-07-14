@@ -437,8 +437,6 @@ def calculate_mfh_u_allocation(req: MFHCalculationRequest):
     eg_sqm = req.total_sqm - req.og_sqm - req.dg_sqm
     og_share = (req.og_sqm / req.total_sqm) * total_mfh_cost
     dg_share = (req.dg_sqm / req.total_sqm) * total_mfh_cost
-    eg_share = (eg_sqm / req.total_sqm) * total_mfh_cost
-
     return {
         "year": req.year,
         "total_gemeinkosten": round(total_mfh_cost, 2),
@@ -447,4 +445,125 @@ def calculate_mfh_u_allocation(req: MFHCalculationRequest):
         "dg_share": round(dg_share, 2),
         "total_sqm": req.total_sqm,
         "details": details
+    }
+
+class ForecastRequest(BaseModel):
+    total_sqm: float = 280.0
+    og_sqm: float = 80.0
+    dg_sqm: float = 80.0
+
+@router.post("/forecast")
+def get_energy_consumption_forecast(req: ForecastRequest):
+    """Analyze historical energy/water utility costs, compute trends via Numpy,
+    and generate predictive recommendations for landlord prepayment adjustments."""
+    from db.services_repo import get_services
+    import numpy as np
+    
+    # Fetch energy & water service charges
+    rows, _ = get_services(limit=1000)
+    
+    # Filter for typical utility cost indicators
+    UTILITY_KEYWORDS = {"strom", "gas", "wasser", "heizung", "energie", "müll", "abwasser", "heizkosten"}
+    utility_rows = []
+    for r in rows:
+        name_lower = (r.get("name") or "").lower()
+        desc_lower = (r.get("description") or "").lower()
+        if any(kw in name_lower or kw in desc_lower for kw in UTILITY_KEYWORDS):
+            utility_rows.append(r)
+            
+    if len(utility_rows) < 3:
+        return {
+            "error": "Nicht genügend Belegdaten im Archiv vorhanden. Mindestens 3 Energie- oder Wasserbelege erforderlich.",
+            "recommendation": "Füge weitere Nebenkostenrechnungen (Strom, Gas, Wasser) hinzu, um präzise Prognosen zu erhalten."
+        }
+        
+    # Group costs by year
+    by_year = {}
+    for r in utility_rows:
+        date_str = r.get("service_date") or ""
+        year_match = re.search(r'\b(\d{4})\b', date_str)
+        if year_match:
+            yr = int(year_match.group())
+            by_year[yr] = by_year.get(yr, 0.0) + float(r.get("amount") or 0.0)
+            
+    years = sorted(by_year.keys())
+    if len(years) < 2:
+        return {
+            "error": "Daten müssen sich über mindestens 2 Kalenderjahre erstrecken.",
+            "by_year": by_year,
+            "recommendation": "Es wurden Belege gefunden, aber alle gehören zum selben Jahr. Es wird ein breiteres historisches Fenster benötigt."
+        }
+        
+    # Calculate yearly costs
+    yearly_costs = [by_year[y] for y in years]
+    
+    # Calculate trend via Numpy linear regression (slope)
+    # y = mx + c where x is normalized years (0, 1, 2, ...)
+    x = np.array(range(len(years)), dtype=np.float32)
+    y = np.array(yearly_costs, dtype=np.float32)
+    
+    slope, intercept = np.polyfit(x, y, 1)
+    
+    # Forecast for the current/next year
+    next_year = years[-1] + 1
+    next_year_idx = len(years)
+    predicted_cost = float(slope * next_year_idx + intercept)
+    # Ensure predicted cost is positive
+    if predicted_cost < 10.0:
+        predicted_cost = float(yearly_costs[-1] * 1.05) # fallback to 5% inflation
+        
+    growth_rate = float((predicted_cost - yearly_costs[-1]) / yearly_costs[-1]) if yearly_costs[-1] > 0 else 0.0
+    
+    # Calculate allocations based on sqm
+    eg_sqm = req.total_sqm - req.og_sqm - req.dg_sqm
+    
+    current_total = yearly_costs[-1]
+    predicted_total = predicted_cost
+    
+    # Apportionments for predicted total
+    og_pred_share = (req.og_sqm / req.total_sqm) * predicted_total
+    dg_pred_share = (req.dg_sqm / req.total_sqm) * predicted_total
+    eg_pred_share = (eg_sqm / req.total_sqm) * predicted_total
+    
+    # Apportionments for current total
+    og_curr_share = (req.og_sqm / req.total_sqm) * current_total
+    dg_curr_share = (req.dg_sqm / req.total_sqm) * current_total
+    eg_curr_share = (eg_sqm / req.total_sqm) * current_total
+    
+    # Monthy recommendations
+    og_monthly_curr = og_curr_share / 12.0
+    og_monthly_pred = og_pred_share / 12.0
+    og_monthly_diff = og_monthly_pred - og_monthly_curr
+    
+    dg_monthly_curr = dg_curr_share / 12.0
+    dg_monthly_pred = dg_pred_share / 12.0
+    dg_monthly_diff = dg_monthly_pred - dg_monthly_curr
+    
+    # Natural language report
+    report = (
+        f"Die prädiktive Nebenkosten-Analyse auf Basis deiner Belege zeigt für das kommende Jahr {next_year} "
+        f"eine prognostizierte Gesamtsumme der Gemeinkosten von ca. {predicted_total:.2f} € an "
+        f"(Entspricht einem Trend von {growth_rate*100:+.1f}% im Vergleich zum Vorjahr {years[-1]} mit {current_total:.2f} €).\n\n"
+        f"Daraus ergeben sich folgende Handlungsempfehlungen für deine Mieter-Vorauszahlungen:\n"
+        f"1.  **Wohnung 1 (OG):** Die anteiligen Nebenkosten steigen voraussichtlich von monatlich {og_monthly_curr:.2f} € "
+        f"auf {og_monthly_pred:.2f} €. Empfehlung: Erhöhe den Abschlag um {max(0.0, og_monthly_diff):.2f} € (ca. {max(0, round(og_monthly_diff/5)*5)} €).\n"
+        f"2.  **Wohnung 2 (DG):** Die anteiligen Nebenkosten steigen voraussichtlich von monatlich {dg_monthly_curr:.2f} € "
+        f"auf {dg_monthly_pred:.2f} €. Empfehlung: Erhöhe den Abschlag um {max(0.0, dg_monthly_diff):.2f} € (ca. {max(0, round(dg_monthly_diff/5)*5)} €).\n"
+        f"3.  **Erdgeschoss (EG - Privat):** Dein eigener Anteil steigt voraussichtlich von monatlich {eg_curr_share/12.0:.2f} € "
+        f"auf {eg_pred_share/12.0:.2f} € (Differenz: {max(0.0, (eg_pred_share-eg_curr_share)/12.0):.2f} €).\n\n"
+        f"Durch diese proaktive Anpassung vermeidest du hohe Nachzahlungsforderungen am Jahresende und sicherst deine Liquidität!"
+    )
+    
+    return {
+        "years": years,
+        "historical_costs": {y: round(by_year[y], 2) for y in years},
+        "predicted_year": next_year,
+        "predicted_total_cost": round(predicted_total, 2),
+        "trend_percentage": round(growth_rate * 100, 1),
+        "allocation_shares": {
+            "eg": {"current_monthly": round(eg_curr_share/12, 2), "predicted_monthly": round(eg_pred_share/12, 2)},
+            "og": {"current_monthly": round(og_monthly_curr, 2), "predicted_monthly": round(og_monthly_pred, 2), "diff": round(og_monthly_diff, 2)},
+            "dg": {"current_monthly": round(dg_monthly_curr, 2), "predicted_monthly": round(dg_monthly_pred, 2), "diff": round(dg_monthly_diff, 2)}
+        },
+        "report": report
     }
