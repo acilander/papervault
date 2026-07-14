@@ -19,3 +19,4 @@ Detaillierte Dokumentation für Entwickler und Power-User: Architektur, Logik, M
 | 11 | [Feedback](11-feedback.md) | Feedback-Erfassung und Migration |
 | 12 | [Einstellungen](12-settings-and-config.md) | Konfiguration, Pfade, Umgebungsvariablen |
 | 13 | [Inventar, Verträge, Ausgaben](13-inventory-contracts-services.md) | Entitäten-Module und Datenmodelle |
+| 14 | [Two-Stage Klassifizierung & Bugfixes](14-two-stage-classification.md) | Pipeline-Optimierung und Behebung von fünf kritischen Bugs |
