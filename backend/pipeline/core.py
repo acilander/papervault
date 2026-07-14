@@ -321,6 +321,33 @@ def process_pdf(file_path, doc_id=None):
         except Exception as e:
             log(f"[CONTRACTS] Fehler bei Vertrags-Extraktion (ignoriert): {e}")
 
+    # Phase 8c: Auto-Link deductible landlord documents to Tax Module (Proaktive Steuer-Verknüpfung)
+    if final_status == "ok" and category in ("Haus_Gemeinkosten", "OG_Miete", "DG_Miete"):
+        try:
+            import db.tax_years_repo as tax_years_repo
+            import db.tax_documents_repo as tax_documents_repo
+            raw_date = str(data.get("date") or "")
+            year_match = re.search(r'\b(\d{4})\b', raw_date)
+            if year_match:
+                year_num = int(year_match.group())
+                year_row = tax_years_repo.get_by_year(year_num)
+                if year_row:
+                    tax_year_id = year_row["id"]
+                else:
+                    tax_year_id = tax_years_repo.insert(year_num, status="draft", notes=f"Vollautomatisch erstellt für Beleg {doc_id}")
+                
+                existing_link = tax_documents_repo.get_by_year_and_document(tax_year_id, doc_id, source_type="assessment_notice")
+                if not existing_link:
+                    tax_documents_repo.insert(
+                        tax_year_id=tax_year_id,
+                        document_id=doc_id,
+                        source_type="assessment_notice",
+                        verified=False
+                    )
+                    log(f"[TAX_LINKER] Beleg {doc_id} vollautomatisch mit Steuerjahr {year_num} verknüpft.")
+        except Exception as te:
+            log(f"[TAX_LINKER] Fehler bei automatischer Steuer-Verknüpfung (ignoriert): {te}")
+
     # Phase 8: Extraction pipeline – routed by document_type
     doc_type = data.get("document_type")
     INVOICE_TYPES = {"Warenrechnung", "Dienstleistungsrechnung"}
