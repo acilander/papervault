@@ -41,7 +41,7 @@ class TestValidateClassificationNewChecks:
         return {
             "sender": "TestFirma GmbH",
             "date": "2024-01-15",
-            "document_type": "Rechnung",
+            "document_type": "Warenrechnung",
             "category": "Einkauf & Bestellungen",
             "summary": "Eine Rechnung über Bürombedarf im Januar 2024.",
             "keywords": "rechnung, büro",
@@ -51,7 +51,7 @@ class TestValidateClassificationNewChecks:
     def test_document_type_as_sender_triggers_error(self):
         from llm import validate_classification
         data = self._base_data()
-        data["sender"] = "Rechnung"
+        data["sender"] = "Warenrechnung"
         errors = validate_classification(data)
         assert any("Dokumenttyp" in e for e in errors), errors
 

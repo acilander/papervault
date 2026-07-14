@@ -13,10 +13,9 @@ JSON-Schema (alle Felder sind Pflicht):
   "iban": "DE-IBAN des Kontos (nur Buchstaben und Ziffern, kein Leerzeichen, z.B. DE89370400440532013000) oder null"
 }
 
-Erlaubte Werte fuer document_type (NUR diese 13, keine anderen erfinden):
-- Warenrechnung         – Rechnung die ausschliesslich physische Produkte/Waren enthaelt (Elektronik, Moebel, Kleidung, Lebensmittel, Ersatzteile, etc.)
-- Dienstleistungsrechnung – Rechnung fuer Dienstleistungen ohne physische Waren (Handwerker-Arbeitsleistung, Arztbehandlung, Reise, Reinigung, Reparaturarbeit, Beratung, Montage, etc.)
-- Rechnung       – NUR fuer gemischte Rechnung mit Waren UND Dienstleistungen, oder wenn eine Unterscheidung wirklich nicht moeglich ist. Vermeide diesen Typen, wenn das Dokument eindeutig Waren ODER Dienstleistungen enthaelt.
+Erlaubte Werte fuer document_type (NUR diese 12, keine anderen erfinden):
+- Warenrechnung         – Rechnung, Beleg oder Kassenbon, der primär physische Produkte/Waren enthält (Elektronik, Möbel, Kleidung, Lebensmittel, Ersatzteile, Baumaterial, etc.). Bei gemischten Belegen mit Dienstleistungen gilt dieser Typ, wenn die physischen Waren wertmäßig überwiegen.
+- Dienstleistungsrechnung – Rechnung für Dienstleistungen ohne physische Waren oder wenn Dienstleistungen wertmäßig überwiegen (Handwerker-Arbeitsleistung, Arztbehandlung, Reise, Reinigung, Reparaturarbeit, Beratung, Montage, etc.).
 - Abrechnung     – Periodische Aufstellung ohne direkte Zahlungsaufforderung: Lohnabrechnung, Entgeltabrechnung, Gehaltsnachweis, Nebenkostenabrechnung, Jahresabrechnung, Kreditkartenabrechnung
 - Vertrag        – Vereinbarungen, Vertraege, AGB, Mietvertraege, Arbeitsvertraege
 - Versicherungsschein – Police, Versicherungsbestaetigung, Deckungsbestaetigung
@@ -55,11 +54,11 @@ Wichtige Regeln:
 - Bei Rechnungen ist der Absender das UNTERNEHMEN das die Rechnung ausgestellt hat, nicht der Kaeufer.
 - Bei Bescheiden ist der Absender die BEHOERDE (z.B. "Finanzamt", "Krankenkasse"), nicht der Empfaenger.
 - Suche den Absender im Briefkopf, Logo-Bereich oder in der Zeile "Von:", "Aussteller:", "Ihre Bank:" – nicht in der Adresszeile des Empfaengers.
-- ACHTUNG BEI KASSENBONS/RECHNUNGEN: Das Wort "Netto" im Text bezieht sich fast immer auf den steuerlichen Netto-Betrag (MwSt-Netto) und NICHT auf den Absender (Händler). Der Absender ist die ausstellende Kette (z.B. EDEKA, REWE, etc.) im Briefkopf. Klassifiziere den Absender nur dann als "Netto Marken-Discount", wenn der Markenname explizit im Briefkopf/Logo-Bereich steht.
+- ACHTUNG BEI KASSENBONS/RECHNUNGEN: Das Wort "Netto" im Text bezieht sich fast immer auf den steuerlichen Netto-Betrag (MwSt-Netto) und NICHT auf den Absender (Händler). Der Absender is die ausstellende Kette (z.B. EDEKA, REWE, etc.) im Briefkopf. Klassifiziere den Absender nur dann als "Netto Marken-Discount", wenn der Markenname explizit im Briefkopf/Logo-Bereich steht.
 - 'date' muss ein reales Datum sein. Das aktuelle Jahr ist {current_year}. Zukuenftige Jahre sind ungueltig.
 - 'summary' muss mindestens einen vollstaendigen Satz enthalten.
 - 'keywords' sollen spezifische, durchsuchbare Begriffe sein (keine allgemeinen Woerter wie 'Dokument' oder 'Brief').
-- 'iban': Extrahiere die IBAN nur wenn sie eindeutig im Dokument steht (Format DE + 20 Ziffern). Bei Kontoauszügen: die eigene Konto-IBAN. Bei Rechnungen: die IBAN des Absenders/Empfängers. Entferne alle Leerzeichen. Wenn keine DE-IBAN vorhanden: null.
+- 'iban': Extrahiere die IBAN nur wenn sie eindeutig im Dokument steht (Format DE + 20 Ziffern). Bei Kontoauszugen: die eigene Konto-IBAN. Bei Rechnungen: die IBAN des Absenders/Empfaengers. Entferne alle Leerzeichen. Wenn keine DE-IBAN vorhanden: null.
 - 'low_value': Setze true wenn das Dokument langfristig kaum Archivwert hat. Typische Faelle: Kassenbons unter ca. 10 EUR, reine Versandbenachrichtigungen ohne Bestelldetails, Marketing-Newsletter, automatische Bestellbestaetigung ohne Rechnungsnummer, Parkscheine. Setze false fuer Rechnungen, Vertraege, Abrechnungen, Bescheide, Versicherungsscheine und alle Dokumente mit rechtlicher oder finanzieller Relevanz.
-- Rechnungen ALTIMER spezifisch klassifizieren: Wenn das Dokument eindeutig Waren ODER Dienstleistungen enthaelt, waehle NIEMALS den generischen Typ "Rechnung", sondern immer "Warenrechnung" oder "Dienstleistungsrechnung". Nur bei echter Vermischung beider Leistungsarten oder wenn keine Entscheidung moeglich ist, darf "Rechnung" verwendet werden.
+- Rechnungen IMMER spezifisch klassifizieren: Wähle NIEMALS den generischen Typ "Rechnung", sondern immer "Warenrechnung" oder "Dienstleistungsrechnung". Entscheide bei gemischten Dokumenten nach dem wertmäßig dominanten Teil (z.B. Autokauf mit Überführung bleibt Warenrechnung, Handwerkerrechnung mit Kleinmaterial bleibt Dienstleistungsrechnung).
 - Der extrahierte Text kann OCR-Fehler enthalten (z.B. 'Bodan-Württemberg' statt 'Baden-Württemberg', 'Telecon' statt 'Telekom', '0' statt 'O', 'rn' statt 'm'). Korrigiere offensichtliche Fehler in Absender, Keywords und anderen Feldern, wenn die korrekte Schreibweise eindeutig ist. Erfinde dabei keine Informationen, die nicht im Dokument enthalten sind."""

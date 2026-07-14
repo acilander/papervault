@@ -24,7 +24,7 @@ CATEGORY_FOLDER_MAP = {
 }
 
 DOCUMENT_TYPES = [
-    "Warenrechnung", "Dienstleistungsrechnung", "Rechnung",
+    "Warenrechnung", "Dienstleistungsrechnung",
     "Abrechnung", "Vertrag", "Versicherungsschein", "Mahnung", "Kündigung",
     "Bescheid", "Lieferschein", "Kontoauszug", "Angebot", "Sonstiges",
 ]

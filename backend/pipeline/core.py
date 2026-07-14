@@ -103,7 +103,7 @@ def _build_user_hint(file_path: str, text: str) -> tuple[str | None, str | None]
         user_hint = (
             f"Dieses Dokument ist ein Kassenbon/Quittung"
             + (f" von {receipt_sender}" if receipt_sender else "")
-            + ". Klassifiziere als document_type=Rechnung und category=Kassenbon & Quittung, "
+            + ". Klassifiziere als document_type=Warenrechnung und category=Kassenbon & Quittung, "
             "es sei denn die gekauften Artikel sind eindeutig einer anderen Kategorie zuzuordnen "
             "(z.B. Wohnen & Eigentum fuer Baumaterial, Fahrzeug & Werkstatt fuer Autoteile)."
         )
@@ -320,7 +320,7 @@ def process_pdf(file_path, doc_id=None):
 
     # Phase 8: Extraction pipeline – routed by document_type
     doc_type = data.get("document_type")
-    INVOICE_TYPES = {"Warenrechnung", "Dienstleistungsrechnung", "Rechnung"}
+    INVOICE_TYPES = {"Warenrechnung", "Dienstleistungsrechnung"}
     if final_status == "ok" and doc_type in INVOICE_TYPES:
         try:
             from llm import extract_items_from_invoice, extract_services_from_invoice
@@ -330,8 +330,8 @@ def process_pdf(file_path, doc_id=None):
             fname = os.path.basename(dest_pdf)
             inv_date = data.get("date") or ""
 
-            # Route: Warenrechnung or Rechnung (mixed/unknown) → try Items
-            if doc_type in ("Warenrechnung", "Rechnung") and not has_items_for_document(doc_id):
+            # Route: Warenrechnung → try Items
+            if doc_type == "Warenrechnung" and not has_items_for_document(doc_id):
                 items = extract_items_from_invoice(
                     text=safe_text, filename=fname,
                     vendor=sender or "", purchase_date=inv_date,
@@ -340,8 +340,8 @@ def process_pdf(file_path, doc_id=None):
                     n = insert_items(doc_id, items, extracted_at=_dt.now().isoformat(timespec="seconds"))
                     log(f"[ITEMS] {n} Artikel in Inventar eingetragen.")
 
-            # Route: Dienstleistungsrechnung or Rechnung (mixed/unknown) → try Services
-            if doc_type in ("Dienstleistungsrechnung", "Rechnung") and not has_services_for_document(doc_id):
+            # Route: Dienstleistungsrechnung → try Services
+            if doc_type == "Dienstleistungsrechnung" and not has_services_for_document(doc_id):
                 services = extract_services_from_invoice(
                     text=safe_text, filename=fname,
                     vendor=sender or "", invoice_date=inv_date,
