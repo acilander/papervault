@@ -237,6 +237,10 @@ def import_orphans(body: dict):
 def cleanup_empty_folders():
     return repair_service.cleanup_empty_folders()
 
+@router.post("/rebuild-embeddings")
+def rebuild_embeddings():
+    return repair_service.run_background_embedding_indexing()
+
 # ── Import (Delegated) ──────────────────────────────────────────────────────
 
 @router.get("/import-candidates")

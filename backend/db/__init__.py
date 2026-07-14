@@ -14,5 +14,6 @@ from db.protected_hashes_repo import (
 from db.stats_repo import get_stats
 
 from db.embeddings_repo import (
-    insert_embedding, get_embedding, get_all_embeddings, delete_embedding
+    insert_embedding, get_embedding, get_all_embeddings, delete_embedding,
+    find_similar_documents
 )

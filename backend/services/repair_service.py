@@ -139,4 +139,50 @@ class RepairService:
 
         return {"removed_count": len(removed), "removed_folders": removed}
 
+    def run_background_embedding_indexing(self):
+        """Find all active documents that lack an embedding, generate embeddings on the GPU,
+        and store them in the DB. This runs in a safe background thread."""
+        import threading
+        
+        def _worker():
+            try:
+                # Get all document IDs that lack embeddings
+                with db.get_conn() as conn:
+                    rows = conn.execute("""
+                        SELECT id, summary, full_text FROM documents 
+                        WHERE status='ok' AND id NOT IN (SELECT document_id FROM document_embeddings)
+                    """).fetchall()
+                docs = [dict(r) for r in rows]
+                if not docs:
+                    log("[EMBEDDINGS] Alle Dokumente sind bereits semantisch indiziert.")
+                    return
+                    
+                log(f"[EMBEDDINGS] Starte Hintergrund-Indizierung für {len(docs)} Dokumente...")
+                from llm.driver import generate_embedding
+                from db.embeddings_repo import insert_embedding
+                
+                count = 0
+                for d in docs:
+                    text_to_embed = d.get("full_text", "").strip() or d.get("summary", "").strip() or ""
+                    if not text_to_embed:
+                        continue
+                    # Limit text size to prevent token overflow
+                    text_to_embed = text_to_embed[:1500]
+                    
+                    # Generate embedding via local LLM/GPU
+                    emb = generate_embedding(text_to_embed)
+                    if emb:
+                        insert_embedding(d["id"], emb)
+                        count += 1
+                        if count % 100 == 0:
+                            log(f"[EMBEDDINGS] {count}/{len(docs)} Dokumente indiziert...")
+                            
+                log(f"[EMBEDDINGS] Hintergrund-Indizierung abgeschlossen! {count} Dokumente erfolgreich indiziert.")
+            except Exception as e:
+                log(f"[EMBEDDINGS] Fehler bei der Hintergrund-Indizierung: {e}")
+                
+        t = threading.Thread(target=_worker, name="EmbeddingIndexer", daemon=True)
+        t.start()
+        return {"started": True}
+
 repair_service = RepairService()

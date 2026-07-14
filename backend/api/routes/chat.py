@@ -99,6 +99,18 @@ def chat(req: ChatRequest):
         log("[Chat] LLM nicht verfügbar.")
         raise HTTPException(status_code=503, detail="KI-Modell ist nicht geladen oder nicht konfiguriert.")
 
+    # 1. Try semantic vector search (RAG)
+    semantic_docs = []
+    try:
+        from llm.driver import generate_embedding
+        q_emb = generate_embedding(req.question)
+        semantic_docs = db.find_similar_documents(q_emb, limit=8)
+        if semantic_docs:
+            log(f"[Chat] Semantische Suche erfolgreich: {len(semantic_docs)} Dokumente gefunden.")
+    except Exception as se:
+        log(f"[Chat] Fehler bei semantischer Suche (ignoriert): {se}")
+
+    # 2. Extract filters and run traditional search
     filters = _extract_filters(req.question)
     log(f"[Chat] Extrahierte Filter: {filters}")
 
@@ -114,8 +126,21 @@ def chat(req: ChatRequest):
     if not docs and filters:
         docs = db.search_documents(query=req.question, status="ok", limit=20)
 
+    # 3. Merge results (Hybrid Retrieval: semantic first, then unique traditional matches)
+    seen_ids = set()
+    merged_docs = []
+    for d in semantic_docs:
+        if d["id"] not in seen_ids:
+            seen_ids.add(d["id"])
+            merged_docs.append(d)
+    for d in docs:
+        if d["id"] not in seen_ids:
+            seen_ids.add(d["id"])
+            merged_docs.append(d)
+    docs = merged_docs
+
     answer = _generate_answer(req.question, docs)
-    log(f"[Chat] {len(docs)} Dokumente gefunden, Antwort generiert.")
+    log(f"[Chat] {len(docs)} Dokumente insgesamt gefunden, Antwort generiert.")
 
     safe_docs = [
         {k: v for k, v in d.items() if k != "full_text"}
