@@ -121,7 +121,21 @@ def ocr_pdf(file_path):
         parts = []
         for i, page in pages_to_ocr:
             log(f"  OCR Seite {i}/{num_pages}...")
-            parts.append(pytesseract.image_to_string(page, lang="deu+eng"))
+            t_text = pytesseract.image_to_string(page, lang="deu+eng")
+            
+            # Local VLM OCR Fallback if PyTesseract is unsuccessful
+            if len(t_text.strip()) < 50:
+                log(f"    PyTesseract unbefriedigend ({len(t_text)} Zeichen). Starte lokales VLM (Moondream2) OCR...")
+                try:
+                    from vision import ocr_image
+                    vlm_text = ocr_image(page)
+                    if len(vlm_text.strip()) > len(t_text.strip()):
+                        log(f"    VLM OCR erfolgreich! ({len(vlm_text)} Zeichen extrahiert)")
+                        t_text = vlm_text
+                except Exception as ve:
+                    log(f"    VLM OCR fehlgeschlagen (ignoriert): {ve}")
+            
+            parts.append(t_text)
         if num_pages > 2:
             parts.insert(1, "[... WEITERE SEITEN ÜBERSPRUNGEN ...]")
         text = "\n".join(parts)

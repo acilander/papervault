@@ -58,6 +58,18 @@ class VisionService:
         answer = self._model.query(enc_image, _PROMPT)["answer"]
         return answer.strip()
 
+    def ocr_image(self, pil_image) -> str:
+        """Extract all visible text from a rendered PIL page/image using local moondream2."""
+        self._load()
+        image = pil_image.convert("RGB")
+        enc_image = self._model.encode_image(image)
+        prompt = (
+            "Gib den gesamten geschriebenen Text auf diesem Bild exakt wieder. "
+            "Keine Einleitung oder Erklärungen, nur den reinen transkribierten Text."
+        )
+        answer = self._model.query(enc_image, prompt)["answer"]
+        return answer.strip()
+
     @property
     def loaded(self) -> bool:
         return self._model is not None
@@ -76,3 +88,7 @@ def _get_service() -> VisionService:
 
 def analyze_logo(image_path: str) -> str:
     return _get_service().analyze_logo(image_path)
+
+
+def ocr_image(pil_image) -> str:
+    return _get_service().ocr_image(pil_image)
