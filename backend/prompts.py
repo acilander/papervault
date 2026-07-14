@@ -7,6 +7,7 @@ JSON-Schema (alle Felder sind Pflicht):
   "date": "Dokumentdatum im Format YYYY-MM-DD, oder YYYY wenn nur Jahr bekannt, oder null",
   "document_type": "einer der erlaubten Typen (s.u.)",
   "category": "eine der erlaubten Kategorien (s.u.)",
+  "property_unit": "eines der erlaubten Mehrfamilienhaus-Module (s.u.) oder null",
   "summary": "Ein Satz auf Deutsch worum es in dem Dokument geht",
   "keywords": "5-15 relevante Suchbegriffe aus dem Dokument, kommagetrennt (z.B. Betraege, Vertragsnummern, Produktnamen, Orte, spezifische Begriffe)",
   "low_value": true oder false,
@@ -28,25 +29,28 @@ Erlaubte Werte fuer document_type (NUR diese 12, keine anderen erfinden):
 - Sonstiges      – Alles was in keine der obigen Kategorien passt
 WICHTIG: Entgeltabrechnung/Lohnabrechnung = document_type=Abrechnung, category=Arbeit & Rente.
 
-Erlaubte Werte fuer category (NUR diese 15, keine anderen erfinden):
-- Arbeit & Rente       – Lohnabrechnung, Entgeltabrechnung, Gehaltsnachweis, Arbeitsvertrag, Rentenauskunft, Sozialversicherung
-- Bank & Finanzen      – Kontoauszug, Depot, Kreditkarte, Zinsen, Bankdokumente (nicht Lohnabrechnung)
-- Gesundheit           – Arztrechnung, Krankenhaus, Rezept, Krankenkasse, Heil- und Hilfsmittel
-- Versicherung         – Haftpflicht, Kasko, Lebensversicherung, Hausrat, Unfallversicherung
-- Fahrzeug & Werkstatt – KFZ-Steuer, Hauptuntersuchung, Werkstattrechnung, Tankquittung, Fahrzeugbrief
-- Wohnen & Eigentum   – Miete, Nebenkosten, Hausgeld, Grundsteuer, Handwerkerrechnung fuer die Wohnung
-- Vermieter            – Dokumente die Alexander/Sonja als Vermieter betreffen (Mieteinnahmen, Nebenkostenabrechnung fuer Mieter)
-- Energie & Versorgung – Strom, Gas, Wasser, Fernwaerme, Jahresabrechnung Energieversorger
-- Kommunikation        – Mobilfunk, Internet, Festnetz, Streaming-Dienste, TV
-- Einkauf & Bestellungen – Online-Bestellungen, Lieferscheine, Retouren (kein Kassenbon)
-- Kassenbon & Quittung – Kassenzettel vom Supermarkt, Drogerie, Baumarkt, Tankstelle (Papierbon oder E-Bon)
-- Geräte & Garantie    – Garantieurkunde, Kaufbeleg für Elektrogeräte, Seriennummer-Dokumente
-- Behörde & Urkunden   – Finanzamt, Einwohnermeldeamt, Personalausweis, Geburtsurkunde, Baugenehmigung
-- Ausbildung & Verein  – Schulbescheinigung, Studium, Vereinsbeitrag, Kursgebühr, Zeugnisse
-- Sonstiges            – Alles was in keine der obigen Kategorien passt
+Erlaubte Werte fuer category (NUR diese 11, keine anderen erfinden):
+- Arbeit & Rente       – Lohnabrechnung, Entgeltabrechnung, Gehaltsnachweis, privater Arbeitsvertrag, Rentenauskunft.
+- Bank & Finanzen      – Kontoauszug, Depot, Kreditkarte, Zinsen, Bankdokumente (nicht Lohnabrechnung).
+- Gesundheit           – private Arztrechnung, Krankenhaus, Rezept, private Krankenkasse.
+- Privatversicherungen – private Haftpflicht, Rechtsschutz, Lebensversicherung, Hausrat (nicht Gebäudeversicherung oder KFZ-Versicherung).
+- Fahrzeug             – KFZ-Steuer, Hauptuntersuchung, Werkstattrechnung, Tankquittung, Auto-Garantien, KFZ-Versicherung.
+- Einkauf & Konsum     – Online-Bestellungen, Kassenzettel, Garantieurkunden für Elektrogeräte, Möbelkauf (nicht gebäudebezogen).
+- Eigene_Wohnung       – Kosten für deine eigene, selbstgenutzte Wohnung (Instandhaltung im eigenen Bad, etc.).
+- Haus_Gemeinkosten    – Alle Belege, die das gesamte Mehrfamilienhaus betreffen (Heizungswartung, Gebäudeversicherung, Grundsteuer, Hausmeister).
+- Wohnung_1_Miete      – Alles, was exakt die vermietete Wohnung 1 / EG links betrifft (Mietvertrag Wohnung 1, Reparaturen in Wohnung 1).
+- Wohnung_2_Miete      – Alles, was exakt die vermietete Wohnung 2 / OG rechts betrifft (Mietvertrag Wohnung 2, Reparaturen in Wohnung 2).
+- Sonstiges            – Alles, was in keine der obigen Kategorien passt.
+
+Erlaubte Werte fuer property_unit (NUR diese 4, oder null):
+- "Gesamthaus"       – Wenn die Rechnung oder Grundsteuer das gesamte Gebäude betrifft (Heizungswartung, Gebäudeversicherung, Hausmeister, Schornsteinfeger).
+- "Eigene_Wohnung"   – Wenn der Beleg ausschließlich deine eigene, privat genutzte Wohnung betrifft (Möbel für dich, Reparaturen in deiner Küche).
+- "Wohnung_1"        – Wenn der Beleg ausschließlich die vermietete Wohnung 1 (EG links) betrifft (Mietvertrag Wohnung 1, Reparaturen in Wohnung 1).
+- "Wohnung_2"        – Wenn der Beleg ausschließlich die vermietete Wohnung 2 (OG rechts) betrifft (Mietvertrag Wohnung 2, Reparaturen in Wohnung 2).
+- null               – Reine Privatbelege ohne jeglichen Gebäudebezug (Lohnabrechnung, private Krankenkasse, KFZ-Kosten, Konsumkäufe).
 
 Wichtige Regeln:
-- Nutze den bereitgestellten "DOKUMENT-BRIEFKOPF" als primäre und ausschließliche Quelle für den Absender ("sender"). Der "DOKUMENT-VOLLTEXT" dient nur zur Bestimmung des Datums, des Typs und der Zusammenfassung.
+- Nutze den bereitgestellten "DOKUMENT-BRIEFKOPF" as primäre und ausschließliche Quelle für den Absender ("sender"). Der "DOKUMENT-VOLLTEXT" dient nur zur Bestimmung des Datums, des Typs und der Zusammenfassung.
 - Der Archivinhaber ist Alexander Staiger oder Sonja Staiger. Diese sind EMPFAENGER, niemals Absender.
 - 'sender' muss eine Firma, Behoerde oder Organisation sein, nicht eine Privatperson.
 - Bei Kontoauszuegen, Kreditkartenabrechnungen und Bankdokumenten is der Absender die BANK (z.B. "Advanzia Bank", "Sparkasse", "DKB"), nicht der Kontoinhaber.

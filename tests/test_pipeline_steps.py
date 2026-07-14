@@ -104,7 +104,7 @@ def test_archive_file_on_disk_with_sender_subfolders(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "SENDER_SUBFOLDERS", True)
     dest = steps.archive_file_on_disk(str(src), "Bank & Finanzen", "Sparkasse", "2025-03-15")
     assert os.path.exists(dest)
-    assert "Bank & Finanzen" in dest
+    assert "02_Banken_und_Finanzen" in dest
     assert "Sparkasse" in dest
 
 
@@ -116,7 +116,7 @@ def test_archive_file_on_disk_without_sender_subfolders(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "SENDER_SUBFOLDERS", False)
     dest = steps.archive_file_on_disk(str(src), "Bank & Finanzen", "Sparkasse", "2025-03-15")
     assert os.path.exists(dest)
-    assert "Bank & Finanzen" in dest
+    assert "02_Banken_und_Finanzen" in dest
 
 
 def test_archive_file_on_disk_bank_with_iban_kontoauszug(monkeypatch, tmp_path):

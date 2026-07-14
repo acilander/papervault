@@ -179,6 +179,7 @@ class QualityService:
                 "count": len(members),
                 "date_range": f"{months[0][0]}-{months[0][1]:02d} – {months[-1][0]}-{months[-1][1]:02d}" if len(months) >= 2 else "",
                 "issues": issues,
+                "members": [{"id": d["id"], "filename": d["filename"], "date": d["date"], "category": d["category"]} for d in members]
             })
 
         return {"total_groups": len(result), "groups": result}

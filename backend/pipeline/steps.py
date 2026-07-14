@@ -179,27 +179,46 @@ def archive_file_on_disk(file_path, category, sender, date, document_type=None, 
     import re
     import shutil
     from config import TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS
+    from categories import CATEGORIES_CONFIG
     from pdf_utils import unique_path
 
     category = category or "Sonstiges"
     folder_name = CATEGORY_FOLDER_MAP.get(category, category)
+    config = CATEGORIES_CONFIG.get(category, {"use_year_folder": True, "root": "1_Privat_und_Alltag", "property_unit": None})
+    root_dir = config.get("root", "1_Privat_und_Alltag")
+    use_year = config.get("use_year_folder", True)
+
+    full_folder_name = os.path.join(root_dir, folder_name)
+
     raw_date = str(date or "")
     year_match = re.search(r'\b(\d{4})\b', raw_date)
     year = year_match.group() if year_match else "Unbekannt"
 
-    if category == "Bank & Finanzen" and SENDER_SUBFOLDERS and sender:
-        safe_sender = re.sub(r'[\\/:*?"<>|\r\n\t]', '_', sender)[:50].strip()
+    safe_sender = re.sub(r'[\\/:*?"<>|\r\n\t]', '_', sender)[:50].strip() if sender else None
+
+    if category == "Bank & Finanzen" and SENDER_SUBFOLDERS and safe_sender:
         subtype = "Kontoauszüge" if document_type == "Kontoauszug" else "Dokumente"
         if iban:
             safe_iban = re.sub(r'[^A-Z0-9]', '', iban.upper())[:34]
-            target_dir = os.path.join(TARGET_BASE, folder_name, safe_sender, safe_iban, subtype, year)
+            if use_year:
+                target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, safe_iban, subtype, year)
+            else:
+                target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, safe_iban, subtype)
         else:
-            target_dir = os.path.join(TARGET_BASE, folder_name, safe_sender, subtype, year)
-    elif SENDER_SUBFOLDERS and sender:
-        safe_sender = re.sub(r'[\\/:*?"<>|\r\n\t]', '_', sender)[:50].strip()
-        target_dir = os.path.join(TARGET_BASE, folder_name, safe_sender, year)
+            if use_year:
+                target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, subtype, year)
+            else:
+                target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, subtype)
+    elif SENDER_SUBFOLDERS and safe_sender:
+        if use_year:
+            target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, year)
+        else:
+            target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender)
     else:
-        target_dir = os.path.join(TARGET_BASE, folder_name, year)
+        if use_year:
+            target_dir = os.path.join(TARGET_BASE, full_folder_name, year)
+        else:
+            target_dir = os.path.join(TARGET_BASE, full_folder_name)
 
     os.makedirs(target_dir, exist_ok=True)
 

@@ -127,4 +127,9 @@ def validate_classification(data):
     if not sender_is_null and re.match(r'^(DE|AG|GmbH|UG|KG|eV|e\.V\.|Inc|Ltd|Corp|LLC)$', sender.strip(), re.IGNORECASE):
         errors.append(f"'sender' ist nur ein Kürzel oder Rechtsform: '{sender}'. Bitte den vollständigen Firmennamen angeben.")
 
+    # Check 15: property_unit validation
+    pu = data.get("property_unit")
+    if pu is not None and pu not in ("Gesamthaus", "Eigene_Wohnung", "Wohnung_1", "Wohnung_2"):
+        errors.append(f"'property_unit' '{pu}' ist nicht erlaubt. Waehle aus: Gesamthaus, Eigene_Wohnung, Wohnung_1, Wohnung_2")
+
     return errors

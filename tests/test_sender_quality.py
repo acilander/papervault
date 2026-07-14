@@ -42,7 +42,7 @@ class TestValidateClassificationNewChecks:
             "sender": "TestFirma GmbH",
             "date": "2024-01-15",
             "document_type": "Warenrechnung",
-            "category": "Einkauf & Bestellungen",
+            "category": "Einkauf & Konsum",
             "summary": "Eine Rechnung über Bürombedarf im Januar 2024.",
             "keywords": "rechnung, büro",
             "low_value": 0,

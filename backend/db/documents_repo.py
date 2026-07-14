@@ -3,14 +3,14 @@ from datetime import datetime
 from db.connection import get_conn
 
 def upsert_document(file_path, filename, sender, date, document_type,
-                    category, summary, content_hash=None, status="ok", archived_at=None):
+                    category, summary, content_hash=None, status="ok", archived_at=None, property_unit=None):
     file_path = os.path.normpath(file_path) if file_path else file_path
     archived_at = archived_at or datetime.now().isoformat(timespec="seconds")
     with get_conn() as conn:
         conn.execute("""
             INSERT INTO documents
-                (file_path, filename, sender, date, document_type, category, summary, content_hash, status, archived_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (file_path, filename, sender, date, document_type, category, summary, content_hash, status, archived_at, property_unit)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(file_path) DO UPDATE SET
                 filename      = excluded.filename,
                 sender        = excluded.sender,
@@ -19,8 +19,9 @@ def upsert_document(file_path, filename, sender, date, document_type,
                 category      = excluded.category,
                 summary       = excluded.summary,
                 content_hash  = excluded.content_hash,
-                status        = excluded.status
-        """, (file_path, filename, sender, date, document_type, category, summary, content_hash, status, archived_at))
+                status        = excluded.status,
+                property_unit = excluded.property_unit
+        """, (file_path, filename, sender, date, document_type, category, summary, content_hash, status, archived_at, property_unit))
         row = conn.execute("SELECT id FROM documents WHERE file_path = ?", (file_path,)).fetchone()
         return row["id"] if row else None
 
@@ -84,7 +85,7 @@ def update_document(doc_id, **fields):
                 fields["filename"] = os.path.basename(new_path)
     allowed = {"sender", "date", "document_type", "category", "summary", "status",
                "file_path", "filename", "tags", "tax_relevant", "tax_year", "expires_at", "notes",
-               "keywords", "low_value", "full_text", "sim_hash", "content_hash", "iban"}
+               "keywords", "low_value", "full_text", "sim_hash", "content_hash", "iban", "property_unit"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return

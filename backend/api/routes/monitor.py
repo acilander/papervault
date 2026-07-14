@@ -244,14 +244,13 @@ def import_cancel():
 
 @router.post("/generate-thumbnails")
 async def generate_thumbnails_job(force: bool = False):
+    from pdf_utils import generate_thumbnail, THUMBNAILS_DIR as thumb_dir
     docs = db.search_documents()
     all_docs_count = len(docs)
     if not force:
-        from config import TARGET_BASE
-        thumb_dir = os.path.join(TARGET_BASE, "thumbnails")
         existing = set()
         if os.path.exists(thumb_dir):
-            existing = {int(f.split(".")[0]) for f in os.listdir(thumb_dir) if f.endswith(".webp") and f.split(".")[0].isdigit()}
+            existing = {int(f.split(".")[0]) for f in os.listdir(thumb_dir) if f.split(".")[0].isdigit() and f.split(".")[-1].lower() in ("webp", "jpg", "jpeg")}
         docs = [d for d in docs if d["id"] not in existing and d["status"] not in ("corrupt", "encrypted")]
 
     async def _stream():
@@ -262,6 +261,7 @@ async def generate_thumbnails_job(force: bool = False):
         await _asyncio.sleep(0)
 
         generated = 0
+        failed = 0
         skipped = all_docs_count - total
         for i, doc in enumerate(docs, 1):
             if doc.get("file_path") and os.path.exists(doc["file_path"]):
@@ -269,10 +269,12 @@ async def generate_thumbnails_job(force: bool = False):
                     await anyio.to_thread.run_sync(generate_thumbnail, doc["file_path"], doc["id"])
                     generated += 1
                 except Exception:
-                    pass
+                    failed += 1
+            else:
+                failed += 1
             yield f"data: {_json.dumps({'type': 'progress', 'i': i, 'total': total, 'file': doc['filename']})}\n\n"
             await _asyncio.sleep(0)
-        yield f"data: {_json.dumps({'type': 'done', 'total': total, 'generated': generated, 'skipped': skipped})}\n\n"
+        yield f"data: {_json.dumps({'type': 'done', 'total': total, 'generated': generated, 'skipped': skipped, 'failed': failed})}\n\n"
 
     return StreamingResponse(_stream(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

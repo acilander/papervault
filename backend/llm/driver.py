@@ -142,7 +142,7 @@ def normalize_sender(sender):
 
 
 def sanitize_llm_output(data: dict) -> dict:
-    STRING_FIELDS = ("sender", "date", "document_type", "category", "summary", "keywords", "confidence_reason", "iban")
+    STRING_FIELDS = ("sender", "date", "document_type", "category", "summary", "keywords", "confidence_reason", "iban", "property_unit")
     for field in STRING_FIELDS:
         val = data.get(field)
         if isinstance(val, str):
@@ -160,6 +160,14 @@ def sanitize_llm_output(data: dict) -> dict:
             data["iban"] = iban_clean
         else:
             data["iban"] = None
+
+    pu = data.get("property_unit")
+    if isinstance(pu, str):
+        pu_clean = pu.strip().replace('"', '').replace("'", "")
+        if pu_clean in ("Gesamthaus", "Eigene_Wohnung", "Wohnung_1", "Wohnung_2"):
+            data["property_unit"] = pu_clean
+        else:
+            data["property_unit"] = None
     return data
 
 
@@ -447,7 +455,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             data = json.loads(cleaned)
             data = sanitize_llm_output(data)
 
-            known_fields = {"sender", "date", "document_type", "category", "summary", "keywords", "low_value", "iban"}
+            known_fields = {"sender", "date", "document_type", "category", "property_unit", "summary", "keywords", "low_value", "iban"}
             data = {k: v for k, v in data.items() if k in known_fields}
 
             if "low_value" in data:

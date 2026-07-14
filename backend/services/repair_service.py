@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from config import TARGET_BASE
+import config
 import db
 from utils import log
 
@@ -12,11 +12,12 @@ class RepairService:
         for doc in db.search_documents():
             fpath = doc["file_path"]
             if fpath and not os.path.exists(fpath):
+                db.update_document(doc["id"], status="missing")
                 missing.append({
                     "id": doc["id"],
                     "filename": doc["filename"],
                     "path": fpath,
-                    "status": doc["status"]
+                    "status": "missing"
                 })
         return missing
 
@@ -27,7 +28,7 @@ class RepairService:
             return {"repaired": 0, "still_missing": 0}
 
         file_map = {}
-        for root, dirs, files in os.walk(TARGET_BASE):
+        for root, dirs, files in os.walk(config.TARGET_BASE):
             for fname in files:
                 if fname.lower().endswith(".pdf"):
                     # keep first found path for a filename (naive)
@@ -58,13 +59,15 @@ class RepairService:
 
     def scan_orphans(self):
         """Find PDF files in the archive that are not in the DB."""
-        db_paths = {os.path.normpath(d["file_path"]) for d in db.search_documents() if d["file_path"]}
+        with db.get_conn() as conn:
+            rows = conn.execute("SELECT file_path FROM documents WHERE file_path IS NOT NULL").fetchall()
+        db_paths = {os.path.normpath(r["file_path"]) for r in rows}
         orphans = []
         
         # Don't scan special folders like failed/ duplicates/ review/
         SKIP_DIRS = {"duplicates", "failed", "encrypted", "review"}
         
-        for root, dirs, files in os.walk(TARGET_BASE):
+        for root, dirs, files in os.walk(config.TARGET_BASE):
             # Mutate dirs in-place to skip
             dirs[:] = [d for d in dirs if d.lower() not in SKIP_DIRS]
             
@@ -80,7 +83,7 @@ class RepairService:
                         orphans.append({
                             "filename": fname,
                             "path": full_path,
-                            "rel_path": os.path.relpath(full_path, TARGET_BASE),
+                            "rel_path": os.path.relpath(full_path, config.TARGET_BASE),
                             "size_kb": size_kb
                         })
         return orphans
@@ -126,7 +129,7 @@ class RepairService:
     def cleanup_empty_folders(self):
         """Remove empty directories inside TARGET_BASE (bottom-up)."""
         SKIP_TOPLEVEL = {"duplicates", "failed", "encrypted", "review"}
-        target = os.path.abspath(TARGET_BASE)
+        target = os.path.abspath(config.TARGET_BASE)
         removed = []
 
         for root, dirs, files in os.walk(target, topdown=False):

@@ -258,6 +258,7 @@ def process_pdf(file_path, doc_id=None):
             date=data.get("date"),
             document_type=data.get("document_type"),
             category=category,
+            property_unit=data.get("property_unit"),
             summary=data.get("summary"),
             content_hash=doc_content_hash,
             status=final_status,

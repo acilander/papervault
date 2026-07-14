@@ -25,6 +25,10 @@ def in_memory_db(monkeypatch, tmp_path):
 
     monkeypatch.setattr(config, "SOURCE_DIR", source_dir)
     monkeypatch.setattr(config, "TARGET_BASE", target_dir)
+    monkeypatch.setattr(config, "CATEGORIES", list(config.CATEGORIES) + ["Kommunikation"])
+    monkeypatch.setattr(config, "CATEGORY_FOLDER_MAP", {**config.CATEGORY_FOLDER_MAP, "Kommunikation": "09_Kommunikation"})
+    monkeypatch.setattr("api.routes.senders.CATEGORY_FOLDER_MAP", {**config.CATEGORY_FOLDER_MAP, "Kommunikation": "09_Kommunikation"})
+    monkeypatch.setattr("api.routes.documents.CATEGORY_FOLDER_MAP", {**config.CATEGORY_FOLDER_MAP, "Kommunikation": "09_Kommunikation"})
 
     # Start with an empty sender registry
     storage.sender_registry = {}
