@@ -383,8 +383,8 @@ def reclassify_cancel():
 class MFHCalculationRequest(BaseModel):
     year: int
     total_sqm: float = 280.0
-    unit_1_sqm: float = 80.0
-    unit_2_sqm: float = 80.0
+    og_sqm: float = 80.0
+    dg_sqm: float = 80.0
 
 
 @router.post("/mfh-calculation")
@@ -430,17 +430,17 @@ def calculate_mfh_u_allocation(req: MFHCalculationRequest):
         })
 
     # Proportional Allocation
-    owner_sqm = req.total_sqm - req.unit_1_sqm - req.unit_2_sqm
-    unit_1_share = (req.unit_1_sqm / req.total_sqm) * total_mfh_cost
-    unit_2_share = (req.unit_2_sqm / req.total_sqm) * total_mfh_cost
-    owner_share = (owner_sqm / req.total_sqm) * total_mfh_cost
+    eg_sqm = req.total_sqm - req.og_sqm - req.dg_sqm
+    og_share = (req.og_sqm / req.total_sqm) * total_mfh_cost
+    dg_share = (req.dg_sqm / req.total_sqm) * total_mfh_cost
+    eg_share = (eg_sqm / req.total_sqm) * total_mfh_cost
 
     return {
         "year": req.year,
         "total_gemeinkosten": round(total_mfh_cost, 2),
-        "owner_share": round(owner_share, 2),
-        "unit_1_share": round(unit_1_share, 2),
-        "unit_2_share": round(unit_2_share, 2),
+        "eg_share": round(eg_share, 2),
+        "og_share": round(og_share, 2),
+        "dg_share": round(dg_share, 2),
         "total_sqm": req.total_sqm,
         "details": details
     }

@@ -5,7 +5,7 @@ This document serves as an exhaustive, step-by-step instruction manual for devel
 ---
 
 ## Objective
-Upgrade the SQLite database schema, translate the old categories into the new streamlined ones, and physically relocate all 5,000+ archived PDF files on disk into the newly designed root subdirectories (`1_Privat_und_Alltag` and `2_Mehrfamilienhaus_Verwaltung`) without re-running LLM inferences.
+Upgrade the SQLite database schema, translate the old categories into the new streamlined ones (UG, EG, OG, DG), and physically relocate all 5,000+ archived PDF files on disk into the newly designed root subdirectories (`1_Privat_und_Alltag` and `2_Mehrfamilienhaus_Verwaltung`) without re-running LLM inferences.
 
 ---
 
@@ -59,6 +59,8 @@ CATEGORY_TRANSLATION = {
     "Kommunikation":          "Sonstiges",
     "Behörde & Urkunden":     "Sonstiges",
     "Ausbildung & Verein":    "Sonstiges",
+    "Wohnen & Eigentum":      "EG_Kosten", # Default private housing costs to EG
+    "Vermieter":              "Haus_Gemeinkosten" # Default legacy Vermieter to Gesamthaus
 }
 
 # 2. Sequential flat folder name mappings starting with numeric prefixes
@@ -66,21 +68,22 @@ NEW_FOLDER_MAP = {
     "Arbeit & Rente":         "01_Arbeit_und_Rente",
     "Bank & Finanzen":        "02_Banken_und_Finanzen",
     "Gesundheit":             "03_Gesundheit_und_Vorsorge",
-    "Eigene_Wohnung":         "04_Eigene_Wohnung_Kosten",
+    "EG_Kosten":              "04_EG_Kosten",
     "Fahrzeug":               "05_Fahrzeug",
     "Einkauf & Konsum":       "06_Konsum_und_Einkauf",
     "Haus_Gemeinkosten":      "07_Gesamthaus_Gemeinkosten",
-    "Wohnung_1_Miete":        "08_Vermietung_Wohnung_1",
-    "Wohnung_2_Miete":        "09_Vermietung_Wohnung_2",
+    "OG_Miete":               "08_Vermietung_OG",
+    "DG_Miete":               "09_Vermietung_DG",
     "Privatversicherungen":   "10_Versicherungen",
-    "Sonstiges":              "11_Sonstiges",
+    "UG_Kosten":              "11_UG_Kosten",
+    "Sonstiges":              "12_Sonstiges",
 }
 
 # 3. Dynamic root directory mappings
 ROOT_MAP = {
     "Haus_Gemeinkosten":      "2_Mehrfamilienhaus_Verwaltung",
-    "Wohnung_1_Miete":        "2_Mehrfamilienhaus_Verwaltung",
-    "Wohnung_2_Miete":        "2_Mehrfamilienhaus_Verwaltung",
+    "OG_Miete":               "2_Mehrfamilienhaus_Verwaltung",
+    "DG_Miete":               "2_Mehrfamilienhaus_Verwaltung",
 } # All others default to "1_Privat_und_Alltag"
 
 def migrate():
@@ -123,17 +126,21 @@ def migrate():
         if "gemeinkosten" in sender_lower or "gebäudeversicherung" in sender_lower or "schornsteinfeger" in sender_lower:
             new_cat = "Haus_Gemeinkosten"
             property_unit = "Gesamthaus"
-        elif "mieter 1" in sender_lower or "wohnung 1" in sender_lower or "eg links" in sender_lower:
-            new_cat = "Wohnung_1_Miete"
-            property_unit = "Wohnung_1"
-        elif "mieter 2" in sender_lower or "wohnung 2" in sender_lower or "og rechts" in sender_lower:
-            new_cat = "Wohnung_2_Miete"
-            property_unit = "Wohnung_2"
-        elif new_cat == "Eigene_Wohnung":
-            property_unit = "Eigene_Wohnung"
+        elif "mieter og" in sender_lower or "obergeschoss" in sender_lower or "og rechts" in sender_lower or "og links" in sender_lower:
+            new_cat = "OG_Miete"
+            property_unit = "OG"
+        elif "mieter dg" in sender_lower or "dachgeschoss" in sender_lower or "dg rechts" in sender_lower:
+            new_cat = "DG_Miete"
+            property_unit = "DG"
+        elif new_cat == "EG_Kosten" or "erdgeschoss" in sender_lower:
+            new_cat = "EG_Kosten"
+            property_unit = "EG"
+        elif new_cat == "UG_Kosten" or "untergeschoss" in sender_lower or "keller" in sender_lower:
+            new_cat = "UG_Kosten"
+            property_unit = "UG"
 
         # C. Compute final directory structure
-        folder_name = NEW_FOLDER_MAP.get(new_cat, "11_Sonstiges")
+        folder_name = NEW_FOLDER_MAP.get(new_cat, "12_Sonstiges")
         root_dir = ROOT_MAP.get(new_cat, "1_Privat_und_Alltag")
         use_year = new_cat != "Privatversicherungen" # Policies are timeless
         
@@ -204,5 +211,5 @@ Execute the script using the project's Python environment:
     Start the PaperVault server, log into the Web-UI, navigate to `Monitor` (System), and click **"Leere Ordner bereinigen"** (or trigger `POST /monitor/cleanup-empty-folders` via curl). This will immediately remove all empty deprecated directories (e.g. `09 - Kommunikation`, `06 - Wohnen & Eigentum`) from your disk.
 2.  **Curate Building-level Labels (The final polish):**
     Because the Python script maps building-level categories naively based on sender names, some invoices (like local water bills or chimney sweeps) might still have `property_unit = null`.
-    *   **To do:** Go to the main **Document List** inside the frontend, filter by the category `Haus_Gemeinkosten` (which now shows all building-level costs), select the corresponding invoices, and use the **Bulk-Edit** interface to set them to `Gesamthaus` (or `Wohnung_1` / `Wohnung_2` for unit-specific maintenance).
+    *   **To do:** Go to the main **Document List** inside the frontend, filter by the category `Haus_Gemeinkosten` (which now shows all building-level costs), select the corresponding invoices, and use the **Bulk-Edit** interface to set them to `Gesamthaus` (or `OG` / `DG` / `EG` / `UG` for unit-specific maintenance).
     *   **Locking:** Once verified, these records are locked in the DB, fully protecting your 5,000+ archive from any future automated overrides!

@@ -30,30 +30,32 @@ Erlaubte Werte fuer document_type (NUR diese 13, keine anderen erfinden):
 - Sonstiges      – Alles was in keine der obigen Kategorien passt
 WICHTIG: Entgeltabrechnung/Lohnabrechnung = document_type=Abrechnung, category=Arbeit & Rente.
 
-Erlaubte Werte fuer category (NUR diese 11, keine anderen erfinden):
+Erlaubte Werte fuer category (NUR diese 12, keine anderen erfinden):
 - Arbeit & Rente       – Lohnabrechnung, Entgeltabrechnung, Gehaltsnachweis, privater Arbeitsvertrag, Rentenauskunft.
 - Bank & Finanzen      – Kontoauszug, Depot, Kreditkarte, Zinsen, Bankdokumente (nicht Lohnabrechnung).
 - Gesundheit           – private Arztrechnung, Krankenhaus, Rezept, private Krankenkasse.
 - Privatversicherungen – private Haftpflicht, Rechtsschutz, Lebensversicherung, Hausrat (nicht Gebäudeversicherung oder KFZ-Versicherung).
 - Fahrzeug             – KFZ-Steuer, Hauptuntersuchung, Werkstattrechnung, Tankquittung, Auto-Garantien, KFZ-Versicherung.
 - Einkauf & Konsum     – Online-Bestellungen, Kassenzettel, Garantieurkunden für Elektrogeräte, Möbelkauf (nicht gebäudebezogen).
-- Eigene_Wohnung       – Kosten für deine eigene, selbstgenutzte Wohnung (Instandhaltung im eigenen Bad, etc.).
-- Haus_Gemeinkosten    – Alle Belege, die das gesamte Mehrfamilienhaus betreffen (Heizungswartung, Gebäudeversicherung, Grundsteuer, Hausmeister).
-- Wohnung_1_Miete      – Alles, was exakt die vermietete Wohnung 1 / EG links betrifft (Mietvertrag Wohnung 1, Reparaturen in Wohnung 1).
-- Wohnung_2_Miete      – Alles, was exakt die vermietete Wohnung 2 / OG rechts betrifft (Mietvertrag Wohnung 2, Reparaturen in Wohnung 2).
+- EG_Kosten            – Kosten für deine eigene, selbstgenutzte Erdgeschoss-Wohnung (EG) (Instandhaltung im EG-Bad, neue Küchengeräte für dich).
+- UG_Kosten            – Kosten für deine eigenen, privat genutzten Räume im Untergeschoss/Keller (UG) (z.B. privater Hobbyraum, Lagerraum, Werkstatt im Keller).
+- Haus_Gemeinkosten    – Alle Belege, die das gesamte Mehrfamilienhaus betreffen (Heizungswartung, Gebäudeversicherung, Grundsteuer, Hausmeister, Schornsteinfeger).
+- OG_Miete             – Alles, was exakt die vermietete Wohnung im Obergeschoss (OG) betrifft (Mietvertrag OG, Reparaturen im OG).
+- DG_Miete             – Alles, was exakt die vermietete Wohnung im Dachgeschoss (DG) betrifft (Mietvertrag DG, Reparaturen im DG).
 - Sonstiges            – Alles, was in keine der obigen Kategorien passt.
 
-Erlaubte Werte fuer property_unit (NUR diese 4, oder null):
-- "Gesamthaus"       – Wenn die Rechnung oder Grundsteuer das gesamte Gebäude betrifft (Heizungswartung, Gebäudeversicherung, Hausmeister, Schornsteinfeger).
-- "Eigene_Wohnung"   – Wenn der Beleg ausschließlich deine eigene, privat genutzte Wohnung betrifft (Möbel für dich, Reparaturen in deiner Küche).
-- "Wohnung_1"        – Wenn der Beleg ausschließlich die vermietete Wohnung 1 (EG links) betrifft (Mietvertrag Wohnung 1, Reparaturen in Wohnung 1).
-- "Wohnung_2"        – Wenn der Beleg ausschließlich die vermietete Wohnung 2 (OG rechts) betrifft (Mietvertrag Wohnung 2, Reparaturen in Wohnung 2).
+Erlaubte Werte fuer property_unit (NUR diese 5, oder null):
+- "Gesamthaus"       – Wenn die Rechnung oder Grundsteuer das gesamte Gebäude betrifft (Heizungswartung, Gebäudeversicherung, Hausmeister, Schornsteinfeger – oft im UG/Heizungskeller verortet).
+- "EG"               – Wenn der Beleg ausschließlich deine eigene, privat genutzte Erdgeschoss-Wohnung (EG) betrifft.
+- "UG"               – Wenn der Beleg ausschließlich deine privaten, selbstgenutzten Kellerräume/Untergeschoss (UG) betrifft (dein privates Kellerabteil, Hobbyraum im Keller).
+- "OG"               – Wenn der Beleg ausschließlich die vermietete Obergeschoss-Wohnung (OG) betrifft (Mietvertrag OG, Reparaturen im OG).
+- "DG"               – Wenn der Beleg ausschließlich die vermietete Dachgeschoss-Wohnung (DG) betrifft (Mietvertrag DG, Reparaturen im DG).
 - null               – Reine Privatbelege ohne jeglichen Gebäudebezug (Lohnabrechnung, private Krankenkasse, KFZ-Kosten, Konsumkäufe).
 
 Wichtige Regeln:
 - Nutze den bereitgestellten "DOKUMENT-BRIEFKOPF" as primäre und ausschließliche Quelle für den Absender ("sender"). Der "DOKUMENT-VOLLTEXT" dient nur zur Bestimmung des Datums, des Typs und der Zusammenfassung.
 - Der Archivinhaber ist Alexander Staiger oder Sonja Staiger. Diese sind EMPFAENGER, niemals Absender.
-- 'sender' muss eine Firma, Behoerde oder Organisation sein, nicht eine Privatperson.
+- 'sender' muss eine firma, Behoerde oder Organisation sein, nicht eine Privatperson.
 - Bei Kontoauszuegen, Kreditkartenabrechnungen und Bankdokumenten is der Absender die BANK (z.B. "Advanzia Bank", "Sparkasse", "DKB"), nicht der Kontoinhaber.
 - Bei Bedienungsanleitungen, Garantieurkunden und Produktdokumentationen ist der Absender die HERSTELLERMARKE (z.B. "Bosch", "Samsung", "Miele", "Siemens") – auch wenn kein klassischer Briefkopf vorhanden ist. Die Marke ist meist prominent auf der Titelseite oder im Logo erkennbar.
 - Bei Rechnungen ist der Absender das UNTERNEHMEN das die Rechnung ausgestellt hat, nicht der Kaeufer.

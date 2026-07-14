@@ -129,7 +129,7 @@ def validate_classification(data):
 
     # Check 15: property_unit validation
     pu = data.get("property_unit")
-    if pu is not None and pu not in ("Gesamthaus", "Eigene_Wohnung", "Wohnung_1", "Wohnung_2"):
-        errors.append(f"'property_unit' '{pu}' ist nicht erlaubt. Waehle aus: Gesamthaus, Eigene_Wohnung, Wohnung_1, Wohnung_2")
+    if pu is not None and pu not in ("Gesamthaus", "EG", "OG", "DG", "UG"):
+        errors.append(f"'property_unit' '{pu}' ist nicht erlaubt. Waehle aus: Gesamthaus, EG, OG, DG, UG")
 
     return errors
