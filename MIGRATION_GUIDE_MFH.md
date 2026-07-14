@@ -58,7 +58,7 @@ CATEGORY_TRANSLATION = {
     "Geräte & Garantie":      "Einkauf & Konsum",
     "Kommunikation":          "Sonstiges",
     "Behörde & Urkunden":     "Sonstiges",
-    "Ausbildung & Verein":    "Sonstiges",
+    "Ausbildung & Verein":    "Kinder_und_Ausbildung",
     "Wohnen & Eigentum":      "EG_Kosten", # Default private housing costs to EG
     "Vermieter":              "Haus_Gemeinkosten" # Default legacy Vermieter to Gesamthaus
 }
@@ -70,13 +70,14 @@ NEW_FOLDER_MAP = {
     "Gesundheit":             "03_Gesundheit_und_Vorsorge",
     "EG_Kosten":              "04_EG_Kosten",
     "Fahrzeug":               "05_Fahrzeug",
-    "Einkauf & Konsum":       "06_Konsum_und_Einkauf",
+    "Einkauf & Konsum":       "06_Consum_und_Einkauf",
     "Haus_Gemeinkosten":      "07_Gesamthaus_Gemeinkosten",
     "OG_Miete":               "08_Vermietung_OG",
     "DG_Miete":               "09_Vermietung_DG",
     "Privatversicherungen":   "10_Versicherungen",
     "UG_Kosten":              "11_UG_Kosten",
     "Sonstiges":              "12_Sonstiges",
+    "Kinder_und_Ausbildung":  "13_Kinder_und_Ausbildung",
 }
 
 # 3. Dynamic root directory mappings
@@ -102,7 +103,7 @@ def migrate():
     cursor = conn.cursor()
 
     # Query all active documents
-    docs = cursor.execute("SELECT id, file_path, category, sender, date, document_type, filename FROM documents").fetchall()
+    docs = cursor.execute("SELECT id, file_path, category, sender, date, document_type, filename, keywords, summary FROM documents").fetchall()
     print(f"Retrieved {len(docs)} documents from database.")
 
     migrated_count = 0
@@ -118,26 +119,50 @@ def migrate():
         cat = doc["category"] or "Sonstiges"
         new_cat = CATEGORY_TRANSLATION.get(cat, cat)
 
-        # B. Assign Property Unit (Heuristic based on sender / annotations)
+        # B. Assign Property Unit, Vehicle, and Child (Heuristic based on metadata)
         property_unit = None
-        sender_lower = (doc["sender"] or "").lower()
+        vehicle_id = None
+        child_name = None
         
-        # Simple heuristics for automatic mapping (customize if needed)
-        if "gemeinkosten" in sender_lower or "gebäudeversicherung" in sender_lower or "schornsteinfeger" in sender_lower:
+        sender_lower = (doc["sender"] or "").lower()
+        summary_lower = (doc["summary"] or "").lower()
+        filename_lower = (doc["filename"] or "").lower()
+        keywords_lower = (doc["keywords"] or "").lower()
+        
+        # 1. Building-level property units
+        if "gemeinkosten" in sender_lower or "gebäudeversicherung" in sender_lower or "schornsteinfeger" in sender_lower or "wartung" in summary_lower:
             new_cat = "Haus_Gemeinkosten"
             property_unit = "Gesamthaus"
-        elif "mieter og" in sender_lower or "obergeschoss" in sender_lower or "og rechts" in sender_lower or "og links" in sender_lower:
+        elif "mieter og" in sender_lower or "obergeschoss" in sender_lower or "og rechts" in sender_lower or "og links" in sender_lower or "og" in filename_lower:
             new_cat = "OG_Miete"
             property_unit = "OG"
-        elif "mieter dg" in sender_lower or "dachgeschoss" in sender_lower or "dg rechts" in sender_lower:
+        elif "mieter dg" in sender_lower or "dachgeschoss" in sender_lower or "dg rechts" in sender_lower or "dg" in filename_lower:
             new_cat = "DG_Miete"
             property_unit = "DG"
-        elif new_cat == "EG_Kosten" or "erdgeschoss" in sender_lower:
+        elif new_cat == "EG_Kosten" or "erdgeschoss" in sender_lower or "eg" in filename_lower:
             new_cat = "EG_Kosten"
             property_unit = "EG"
-        elif new_cat == "UG_Kosten" or "untergeschoss" in sender_lower or "keller" in sender_lower:
+        elif new_cat == "UG_Kosten" or "untergeschoss" in sender_lower or "keller" in sender_lower or "ug" in filename_lower:
             new_cat = "UG_Kosten"
             property_unit = "UG"
+
+        # 2. Heuristics for Vehicles
+        if new_cat == "Fahrzeug":
+            if any(w in sender_lower or w in summary_lower or w in filename_lower or w in keywords_lower for w in ("golf", "vw", "volkswagen")):
+                vehicle_id = "Golf"
+            elif any(w in sender_lower or w in summary_lower or w in filename_lower or w in keywords_lower for w in ("tesla", "model 3", "model y")):
+                vehicle_id = "Tesla"
+            elif any(w in sender_lower or w in summary_lower or w in filename_lower or w in keywords_lower for w in ("honda", "motorrad", "zweirad")):
+                vehicle_id = "Motorrad"
+
+        # 3. Heuristics for Children
+        for child in ("lena", "felix", "maximilian"):
+            if child in sender_lower or child in summary_lower or child in filename_lower or child in keywords_lower:
+                child_name = child.capitalize()
+                # Upgrade education/school files to the new specialized category
+                if cat in ("Ausbildung & Verein", "Sonstiges"):
+                    new_cat = "Kinder_und_Ausbildung"
+                break
 
         # C. Compute final directory structure
         folder_name = NEW_FOLDER_MAP.get(new_cat, "12_Sonstiges")
@@ -148,10 +173,15 @@ def migrate():
         year_match = re.search(r'\b(\d{4})\b', str(doc["date"] or ""))
         year = year_match.group() if year_match else "Unbekannt"
         
-        # Clean sender
+        # Clean sender and prepend vehicle/child tags inside folders if available
         safe_sender = re.sub(r'[\\/:*?"<>|\r\n\t]', '_', doc["sender"])[:50].strip() if doc["sender"] else "Unbekannt"
         
-        # Form final folder path
+        # Form final folder path based on sub-tags
+        if new_cat == "Fahrzeug" and vehicle_id:
+            folder_name = os.path.join(folder_name, vehicle_id)
+        elif (new_cat == "Kinder_und_Ausbildung" or new_cat == "Gesundheit") and child_name:
+            folder_name = os.path.join(folder_name, child_name)
+
         if use_year:
             new_dir = os.path.join(TARGET_BASE_NORM, root_dir, folder_name, safe_sender, year)
         else:
@@ -178,8 +208,8 @@ def migrate():
 
         # E. Update SQLite Record
         cursor.execute(
-            "UPDATE documents SET file_path = ?, category = ?, property_unit = ? WHERE id = ?",
-            (new_path, new_cat, property_unit, doc["id"])
+            "UPDATE documents SET file_path = ?, category = ?, property_unit = ?, vehicle_id = ?, child_name = ? WHERE id = ?",
+            (new_path, new_cat, property_unit, vehicle_id, child_name, doc["id"])
         )
         migrated_count += 1
 
