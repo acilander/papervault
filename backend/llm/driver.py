@@ -396,7 +396,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
     else:
         filename_hint = ""
 
-    few_shot_hint = fb.build_few_shot_prompt(n=5)
+    few_shot_hint = fb.build_few_shot_prompt(n=3, text=safe_text)
     hint_block = f"\n\nBenutzerhinweis (hohe Prioritaet): {user_hint}" if user_hint else ""
     feature_block = f"\n\n{feature_prompt}" if feature_prompt else ""
 

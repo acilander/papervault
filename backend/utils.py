@@ -52,3 +52,12 @@ def extract_year(text: str) -> Optional[str]:
         return None
     year_match = re.search(r'\b(\d{4})\b', text)
     return year_match.group() if year_match else None
+
+
+def normalize_path(path: str) -> Optional[str]:
+    if not path:
+        return None
+    import unicodedata
+    import os
+    norm = unicodedata.normalize("NFC", path)
+    return os.path.normpath(norm)

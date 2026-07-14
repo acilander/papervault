@@ -126,6 +126,24 @@ _inbox_cache = {}
 _inbox_last_scan = 0
 _inbox_lock = threading.Lock()
 
+def _pre_classify_file(fpath: str) -> dict:
+    """Runs a super fast regex/text-based pre-classification on a PDF file
+    without running any LLM inference."""
+    import fitz
+    from llm.driver import detect_known_sender
+    try:
+        doc = fitz.open(fpath)
+        text = ""
+        if len(doc) > 0:
+            page = doc[0]
+            text = page.get_text("text")[:1000]
+        doc.close()
+        
+        sender, category = detect_known_sender(text)
+        return {"pre_sender": sender, "pre_category": category}
+    except Exception:
+        return {"pre_sender": None, "pre_category": None}
+
 def _scan_inbox() -> list:
     res = []
     if os.path.isdir(SOURCE_DIR):
@@ -134,12 +152,15 @@ def _scan_inbox() -> list:
                 fpath = os.path.join(SOURCE_DIR, fname)
                 try:
                     st = os.stat(fpath)
+                    pre = _pre_classify_file(fpath)
                     res.append({
                         "filename": fname,
                         "file_path": fpath,
                         "size": st.st_size,
                         "modified": st.st_mtime,
-                        "created": st.st_ctime
+                        "created": st.st_ctime,
+                        "pre_sender": pre["pre_sender"],
+                        "pre_category": pre["pre_category"]
                     })
                 except OSError:
                     pass
@@ -357,3 +378,69 @@ async def reclassify_invoices():
 def reclassify_cancel():
     _reclassify_cancel.set()
     return {"cancelled": True}
+
+
+class MFHCalculationRequest(BaseModel):
+    year: int
+    total_sqm: float = 280.0
+    unit_1_sqm: float = 80.0
+    unit_2_sqm: float = 80.0
+
+
+@router.post("/mfh-calculation")
+def calculate_mfh_u_allocation(req: MFHCalculationRequest):
+    """Calculate the proportional allocation of Gesamthaus Gemeinkosten
+    for a given year based on sqm areas."""
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, filename, sender, date, category, summary, notes, keywords "
+            "FROM documents WHERE property_unit = 'Gesamthaus' AND date LIKE ? AND status='ok'",
+            (f"{req.year}%",)
+        ).fetchall()
+
+    costs = [dict(r) for r in rows]
+    total_mfh_cost = 0.0
+    details = []
+
+    for c in costs:
+        doc_id = c["id"]
+        # Query services and items sums for exact costs
+        with db.get_conn() as conn:
+            s_row = conn.execute("SELECT SUM(amount) as s_sum FROM services WHERE document_id = ?", (doc_id,)).fetchone()
+            i_row = conn.execute("SELECT SUM(total_price) as i_sum FROM items WHERE document_id = ?", (doc_id,)).fetchone()
+
+        s_sum = s_row["s_sum"] if s_row and s_row["s_sum"] else 0.0
+        i_sum = i_row["i_sum"] if i_row and i_row["i_sum"] else 0.0
+        doc_cost = max(s_sum, i_sum)
+
+        # Fallback check: parse amount from keywords or notes
+        if doc_cost == 0.0:
+            keywords = c.get("keywords") or ""
+            m = re.search(r'(\d+(?:[\.,]\d{2})?)\s*eur', keywords.lower())
+            if m:
+                doc_cost = float(m.group(1).replace(".", "").replace(",", "."))
+
+        total_mfh_cost += doc_cost
+        details.append({
+            "id": doc_id,
+            "filename": c["filename"],
+            "sender": c["sender"],
+            "date": c["date"],
+            "cost": doc_cost
+        })
+
+    # Proportional Allocation
+    owner_sqm = req.total_sqm - req.unit_1_sqm - req.unit_2_sqm
+    unit_1_share = (req.unit_1_sqm / req.total_sqm) * total_mfh_cost
+    unit_2_share = (req.unit_2_sqm / req.total_sqm) * total_mfh_cost
+    owner_share = (owner_sqm / req.total_sqm) * total_mfh_cost
+
+    return {
+        "year": req.year,
+        "total_gemeinkosten": round(total_mfh_cost, 2),
+        "owner_share": round(owner_share, 2),
+        "unit_1_share": round(unit_1_share, 2),
+        "unit_2_share": round(unit_2_share, 2),
+        "total_sqm": req.total_sqm,
+        "details": details
+    }

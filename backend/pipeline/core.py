@@ -350,6 +350,20 @@ def process_pdf(file_path, doc_id=None):
                 if services:
                     n = insert_services(doc_id, services, extracted_at=_dt.now().isoformat(timespec="seconds"))
                     log(f"[SERVICES] {n} Dienstleistungen in Ausgaben eingetragen.")
+
+                    # Mathematischer Summen-Validator (Datenintegrität)
+                    try:
+                        total_services_sum = sum(s.get("amount") or 0.0 for s in services)
+                        import re as _re
+                        total_matches = _re.findall(r'(?:gesamt|brutto|summe|endbetrag|rechnungsbetrag|gesamtbetrag)[\s:]*([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{2}))', safe_text.lower())
+                        if total_matches:
+                            invoice_total = float(total_matches[0].replace(".", "").replace(",", "."))
+                            if abs(total_services_sum - invoice_total) > 0.05:
+                                warn_msg = f"Achtung: Mathematische Summen-Inkonsistenz! Die Summe der extrahierten Dienstleistungen ({total_services_sum:.2f} EUR) weicht vom erkannten Rechnungsbetrag ({invoice_total:.2f} EUR) ab."
+                                db.update_document(doc_id, notes=warn_msg)
+                                log(f"[SERVICES_VALIDATOR] {warn_msg}")
+                    except Exception as ve:
+                        log(f"[SERVICES_VALIDATOR] Mathematische Validierung fehlgeschlagen: {ve}")
         except Exception as e:
             log(f"[PIPELINE] Fehler bei Extraktion (ignoriert): {e}")
 

@@ -56,14 +56,37 @@ def get_few_shot_examples(n: int = 20) -> list:
     return combined[:n]
 
 
-def build_few_shot_prompt(n: int = 15) -> str:
-    """Build a prompt snippet with few-shot examples to prepend to LLM context."""
-    examples = get_few_shot_examples(n)
+def build_few_shot_prompt(n: int = 3, text: str = "") -> str:
+    """Build a prompt snippet with semantic few-shot examples to prepend to LLM context.
+    Matches examples from the feedback database that share keywords with the current raw text.
+    """
+    examples = get_few_shot_examples(n=15)
     if not examples:
         return ""
 
-    lines = ["\n\nBewährte Klassifizierungen aus dem Archiv (vom Nutzer bestätigt):"]
+    text_lower = (text or "").lower()
+    scored = []
     for e in examples:
+        score = 0
+        sender = str(e.get("sender") or "").lower()
+        cat = str(e.get("category") or "").lower()
+        dtype = str(e.get("document_type") or "").lower()
+
+        if sender and sender in text_lower:
+            score += 10
+        if cat and cat in text_lower:
+            score += 2
+        if dtype and dtype in text_lower:
+            score += 1
+
+        scored.append((score, e))
+
+    # Sort by score descending (most relevant first)
+    scored.sort(key=lambda x: x[0], reverse=True)
+    best_examples = [item[1] for item in scored[:n]]
+
+    lines = ["\n\nBewährte Klassifizierungen aus dem Archiv (vom Nutzer bestätigt):"]
+    for e in best_examples:
         fields = []
         if e.get("sender"):
             fields.append(f"sender: {e['sender']}")

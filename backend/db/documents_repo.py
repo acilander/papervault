@@ -4,7 +4,8 @@ from db.connection import get_conn
 
 def upsert_document(file_path, filename, sender, date, document_type,
                     category, summary, content_hash=None, status="ok", archived_at=None, property_unit=None):
-    file_path = os.path.normpath(file_path) if file_path else file_path
+    from utils import normalize_path
+    file_path = normalize_path(file_path) if file_path else file_path
     archived_at = archived_at or datetime.now().isoformat(timespec="seconds")
     with get_conn() as conn:
         conn.execute("""
@@ -66,8 +67,9 @@ def get_documents_without_sender():
 
 
 def update_document(doc_id, **fields):
+    from utils import normalize_path
     if "file_path" in fields and fields["file_path"]:
-        fields["file_path"] = os.path.normpath(fields["file_path"])
+        fields["file_path"] = normalize_path(fields["file_path"])
         # If the target path is already owned by a different document, disambiguate
         target_path = fields["file_path"]
         with get_conn() as conn:
