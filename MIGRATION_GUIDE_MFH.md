@@ -90,14 +90,14 @@ ROOT_MAP = {
 def migrate():
     DB_PATH_NORM = os.path.normpath(DB_PATH)
     TARGET_BASE_NORM = os.path.normpath(TARGET_BASE)
-    
+
     if not os.path.exists(DB_PATH_NORM):
         print(f"Error: Database file not found at {DB_PATH_NORM}")
         return
 
     print(f"Starting migration on database: {DB_PATH_NORM}")
     print(f"Archive storage base path: {TARGET_BASE_NORM}")
-    
+
     conn = sqlite3.connect(DB_PATH_NORM)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -123,12 +123,12 @@ def migrate():
         property_unit = None
         vehicle_id = None
         child_name = None
-        
+
         sender_lower = (doc["sender"] or "").lower()
         summary_lower = (doc["summary"] or "").lower()
         filename_lower = (doc["filename"] or "").lower()
         keywords_lower = (doc["keywords"] or "").lower()
-        
+
         # 1. Building-level property units
         if "gemeinkosten" in sender_lower or "gebäudeversicherung" in sender_lower or "schornsteinfeger" in sender_lower or "wartung" in summary_lower:
             new_cat = "Haus_Gemeinkosten"
@@ -168,14 +168,14 @@ def migrate():
         folder_name = NEW_FOLDER_MAP.get(new_cat, "12_Sonstiges")
         root_dir = ROOT_MAP.get(new_cat, "1_Privat_und_Alltag")
         use_year = new_cat != "Privatversicherungen" # Policies are timeless
-        
+
         # Extract year
         year_match = re.search(r'\b(\d{4})\b', str(doc["date"] or ""))
         year = year_match.group() if year_match else "Unbekannt"
-        
+
         # Clean sender and prepend vehicle/child tags inside folders if available
         safe_sender = re.sub(r'[\\/:*?"<>|\r\n\t]', '_', doc["sender"])[:50].strip() if doc["sender"] else "Unbekannt"
-        
+
         # Form final folder path based on sub-tags
         if new_cat == "Fahrzeug" and vehicle_id:
             folder_name = os.path.join(folder_name, vehicle_id)
@@ -186,7 +186,7 @@ def migrate():
             new_dir = os.path.join(TARGET_BASE_NORM, root_dir, folder_name, safe_sender, year)
         else:
             new_dir = os.path.join(TARGET_BASE_NORM, root_dir, folder_name, safe_sender)
-            
+
         os.makedirs(new_dir, exist_ok=True)
         new_path = os.path.normpath(os.path.join(new_dir, doc["filename"]))
 
@@ -200,7 +200,7 @@ def migrate():
                     while os.path.exists(f"{base}_{counter}{ext}"):
                         counter += 1
                     new_path = f"{base}_{counter}{ext}"
-                
+
                 shutil.move(old_path, new_path)
             except Exception as e:
                 print(f"Error moving file {old_path} -> {new_path}: {e}")

@@ -3,6 +3,8 @@ import subprocess
 import sys
 from fastapi import HTTPException
 
+from utils import log
+
 # Using constant path strings as imported by config
 ARCHIVER_STDOUT = "archiver_stdout.log"
 _ARCHIVER_PID_FILE = "archiver.pid"

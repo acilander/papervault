@@ -335,7 +335,7 @@ def process_pdf(file_path, doc_id=None):
                     tax_year_id = year_row["id"]
                 else:
                     tax_year_id = tax_years_repo.insert(year_num, status="draft", notes=f"Vollautomatisch erstellt für Beleg {doc_id}")
-                
+
                 existing_link = tax_documents_repo.get_by_year_and_document(tax_year_id, doc_id, source_type="assessment_notice")
                 if not existing_link:
                     tax_documents_repo.insert(

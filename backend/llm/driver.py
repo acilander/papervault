@@ -164,7 +164,7 @@ def sanitize_llm_output(data: dict) -> dict:
     pu = data.get("property_unit")
     if isinstance(pu, str):
         pu_clean = pu.strip().replace('"', '').replace("'", "")
-        if pu_clean in ("Gesamthaus", "Eigene_Wohnung", "Wohnung_1", "Wohnung_2"):
+        if pu_clean in ("Gesamthaus", "EG", "UG", "OG", "DG"):
             data["property_unit"] = pu_clean
         else:
             data["property_unit"] = None
@@ -455,7 +455,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             data = json.loads(cleaned)
             data = sanitize_llm_output(data)
 
-            known_fields = {"sender", "date", "document_type", "category", "property_unit", "summary", "keywords", "low_value", "iban"}
+            known_fields = {"sender", "date", "document_type", "category", "property_unit", "vehicle_id", "child_name", "summary", "keywords", "low_value", "iban"}
             data = {k: v for k, v in data.items() if k in known_fields}
 
             if "low_value" in data:

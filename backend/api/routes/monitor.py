@@ -138,7 +138,7 @@ def _pre_classify_file(fpath: str) -> dict:
             page = doc[0]
             text = page.get_text("text")[:1000]
         doc.close()
-        
+
         sender, category = detect_known_sender(text)
         return {"pre_sender": sender, "pre_category": category}
     except Exception:
