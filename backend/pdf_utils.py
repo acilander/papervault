@@ -57,6 +57,7 @@ def extract_text(file_path):
     'ok', 'encrypted', or 'corrupt'."""
     import io
     import sys
+    doc = None
     try:
         # Suppress MuPDF warnings printed to stderr (non-fatal parse errors)
         _stderr = sys.stderr
@@ -68,6 +69,7 @@ def extract_text(file_path):
 
         if doc.is_encrypted:
             doc.close()
+            doc = None
             return "", "encrypted"
 
         # [Smart Chunking]
@@ -88,10 +90,17 @@ def extract_text(file_path):
             parts.append(text)
 
         doc.close()
+        doc = None
         return "\n".join(parts), "ok"
     except Exception as e:
         log(f"PDF-Lesefehler ({os.path.basename(file_path)}): {e}")
         return "", "corrupt"
+    finally:
+        if doc is not None:
+            try:
+                doc.close()
+            except Exception:
+                pass
 
 
 def ocr_pdf(file_path):

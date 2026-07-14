@@ -30,8 +30,9 @@ def in_memory_db(monkeypatch, tmp_path):
     yield tmp_path
 
 
-def test_api_lifespan_creates_source_dir(in_memory_db):
+def test_api_lifespan_creates_source_dir(in_memory_db, monkeypatch):
     """Verify that the API lifespan context manager creates SOURCE_DIR if missing."""
+    monkeypatch.setattr(config, "MOCK_LLM", True)
     import api.main as main_module
     import shutil
 
