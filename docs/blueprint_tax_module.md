@@ -10,6 +10,97 @@ Ein lokales, datensicheres Steuer-Hilfsprogramm innerhalb von PaperVault. Es ler
 - Positionen müssen vom Benutzer verifiziert werden.
 - Alle Daten bleiben lokal.
 
+## Aktueller Implementierungsstand (Stand: 12.07.2026)
+
+### Bereits implementiert
+
+1. **Datenbank-Schema + Repositories**
+   - Tabellen: `tax_years`, `tax_documents`, `tax_positions`
+   - Dateien: `backend/db/tax_years_repo.py`, `backend/db/tax_documents_repo.py`, `backend/db/tax_positions_repo.py`
+
+2. **Backend-API**
+   - Datei: `backend/api/routes/tax.py` mit Prefix `/tax`
+   - Endpunkte für Steuerjahre, Dokumentenverknüpfung, Positionen, Extraktion, Vergleich, Entwicklung und Chat
+
+3. **LLM-Extraktion**
+   - Datei: `backend/tax/extraction.py`
+   - Prompts: `backend/tax/prompts.py`
+   - Generische LLM-Hilfsfunktionen: `backend/llm.py` (`llm_json_completion`, `llm_completion`)
+
+4. **Frontend-Seiten**
+   - `frontend/src/pages/tax/TaxYears.tsx` – Übersicht aller Steuerjahre
+   - `frontend/src/pages/tax/TaxYearDetail.tsx` – Detailansicht mit Dokumenten und Positionen
+   - `frontend/src/pages/tax/TaxYearComparison.tsx` – Vergleich Export vs. Bescheid
+   - `frontend/src/pages/tax/TaxDevelopment.tsx` – Entwicklungsdiagramm mit Recharts
+   - `frontend/src/pages/tax/TaxChat.tsx` – Steuer-Assistent (neu, noch ungetestet)
+
+5. **API-Helpers**
+   - Datei: `frontend/src/api.ts` mit allen Tax-Endpunkten inklusive `askTaxQuestion`
+
+6. **Routing und Navigation**
+   - Routes in `frontend/src/App.tsx`
+   - Navigationseintrag „Steuer“ mit Links zu Jahren, Entwicklung und Assistent
+
+### Noch offen / zu prüfen
+
+- TypeScript-Check und Build der Frontend-Änderungen müssen manuell im `frontend/`-Verzeichnis durchgeführt werden.
+- Steuer-Chat-Assistent wurde gerade hinzugefügt, aber noch nicht laufend getestet.
+
+### Start einer neuen Session
+
+Branch: `feature/tax-module`
+
+Aktuelle offene Änderungen (letzter Git-Status):
+
+```
+ M backend/api/routes/tax.py
+ M backend/llm.py
+ M frontend/src/App.tsx
+ M frontend/src/api.ts
+ M frontend/src/pages/tax/TaxYears.tsx
+?? backend/tax/chat.py
+?? blueprint_tax_module.md
+?? frontend/src/pages/tax/TaxChat.tsx
+?? frontend/src/pages/tax/TaxDevelopment.tsx
+```
+
+Empfohlene ersten Schritte beim Wiederaufnehmen:
+1. Im `frontend/`-Ordner `npx tsc --noEmit` ausführen.
+2. Backend-Import prüfen: `python -m py_compile backend/llm.py backend/tax/chat.py backend/api/routes/tax.py`.
+3. Falls alles sauber: `git add` und Commit für das Entwicklungsdiagramm + Chat-Assistent.
+4. Optional: Backend-Server starten und Chat-Endpunkt `POST /tax/chat` testen.
+
+Wichtige Dateipfade:
+- Backend-API: `backend/api/routes/tax.py`
+- LLM-Hilfsfunktionen: `backend/llm.py`
+- Steuer-Chat-Logik: `backend/tax/chat.py`
+- LLM-Prompts: `backend/tax/prompts.py`
+- Extraktion: `backend/tax/extraction.py`
+- Frontend-API-Helpers: `frontend/src/api.ts`
+- Frontend-Routing: `frontend/src/App.tsx`
+- Frontend-Steuerjahre: `frontend/src/pages/tax/TaxYears.tsx`
+- Frontend-Detail: `frontend/src/pages/tax/TaxYearDetail.tsx`
+- Frontend-Vergleich: `frontend/src/pages/tax/TaxYearComparison.tsx`
+- Frontend-Entwicklung: `frontend/src/pages/tax/TaxDevelopment.tsx`
+- Frontend-Chat: `frontend/src/pages/tax/TaxChat.tsx`
+
+## Zwischenfall: Falsch installierte Abhängigkeit
+
+Während der Implementierung des Entwicklungsdiagramms wurde `recharts` korrekt in `frontend/package.json` installiert. Ein versehentlicher `npx tsc --noEmit`-Aufruf im Projekt-Root (statt im `frontend/`-Ordner) führte dazu, dass `npx` das fremde, veraltete Paket `tsc@2.0.4` zur Installation anbot. Dieses Paket ist nicht Microsofts TypeScript-Compiler.
+
+### Bereinigung
+
+- Root-`node_modules/`, `package.json` und `package-lock.json` wurden gelöscht.
+- `frontend/package.json` und `frontend/package-lock.json` enthalten weiterhin korrekt `recharts`.
+- Es befinden sich aktuell keine ungewollten Dateien im Repository.
+
+### Korrekte Vorgehensweise für zukünftige Checks
+
+```powershell
+cd "C:\Users\Alexander\Documents\Python Apps\papervault\frontend"
+npx tsc --noEmit
+```
+
 ## Module
 
 ### 1. Datenbank-Schema
@@ -69,10 +160,11 @@ Ein lokales, datensicheres Steuer-Hilfsprogramm innerhalb von PaperVault. Es ler
   - Erwartet JSON-Array mit `{category, subcategory, label, amount, page, source_text}`.
   - Speichert Ergebnisse in `tax_positions`.
 - `backend/tax/prompts.py`: Prompts für Steuerprogramm-Export und Bescheid.
+- `backend/tax/chat.py`: Steuer-Chat-Assistent, sammelt Kontext und beantwortet Fragen per LLM.
 
 #### Vergleichs-Logik
 
-- `backend/tax/comparison.py`: `compare_year(tax_year_id)`.
+- Vergleich erfolgt in `backend/api/routes/tax.py` Endpunkt `GET /tax/years/{id}/comparison`.
   - Vergleicht Positionen aus `tax_program_export` mit `assessment_notice`.
   - Markiert Abweichungen (`amount` vs. `amount_assessed`).
   - Liefert Summen pro Kategorie und Jahr.
@@ -85,12 +177,13 @@ Ein lokales, datensicheres Steuer-Hilfsprogramm innerhalb von PaperVault. Es ler
   - `GET /tax/years/{id}` – Jahr inkl. Positionen
   - `PATCH /tax/years/{id}` – Status/Notizen aktualisieren
   - `POST /tax/years/{id}/documents` – Dokument verknüpfen
-  - `POST /tax/years/{id}/extract` – LLM-Extraktion starten
+  - `POST /tax/documents/{tax_document_id}/extract` – LLM-Extraktion starten
   - `GET /tax/years/{id}/comparison` – Vergleich Export vs. Bescheid
   - `GET /tax/years/{id}/documents` – Verknüpfte Dokumente
   - `PATCH /tax/positions/{id}` – Position korrigieren/verifizieren
   - `DELETE /tax/positions/{id}` – Position löschen
   - `GET /tax/development` – Zeitreihe pro Kategorie
+  - `POST /tax/chat` – Steuer-Chat-Assistent
 
 ### 3. Frontend
 
@@ -102,27 +195,20 @@ Ein lokales, datensicheres Steuer-Hilfsprogramm innerhalb von PaperVault. Es ler
   - Positionen pro Kategorie
   - Button „Extraktion starten“
   - Button „Vergleich anzeigen“
-- `TaxImport.tsx` – Upload / Verknüpfung von Dokumenten:
-  - Auswahl aus bestehenden Dokumenten
-  - Typ: Steuerprogramm-Export oder Bescheid
-- `TaxReview.tsx` – Review-UI für extrahierte Positionen:
-  - Tabelle mit editierbaren Feldern
-  - Verifizieren-Checkbox
-  - Kategorie/Subcategory auswählbar
-- `TaxComparison.tsx` – Vergleich Export vs. Bescheid:
+- `TaxYearComparison.tsx` – Vergleich Export vs. Bescheid:
   - Abweichungen rot markiert
   - Summen pro Kategorie
 - `TaxDevelopment.tsx` – Entwicklung über die Jahre:
   - Liniendiagramm pro Kategorie
-  - Tabelle mit Jahresvergleich
+  - Kategorie-Filter
 - `TaxChat.tsx` – Steuer-Assistent:
-  - Chat mit Kontext: Steuerjahre, Positionen, verknüpfte Dokumente
-  - Fragen wie: „Was hat sich 2025 gegenüber 2024 geändert?“
+  - Chat-UI mit Nutzer- und Assistent-Nachrichten
+  - Sendet Frage an `POST /tax/chat`
 
 #### Navigation
 
 - Neuer Hauptnavigationspunkt „Steuer“.
-- Innerhalb der Steuer-Seite Tabs: Jahre, Entwicklung, Assistent.
+- Innerhalb der Steuer-Seite: Links zu „Assistent“, „Entwicklung“ und der Jahresliste.
 
 ### 4. LLM-Prompts
 
@@ -176,17 +262,17 @@ Gib ein JSON-Array mit gleichen Feldern wie beim Steuerprogramm-Export zurück.
 #### Workflow C: Analyse über die Jahre
 
 1. Benutzer öffnet „Entwicklung“.
-2. Wählt Kategorie(n) aus.
-3. Sieht Diagramm und Tabelle mit Beträgen pro Jahr.
+2. Wählt Kategorie aus.
+3. Sieht Diagramm und Beträge pro Jahr.
 
-### 6. Abhängigkeiten / Erweiterungen bestehende Komponenten
+## Abhängigkeiten / Erweiterungen bestehende Komponenten
 
 - `documents.full_text` wird für LLM-Extraktion verwendet.
 - `categories.py` und `prompts.py` werden um Steuerkategorien erweitert.
 - Chat-Modul bekommt einen Steuer-Kontext.
 - `documents.low_value` kann Steuer-relevante Dokumente ausschließen.
 
-### 7. Nicht im Scope
+## Nicht im Scope
 
 - Automatisches Ausfüllen von Steuerformularen.
 - Rechtsverbindliche Steuerberatung.
@@ -195,13 +281,13 @@ Gib ein JSON-Array mit gleichen Feldern wie beim Steuerprogramm-Export zurück.
 
 ## Implementierungs-Reihenfolge
 
-1. Datenbank-Schema + Repositories
-2. Backend-API für Steuerjahre und Dokumentenverknüpfung
-3. LLM-Extraktion für Steuerprogramm-Exporte
-4. Review-UI für Positionen
-5. Finanzamtsbescheid-Extraktion + Vergleich
-6. Entwicklungsdiagramm
-7. Steuer-Chat-Assistent
+1. ✅ Datenbank-Schema + Repositories
+2. ✅ Backend-API für Steuerjahre und Dokumentenverknüpfung
+3. ✅ LLM-Extraktion für Steuerprogramm-Exporte
+4. ✅ Review-UI für Positionen
+5. ✅ Finanzamtsbescheid-Extraktion + Vergleich
+6. ✅ Entwicklungsdiagramm
+7. ✅ Steuer-Chat-Assistent (hinzugefügt, Build/Check ausstehend)
 
 ## Erfolgskriterien
 

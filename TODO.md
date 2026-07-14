@@ -14,7 +14,7 @@
 - Alle 7× `open(SENDERS_FILE, "w")` aus `senders.py` Routes entfernt
 - Einmalige Migration von `senders.json` → DB beim ersten Start
 
-#### `feedback.json` → neue Tabelle `feedback` (offen)
+#### ✅ `feedback.json` → neue Tabelle `feedback` (erledigt)
 - Enthält: manuelle Korrekturen als Few-Shot-Beispiele für den LLM-Prompt
 - **Vorteile DB:** Feedback per GUI durchsuchbar und löschbar, kein unbegrenztes JSON-Wachstum
 - **Aufwand:** Mittel – `feedback.py` umschreiben, GUI-Seite für Feedback-Verwaltung ergänzen
@@ -55,8 +55,13 @@ Jeder Step in `core.py` hat seinen eigenen Fehler-Pfad. Ein zentraler Pipeline-R
 - [x] Bulk-`low_value`-Markierung per Regel (Kategorie, Typ, Betragsschwelle)
 
 ## Meine Anmerkungen
-- [ ] neue Dokumente werden noch immer alls REchnung klassifiziert, obwohl wir neue Typen definiert haben
+- [x] neue Dokumente werden noch immer alls REchnung klassifiziert, obwohl wir neue Typen definiert haben
 - [x] in Dokumente Liste feht die Typ Spalte
 - [x] die Dokumente Liste lässt sich nicht nach den Spalten sortieren
 - [x] wenn in der absender liste dokumente als review sind, die aber eine falsche Kategorie haben, wie kann ich alle auf die richtige Kategorie setzen?
 - [x] alle tabellen sollen sich nach spalten sortieren lassen (Dokumente, Inventar, Ausgaben, Verträge, Sammlungen)
+- [x] analysiere die Python vorverarbeitung auf verbesserungspotential
+- [x] analysiere die beschreibungen der Dokumente in der sql datenbank und überprüfe ob die Kategorien und ordnerstruktur ausreichend ist
+- [x] die menüstruktur an der linken seite ist historisch ewachsen aber nicht wirklich durchdacht. Schlage eine logischere umsetzung vor
+- [x] wie ist deine einschätzung der funktion des Tax moduls, das mir bei der Steuer helfen soll?
+- [x] Es werden dokumente als 100% duplikat erkannt, dabei sind es ähnlich strukturierte dokumente mit anderm datum z.B. Entgeltabrechnung. Wie kann man das verbessern.
