@@ -123,6 +123,10 @@ MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_protected_hashes_type ON protected_document_hashes(type)",
     "ALTER TABLE documents ADD COLUMN property_unit TEXT DEFAULT NULL",
     "CREATE INDEX IF NOT EXISTS idx_documents_property_unit ON documents(property_unit)",
+    "ALTER TABLE documents ADD COLUMN vehicle_id TEXT DEFAULT NULL",
+    "CREATE INDEX IF NOT EXISTS idx_documents_vehicle_id ON documents(vehicle_id)",
+    "ALTER TABLE documents ADD COLUMN child_name TEXT DEFAULT NULL",
+    "CREATE INDEX IF NOT EXISTS idx_documents_child_name ON documents(child_name)",
 ]
 
 def init_db():

@@ -3,15 +3,15 @@ from datetime import datetime
 from db.connection import get_conn
 
 def upsert_document(file_path, filename, sender, date, document_type,
-                    category, summary, content_hash=None, status="ok", archived_at=None, property_unit=None):
+                    category, summary, content_hash=None, status="ok", archived_at=None, property_unit=None, vehicle_id=None, child_name=None):
     from utils import normalize_path
     file_path = normalize_path(file_path) if file_path else file_path
     archived_at = archived_at or datetime.now().isoformat(timespec="seconds")
     with get_conn() as conn:
         conn.execute("""
             INSERT INTO documents
-                (file_path, filename, sender, date, document_type, category, summary, content_hash, status, archived_at, property_unit)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (file_path, filename, sender, date, document_type, category, summary, content_hash, status, archived_at, property_unit, vehicle_id, child_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(file_path) DO UPDATE SET
                 filename      = excluded.filename,
                 sender        = excluded.sender,
@@ -21,8 +21,10 @@ def upsert_document(file_path, filename, sender, date, document_type,
                 summary       = excluded.summary,
                 content_hash  = excluded.content_hash,
                 status        = excluded.status,
-                property_unit = excluded.property_unit
-        """, (file_path, filename, sender, date, document_type, category, summary, content_hash, status, archived_at, property_unit))
+                property_unit = excluded.property_unit,
+                vehicle_id    = excluded.vehicle_id,
+                child_name    = excluded.child_name
+        """, (file_path, filename, sender, date, document_type, category, summary, content_hash, status, archived_at, property_unit, vehicle_id, child_name))
         row = conn.execute("SELECT id FROM documents WHERE file_path = ?", (file_path,)).fetchone()
         return row["id"] if row else None
 
@@ -87,7 +89,7 @@ def update_document(doc_id, **fields):
                 fields["filename"] = os.path.basename(new_path)
     allowed = {"sender", "date", "document_type", "category", "summary", "status",
                "file_path", "filename", "tags", "tax_relevant", "tax_year", "expires_at", "notes",
-               "keywords", "low_value", "full_text", "sim_hash", "content_hash", "iban", "property_unit"}
+               "keywords", "low_value", "full_text", "sim_hash", "content_hash", "iban", "property_unit", "vehicle_id", "child_name"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
