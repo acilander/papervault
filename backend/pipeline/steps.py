@@ -206,6 +206,11 @@ def archive_file_on_disk(file_path, category, sender, date, document_type=None, 
 
     safe_sender = re.sub(r'[\\/:*?"<>|\r\n\t]', '_', sender)[:50].strip() if sender else None
 
+    # Check if this is an outgoing document from the landlord/owner
+    from config import OWNER_NAMES
+    if safe_sender and any(owner in safe_sender.lower() for owner in OWNER_NAMES):
+        safe_sender = "00_Ausgehend_Vermieter"
+
     if category == "Bank & Finanzen" and SENDER_SUBFOLDERS and safe_sender:
         subtype = "Kontoauszüge" if document_type == "Kontoauszug" else "Dokumente"
         if iban:

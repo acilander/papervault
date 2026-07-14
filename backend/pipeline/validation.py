@@ -84,9 +84,11 @@ def validate_classification(data):
     elif not sender_is_null and len(sender) < 2:
         errors.append(f"'sender' ist zu kurz ('{sender}') – Einzelbuchstaben oder Sonderzeichen sind kein gueltiger Absender. Bitte den vollstaendigen Namen angeben oder null setzen.")
 
-    # Check 4: sender is not the archive owner
+    # Check 4: sender is not the archive owner (unless it is a landlord category representing outgoing correspondence)
     elif not sender_is_null and any(owner in sender.lower() for owner in OWNER_NAMES):
-        errors.append(f"'sender' ist '{sender}' – das ist der Empfaenger (Archivinhaber), nicht der Absender. Bitte die ausstellende Firma oder Behoerde angeben.")
+        cat = data.get("category")
+        if cat not in ("Haus_Gemeinkosten", "OG_Miete", "DG_Miete"):
+            errors.append(f"'sender' ist '{sender}' – das ist der Empfaenger (Archivinhaber), nicht der Absender. Bitte die ausstellende Firma oder Behoerde angeben.")
 
     # Check 5 & 13: summary not empty or uncertainty phrase
     summary = str(data.get("summary") or "").strip()
