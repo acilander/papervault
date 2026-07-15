@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 import db
-from llm import get_llm
+from llm import get_llm, llm_completion
 from utils import log
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -53,7 +53,6 @@ def _extract_filters(question: str) -> dict:
     if q_clean in ("hallo", "hi", "hey", "moin", "guten tag", "guten morgen", "servus", "hallo!", "hi!"):
         return {}
 
-    from llm import llm_completion
     system_prompt = (
         "Du bist ein Assistent der Dokumentenverwaltung PaperVault.\n"
         "Der Nutzer stellt eine Frage über seine archivierten Dokumente.\n\n"
@@ -100,7 +99,6 @@ def _build_context(docs: list[dict]) -> str:
 
 
 def _generate_answer(question: str, docs: list[dict]) -> str:
-    from llm import llm_completion
     if not docs:
         # ── Allgemeines Konversations-Routing (Allgemeines Wissen Fallback) ──────
         system_prompt = (

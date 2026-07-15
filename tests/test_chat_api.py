@@ -49,11 +49,11 @@ def test_extract_filters_formats_prompt_without_key_error(in_memory_db, monkeypa
     """
     from api.routes import chat as chat_module
 
-    def fake_llm(prompt, **kwargs):
-        assert 'Beispiel: {"sender": "Autohaus Hohlweck"' in prompt
-        return {"choices": [{"text": '{"sender": "Telekom", "year": "2025"}'}]}
+    def fake_llm_completion(system, user, **kwargs):
+        assert 'Beispiel: {"sender": "Autohaus Hohlweck"' in system
+        return '{"sender": "Telekom", "year": "2025"}'
 
-    monkeypatch.setattr(chat_module, "get_llm", lambda: fake_llm)
+    monkeypatch.setattr(chat_module, "llm_completion", fake_llm_completion)
     result = chat_module._extract_filters("Rechnungen von Telekom 2025")
     assert result == {"sender": "Telekom", "year": "2025"}
 
@@ -62,10 +62,10 @@ def test_extract_filters_ignores_extra_text_around_json(in_memory_db, monkeypatc
     """Verify that extra LLM text before/after the JSON does not break parsing."""
     from api.routes import chat as chat_module
 
-    def fake_llm(prompt, **kwargs):
-        return {"choices": [{"text": 'Hier sind die Filter: {"sender": "Telekom", "year": "2025"}. Ich hoffe das hilft.'}]}
+    def fake_llm_completion(system, user, **kwargs):
+        return 'Hier sind die Filter: {"sender": "Telekom", "year": "2025"}. Ich hoffe das hilft.'
 
-    monkeypatch.setattr(chat_module, "get_llm", lambda: fake_llm)
+    monkeypatch.setattr(chat_module, "llm_completion", fake_llm_completion)
     result = chat_module._extract_filters("Zeig mir Telekom-Rechnungen von 2025")
     assert result == {"sender": "Telekom", "year": "2025"}
 
