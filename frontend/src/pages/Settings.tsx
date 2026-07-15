@@ -56,6 +56,14 @@ export default function Settings() {
   const [newVehicleKey, setNewVehicleKey] = useState('')
   const [newVehicleTags, setNewVehicleTags] = useState('')
 
+  // Advanced Categories & DocTypes State
+  const [newDocType, setNewDocType] = useState('')
+  const [newCatName, setNewCatName] = useState('')
+  const [newCatFolder, setNewCatFolder] = useState('')
+  const [newCatRoot, setNewCatRoot] = useState('1_Privat_und_Alltag')
+  const [newCatUseYear, setNewCatUseYear] = useState(true)
+  const [newCatUnit, setNewCatUnit] = useState('')
+
   // Downloader State
   const [selectedDl, setSelectedDl] = useState(0)
   const [downloading, setDownloading] = useState(false)
@@ -318,6 +326,63 @@ export default function Settings() {
     setNewVehicleTags('')
   }
 
+  // Advanced categories & doctypes logic helpers
+  const addDocType = () => {
+    if (!settings || !newDocType.trim()) return
+    const updated = [...settings.document_types, newDocType.trim()]
+    setSettings({ ...settings, document_types: updated })
+    setNewDocType('')
+  }
+
+  const removeDocType = (idx: number) => {
+    if (!settings) return
+    const updated = settings.document_types.filter((_, i) => i !== idx)
+    setSettings({ ...settings, document_types: updated })
+  }
+
+  const addCategory = () => {
+    if (!settings || !newCatName.trim() || !newCatFolder.trim()) return
+    const name = newCatName.trim()
+    const folder = newCatFolder.trim()
+
+    const updatedCategories = [...settings.categories, name]
+    const updatedFolderMap = { ...settings.category_folder_map, [name]: folder }
+    const updatedConfig = {
+      ...settings.categories_config,
+      [name]: {
+        use_year_folder: newCatUseYear,
+        root: newCatRoot,
+        property_unit: newCatUnit || null
+      }
+    }
+
+    setSettings({
+      ...settings,
+      categories: updatedCategories,
+      category_folder_map: updatedFolderMap,
+      categories_config: updatedConfig
+    })
+
+    setNewCatName('')
+    setNewCatFolder('')
+  }
+
+  const removeCategory = (name: string) => {
+    if (!settings) return
+    const updatedCategories = settings.categories.filter(c => c !== name)
+    const updatedFolderMap = { ...settings.category_folder_map }
+    delete updatedFolderMap[name]
+    const updatedConfig = { ...settings.categories_config }
+    delete updatedConfig[name]
+
+    setSettings({
+      ...settings,
+      categories: updatedCategories,
+      category_folder_map: updatedFolderMap,
+      categories_config: updatedConfig
+    })
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -569,6 +634,147 @@ export default function Settings() {
                   </div>
                 </div>
               )}
+            </div>
+
+          </div>
+        </section>
+      )}
+
+      {/* SECTION 1.5: Categories and Document Types Config */}
+      {settings && (
+        <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 space-y-6">
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+            <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100 font-medium">
+              <HardDrive size={16} className="text-blue-500" />
+              Kategorien & Dokumenttypen konfigurieren
+            </div>
+            <button
+              onClick={handleSaveSettings}
+              disabled={savingSettings}
+              className="px-4 py-1.5 text-xs font-medium rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white transition-colors"
+            >
+              {savingSettings ? <Loader size={12} className="animate-spin" /> : 'Änderungen speichern'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* Document Types Management */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Erlaubte Dokumenttypen</h3>
+              <p className="text-xs text-gray-400">Erlaubte Dokumententypen, nach denen die KI eingehende Belege klassifiziert.</p>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="z.B. Gehaltsabrechnung"
+                  value={newDocType}
+                  onChange={(e) => setNewDocType(e.target.value)}
+                  className="flex-1 min-w-0 text-sm p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800"
+                />
+                <button
+                  type="button"
+                  onClick={addDocType}
+                  className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 hover:bg-blue-100 transition-colors"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 pt-1 max-h-48 overflow-y-auto">
+                {settings.document_types.map((type, idx) => (
+                  <span key={type} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                    {type}
+                    <button type="button" onClick={() => removeDocType(idx)} className="text-gray-400 hover:text-red-500">
+                      <Trash size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Categories Management */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 font-medium">Kategorien & Ordner-Struktur</h3>
+              <p className="text-xs text-gray-400">Eigene Dokumentenkategorien und deren physische Ablage-Ordner im Archiv.</p>
+
+              <div className="space-y-2 p-3 bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800 rounded-xl space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Kategoriename (z.B. Arbeit)"
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    className="text-xs p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Ordnername (z.B. 01_Arbeit)"
+                    value={newCatFolder}
+                    onChange={(e) => setNewCatFolder(e.target.value)}
+                    className="text-xs p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <select
+                    value={newCatRoot}
+                    onChange={(e) => setNewCatRoot(e.target.value)}
+                    className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800"
+                  >
+                    <option value="1_Privat_und_Alltag">Privat & Alltag</option>
+                    <option value="2_Mehrfamilienhaus_Verwaltung">Haus-Verwaltung</option>
+                  </select>
+                  <select
+                    value={newCatUnit}
+                    onChange={(e) => setNewCatUnit(e.target.value)}
+                    className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800"
+                  >
+                    <option value="">Keine Wohneinheit</option>
+                    <option value="EG">Wohnung EG</option>
+                    <option value="OG">Wohnung OG</option>
+                    <option value="DG">Wohnung DG</option>
+                    <option value="UG">Wohnung UG</option>
+                    <option value="Gesamthaus">Gesamthaus</option>
+                  </select>
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
+                  <label className="flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      checked={newCatUseYear}
+                      onChange={(e) => setNewCatUseYear(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    Jahres-Unterordner nutzen?
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addCategory}
+                    className="flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                  >
+                    <Plus size={12} /> Hinzufügen
+                  </button>
+                </div>
+              </div>
+
+              {/* Scrollable Categories List */}
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pt-1 scrollbar-thin">
+                {settings.categories.map((cat) => {
+                  const fName = settings.category_folder_map[cat] || "–"
+                  const config = settings.categories_config[cat] || {}
+                  return (
+                    <div key={cat} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{cat}</p>
+                        <p className="text-[10px] text-gray-400 truncate">Ordner: {fName} | Root: {config.root || '–'} | Einheit: {config.property_unit || 'Nein'}</p>
+                      </div>
+                      <button type="button" onClick={() => removeCategory(cat)} className="text-gray-400 hover:text-red-500 ml-3">
+                        <Trash size={12} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
           </div>
