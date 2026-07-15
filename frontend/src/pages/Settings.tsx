@@ -216,7 +216,24 @@ export default function Settings() {
             if (!data.running) {
               setRepairing(false)
               sse.close()
-              load()
+
+              // Poll to wait for load_model background thread to complete or fail
+              const poll = async (): Promise<void> => {
+                const r = await axios.get('/config/model')
+                if (r.data.error) {
+                  setError(`Ladefehler: ${r.data.error === 'ILLEGAL_INSTRUCTION_CPU_INCOMPATIBLE' ? 'CPU-Befehlssatz-Inkompatibilität (AVX2-Fehler) erkannt.' : r.data.error}`)
+                  await load()
+                  return
+                }
+                if (r.data.loaded) {
+                  setSuccess(`Modell erfolgreich repariert und geladen: ${r.data.model_name}`)
+                  await load()
+                  return
+                }
+                await new Promise(resolve => setTimeout(resolve, 1500))
+                return poll()
+              }
+              poll()
             }
           } catch {}
         }
