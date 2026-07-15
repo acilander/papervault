@@ -29,9 +29,9 @@ def main():
 
     # 1. Fetch eligible documents
     with db.get_conn() as conn:
-        status_filter = "('ok', 'review')" if args.force else "('ok')"
+        status_filter = "('ok', 'review', 'no_text', 'classification_failed')" if args.force else "('ok', 'no_text', 'classification_failed')"
         query = f"""
-            SELECT id, file_path, filename, sender, category, document_type, date, summary 
+            SELECT id, file_path, filename, sender, category, document_type, date, summary, status 
             FROM documents 
             WHERE status IN {status_filter}
         """
