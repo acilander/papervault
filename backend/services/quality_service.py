@@ -31,6 +31,9 @@ class QualityService:
         NUM_BANDS, BITS_PER_BAND = 8, 8
         lsh_buckets: dict = {}
         for doc in sim_docs:
+            # Fix: Ignore periodic documents (Payslips, Bank Statements) for text-similarity matching!
+            if doc.get("document_type") in ("Abrechnung", "Kontoauszug"):
+                continue
             h = doc["sim_hash"]
             for band in range(NUM_BANDS):
                 band_val = (h >> (band * BITS_PER_BAND)) & ((1 << BITS_PER_BAND) - 1)
