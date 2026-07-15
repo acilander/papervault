@@ -5,9 +5,11 @@ from fastapi import HTTPException
 
 from utils import log
 
-# Using constant path strings as imported by config
-ARCHIVER_STDOUT = "archiver_stdout.log"
-_ARCHIVER_PID_FILE = "archiver.pid"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_BACKEND_DIR = os.path.normpath(os.path.join(_HERE, ".."))
+
+ARCHIVER_STDOUT = os.path.normpath(os.path.join(_BACKEND_DIR, "archiver_stdout.log"))
+_ARCHIVER_PID_FILE = os.path.normpath(os.path.join(_BACKEND_DIR, "archiver.pid"))
 _archiver_proc = None
 
 def _pid_is_alive(pid: int) -> bool:
@@ -66,7 +68,7 @@ def archiver_start():
     if _proc_running():
         raise HTTPException(status_code=409, detail="Archiver läuft bereits")
     python = sys.executable
-    project_root = os.path.join(os.path.dirname(__file__), "..", "..")
+    project_root = os.path.join(os.path.dirname(__file__), "..")
     log_out = open(ARCHIVER_STDOUT, "a", encoding="utf-8")
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
