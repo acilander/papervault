@@ -26,7 +26,13 @@ def get_document_types():
 @router.get("/config")
 def get_config():
     from config_manager import get_settings
-    return get_settings()
+    import config
+    settings = get_settings()
+    settings["paths"] = {
+        "source_dir": config.SOURCE_DIR,
+        "target_base": config.TARGET_BASE
+    }
+    return settings
 
 
 @router.get("/quality")
