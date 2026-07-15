@@ -60,7 +60,7 @@ def compute_content_hash(file_path: str, text: str) -> tuple[str, str]:
     text_lower = cleaned_text.lower()
     
     is_periodic = any(w in fname or w in text_lower for w in (
-        "lohn", "entgelt", "gehalt", "abrechnung", "kontoauszug", "kreditkarte", "gehaltsnachweis"
+        "lohn", "entgelt", "gehalt", "abrechnung", "kontoauszug", "kreditkarte", "gehaltsnachweis", "nachweis", "steuernachweis"
     ))
 
     if len(cleaned_text) >= 100 and not is_periodic:
