@@ -58,7 +58,7 @@ def _persist_model_path(model_path: str) -> None:
 def get_active_model():
     """Return the currently loaded model path and name."""
     import config
-    import llm as _llm_mod
+    import llm.driver as _llm_mod
     return {
         "model_path": config.MODEL_PATH,
         "model_name": os.path.basename(config.MODEL_PATH) if config.MODEL_PATH else "Keines",
