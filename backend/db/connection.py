@@ -21,6 +21,7 @@ def _connect():
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
+        conn.create_function("hamming_distance", 2, lambda h1, h2: bin((h1 or 0) ^ (h2 or 0)).count('1'))
         _local.conn = conn
         _local.db_path = db.DB_PATH
     return _local.conn

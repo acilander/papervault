@@ -278,10 +278,13 @@ def process_pdf(file_path, doc_id=None):
                 rollback_dest = unique_path(os.path.join(FAILED_DIR, os.path.basename(dest_pdf)))
                 shutil.move(dest_pdf, rollback_dest)
                 log(f"Rollback: Datei in failed/ verschoben: {rollback_dest}")
-                db.update_document(doc_id, file_path=rollback_dest,
-                                   filename=os.path.basename(rollback_dest),
-                                   status="failed",
-                                   summary=f"FEHLER: DB-Transaktionsfehler beim Archivieren ({db_err})")
+                try:
+                    db.update_document(doc_id, file_path=rollback_dest,
+                                       filename=os.path.basename(rollback_dest),
+                                       status="failed",
+                                       summary=f"FEHLER: DB-Transaktionsfehler beim Archivieren ({db_err})")
+                except Exception as db_write_err:
+                    log(f"WARNUNG: Rollback-Datei in failed/ verschoben, aber DB-Status-Update fehlgeschlagen (DB gesperrt/offline): {db_write_err}")
             except Exception as rollback_err:
                 log(f"FATAL: Rollback fehlgeschlagen, Datei festgefahren unter {dest_pdf}! (Fehler: {rollback_err})")
         return

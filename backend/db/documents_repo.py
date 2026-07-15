@@ -282,21 +282,14 @@ def get_similar_by_simhash(sim_hash: int, doc_id: int, max_distance: int = 8, li
         return []
     with get_conn() as conn:
         rows = conn.execute(
-            """SELECT id, file_path, filename, sender, date, document_type, sim_hash
+            """SELECT id, file_path, filename, sender, date, document_type, sim_hash, hamming_distance(?, sim_hash) as dist
                FROM documents
-               WHERE sim_hash IS NOT NULL AND id != ? AND status IN ('ok', 'review')""",
-            (doc_id,)
+               WHERE sim_hash IS NOT NULL AND id != ? AND status IN ('ok', 'review')
+                 AND hamming_distance(?, sim_hash) <= ?
+               ORDER BY dist ASC LIMIT ?""",
+            (sim_hash, doc_id, sim_hash, max_distance, limit)
         ).fetchall()
-    results = []
-    for row in rows:
-        h = row["sim_hash"]
-        if h is None:
-            continue
-        dist = bin(sim_hash ^ h).count('1')
-        if dist <= max_distance:
-            results.append({**dict(row), "simhash_distance": dist})
-    results.sort(key=lambda r: r["simhash_distance"])
-    return results[:limit]
+    return [{**dict(row), "simhash_distance": row["dist"]} for row in rows]
 
 
 def find_similar_by_features(category_candidates, type_candidate, limit=3):

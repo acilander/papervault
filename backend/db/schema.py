@@ -151,6 +151,7 @@ MIGRATIONS = [
 
 def init_db():
     import db
+    import sqlite3
     from db.sender_repo import init_sender_table
     from db.feedback_repo import init_feedback_table
     os.makedirs(os.path.dirname(db.DB_PATH) if os.path.dirname(db.DB_PATH) else ".", exist_ok=True)
@@ -160,8 +161,17 @@ def init_db():
         for migration in MIGRATIONS:
             try:
                 conn.execute(migration)
-            except Exception:
-                pass
+            except sqlite3.OperationalError as e:
+                err_msg = str(e).lower()
+                if "duplicate column name" in err_msg or "already exists" in err_msg:
+                    continue
+                from utils import log as _log_err
+                _log_err(f"SCHWERER FEHLER: Migration fehlgeschlagen: '{migration}' | Fehler: {e}")
+                raise
+            except Exception as e:
+                from utils import log as _log_err
+                _log_err(f"SCHWERER FEHLER: Unerwarteter Migrationsfehler: '{migration}' | Fehler: {e}")
+                raise
     init_sender_table()
     init_feedback_table()
     from db.embeddings_repo import init_embeddings_table
