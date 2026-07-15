@@ -48,6 +48,11 @@ class ChatResponse(BaseModel):
 
 
 def _extract_filters(question: str) -> dict:
+    # ── CPU-Schutz & Begrüßungs-Bypass ──────────────────────────────────────────
+    q_clean = question.strip().lower()
+    if q_clean in ("hallo", "hi", "hey", "moin", "guten tag", "guten morgen", "servus", "hallo!", "hi!"):
+        return {}
+
     llm = get_llm()
     prompt = FILTER_PROMPT.format(question=question)
     try:
@@ -56,7 +61,11 @@ def _extract_filters(question: str) -> dict:
         # Try to find the first syntactically valid JSON object in the output.
         for match in re.finditer(r'\{.*?\}', raw, re.DOTALL):
             try:
-                return json.loads(match.group())
+                filters = json.loads(match.group())
+                # Safeguard: Discard few-shot example copying hallucination
+                if "hohlweck" in str(filters).lower() and "hohlweck" not in question.lower():
+                    return {}
+                return filters
             except json.JSONDecodeError:
                 continue
     except Exception as e:
