@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import axios from 'axios'
 import { HardDrive, CheckCircle, AlertCircle, Loader, RefreshCw, FolderX, User, Download, Trash, Plus } from 'lucide-react'
-import { cleanupEmptyFolders, getConfig, saveUserSettings, startModelDownload, type AppConfig } from '../api'
+import { cleanupEmptyFolders, getConfig, saveUserSettings, startModelDownload, startModelRepair, type AppConfig } from '../api'
 
 interface ModelInfo {
   name: string
@@ -13,6 +13,7 @@ interface ActiveModel {
   model_path: string
   model_name: string
   loaded: boolean
+  error?: string | null
 }
 
 const RECOMMENDED_MODELS = [
@@ -63,6 +64,12 @@ export default function Settings() {
   const [dlProgressText, setDlProgressText] = useState('')
   const [triggeringDownload, setTriggeringDownload] = useState(false)
 
+  // Auto-Repair State
+  const [repairing, setRepairing] = useState(false)
+  const [triggeringRepair, setTriggeringRepair] = useState(false)
+  const [repairLog, setRepairLog] = useState<string[]>([])
+  const terminalEndRef = useRef<HTMLDivElement>(null)
+
   const load = async () => {
     setLoading(true)
     setError(null)
@@ -99,7 +106,6 @@ export default function Settings() {
           setDownloading(false)
           if (data.percent === 100.0) {
             setSuccess(`Modell '${data.filename}' erfolgreich heruntergeladen und aktiviert!`)
-            // Trigger instant badge reload in Sidebar
             window.dispatchEvent(new CustomEvent('documents-changed'))
             load()
           } else if (data.error) {
@@ -117,6 +123,12 @@ export default function Settings() {
     }
   }, [])
 
+  useEffect(() => {
+    if (terminalEndRef.current) {
+      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [repairLog])
+
   const switchModel = async (path: string) => {
     setSwitching(path)
     setError(null)
@@ -126,7 +138,7 @@ export default function Settings() {
       const poll = async (): Promise<void> => {
         const res = await axios.get('/config/model')
         if (res.data.error) {
-          setError(`Ladefehler: ${res.data.error}`)
+          setError(`Ladefehler: ${res.data.error === 'ILLEGAL_INSTRUCTION_CPU_INCOMPATIBLE' ? 'CPU-Befehlssatz-Inkompatibilität (AVX2-Fehler) erkannt.' : res.data.error}`)
           setSwitching(null)
           await load()
           return
@@ -156,7 +168,6 @@ export default function Settings() {
       const res = await saveUserSettings(settings)
       if (res.ok) {
         setSuccess('Einstellungen erfolgreich auf Datenträger gespeichert!')
-        // Force refresh UI state config context
         window.dispatchEvent(new CustomEvent('documents-changed'))
         await load()
       }
@@ -181,6 +192,43 @@ export default function Settings() {
       setError(e?.response?.data?.detail ?? 'Konnte Download nicht starten.')
     } finally {
       setTriggeringDownload(false)
+    }
+  }
+
+  const runRepair = async () => {
+    setTriggeringRepair(true)
+    setError(null)
+    setSuccess(null)
+    setRepairLog([])
+    try {
+      const res = await startModelRepair()
+      if (res.ok) {
+        setSuccess('Reparatur im Hintergrund gestartet! Verfolge den Fortschritt im Terminal unten.')
+        setRepairing(true)
+
+        const sse = new EventSource('/config/repair-progress')
+        sse.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            if (data.new_lines && data.new_lines.length > 0) {
+              setRepairLog(prev => [...prev, ...data.new_lines])
+            }
+            if (!data.running) {
+              setRepairing(false)
+              sse.close()
+              load()
+            }
+          } catch {}
+        }
+        sse.onerror = () => {
+          setRepairing(false)
+          sse.close()
+        }
+      }
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? 'Reparatur konnte nicht gestartet werden.')
+    } finally {
+      setTriggeringRepair(false)
     }
   }
 
@@ -269,7 +317,7 @@ export default function Settings() {
       {error && (
         <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-400">
           <AlertCircle size={15} />
-          {error}
+          {error === 'ILLEGAL_INSTRUCTION_CPU_INCOMPATIBLE' ? 'Fehler: Dein Prozessor unterstützt die AVX2-Befehle der KI-Bibliothek nicht.' : error}
         </div>
       )}
       {success && (
@@ -482,13 +530,51 @@ export default function Settings() {
         </div>
 
         {active && (
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Aktuell geladen:{' '}
-            <span className="font-semibold text-gray-800 dark:text-gray-200">{active.model_name}</span>
-            {active.loaded
-              ? <span className="ml-2 text-green-600 dark:text-green-400 font-medium">(Aktiviert im VRAM/RAM)</span>
-              : <span className="ml-2 text-yellow-600 dark:text-yellow-400 font-medium">(Noch nicht im Speicher geladen)</span>
-            }
+          <div className="text-sm text-gray-500 dark:text-gray-400 space-y-3">
+            <div>
+              Aktuell geladen:{' '}
+              <span className="font-semibold text-gray-800 dark:text-gray-200">{active.model_name}</span>
+              {active.loaded
+                ? <span className="ml-2 text-green-600 dark:text-green-400 font-medium">(Aktiviert im VRAM/RAM)</span>
+                : active.error
+                ? <span className="ml-2 text-red-600 dark:text-red-400 font-medium">(Inkompatibler Befehlssatz)</span>
+                : <span className="ml-2 text-yellow-600 dark:text-yellow-400 font-medium">(Noch nicht im Speicher geladen)</span>
+              }
+            </div>
+
+            {active.error === 'ILLEGAL_INSTRUCTION_CPU_INCOMPATIBLE' && (
+              <div className="p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/40 rounded-xl space-y-3">
+                <div className="flex gap-2.5 text-sm text-orange-800 dark:text-orange-300">
+                  <AlertCircle className="shrink-0 mt-0.5" size={16} />
+                  <div>
+                    <p className="font-semibold">Inkompatible CPU-Befehle erkannt (AVX2-Fehler)</p>
+                    <p className="text-xs text-orange-700 dark:text-orange-400 mt-1 leading-relaxed">
+                      Dein Prozessor unterstützt die erweiterten Beschleunigungs-Befehle (AVX2) der standardmäßig installierten KI-Bibliothek nicht.
+                      Das führt zu einem illegalen Befehlsabsturz bei der Ausführung des GGUF-Modells.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={runRepair}
+                    disabled={repairing || triggeringRepair}
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white transition-colors"
+                  >
+                    {repairing ? <Loader size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                    {repairing ? 'Repariere im Hintergrund…' : 'Automatisch Reparieren'}
+                  </button>
+                  {repairing && <span className="text-xs text-orange-500 animate-pulse">Installiere universalkompatibles Paket...</span>}
+                </div>
+                {repairLog.length > 0 && (
+                  <div className="p-3 bg-gray-950 text-gray-300 rounded-lg text-xs font-mono max-h-40 overflow-y-auto space-y-1 scrollbar-thin">
+                    {repairLog.map((line, i) => (
+                      <div key={i} className="truncate">{line}</div>
+                    ))}
+                    <div ref={terminalEndRef}></div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -503,7 +589,8 @@ export default function Settings() {
           <div className="space-y-2">
             {models.map((m) => {
               const isSelected = active?.model_path === m.path || active?.model_name === m.name
-              const isLoading = isSelected && active?.loaded === false
+              const isError = isSelected && !!active?.error
+              const isLoading = isSelected && active?.loaded === false && !isError
               const isActive = isSelected && active?.loaded === true
               const isSwitching = switching === m.path
               return (
@@ -511,19 +598,23 @@ export default function Settings() {
                   key={m.path}
                   className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
                     isSelected
-                      ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20'
+                      ? isError
+                        ? 'border-red-300 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/10'
+                        : 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20'
                       : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {isActive
                       ? <CheckCircle size={15} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                      : isError
+                      ? <AlertCircle size={15} className="text-red-600 dark:text-red-400 shrink-0" />
                       : isLoading
                       ? <Loader size={15} className="text-blue-400 shrink-0 animate-spin" />
                       : <HardDrive size={15} className="text-gray-400 shrink-0" />
                     }
                     <div className="min-w-0">
-                      <p className={`text-sm font-medium truncate ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-200'}`}>
+                      <p className={`text-sm font-medium truncate ${isSelected ? isError ? 'text-red-700 dark:text-red-400' : 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-200'}`}>
                         {m.name}
                       </p>
                       <p className="text-xs text-gray-400">{m.size_gb} GB</p>
@@ -541,6 +632,9 @@ export default function Settings() {
                   )}
                   {isActive && (
                     <span className="ml-3 shrink-0 text-xs font-medium text-blue-600 dark:text-blue-400">Aktiv</span>
+                  )}
+                  {isError && (
+                    <span className="ml-3 shrink-0 text-xs font-medium text-red-600 dark:text-red-400">Fehlerhaft</span>
                   )}
                   {isLoading && !isSwitching && (
                     <span className="ml-3 shrink-0 text-xs font-medium text-blue-400 flex items-center gap-1">

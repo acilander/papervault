@@ -243,3 +243,86 @@ async def download_progress():
                 break
             await asyncio.sleep(1.0)
     return StreamingResponse(_stream(), media_type="text/event-stream")
+
+
+# ── Background LLM Engine Repair Service ─────────────────────────────────────
+
+_repair_status = {
+    "repairing": False,
+    "log": []
+}
+_repair_lock = threading.Lock()
+
+
+def _repair_worker():
+    global _repair_status
+    import subprocess
+    import sys
+
+    with _repair_lock:
+        _repair_status["log"] = ["Starte CPU-Auto-Reparatur...", "Installiere Universalkompatibles llama-cpp-python Paket..."]
+
+    try:
+        # Standard generic CPU wheel with basic compatibility
+        cmd = [sys.executable, "-m", "pip", "install", "llama-cpp-python==0.3.32", "--force-reinstall", "--no-cache-dir", "--only-binary", ":all:"]
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+        for line in process.stdout:
+            with _repair_lock:
+                _repair_status["log"].append(line.strip())
+        process.wait()
+
+        with _repair_lock:
+            if process.returncode == 0:
+                _repair_status["log"].append("✓ REPARATUR ERFOLGREICH! Starte KI-Engine neu...")
+            else:
+                _repair_status["log"].append(f"❌ FEHLER: Reparatur fehlgeschlagen mit Exit Code {process.returncode}.")
+    except Exception as e:
+        with _repair_lock:
+            _repair_status["log"].append(f"❌ KRITISCHER FEHLER: {e}")
+    finally:
+        with _repair_lock:
+            _repair_status["repairing"] = False
+
+        # Trigger reload of the model
+        import config as _config_mod
+        import llm as _llm_mod
+        with _llm_mod._llm_lock:
+            _llm_mod._llm = None
+        global _load_error
+        _load_error = None
+        threading.Thread(target=_llm_mod.load_model, daemon=True, name="llm-reload").start()
+
+
+@router.post("/repair-llm")
+def repair_llm_endpoint():
+    global _repair_status
+    with _repair_lock:
+        if _repair_status["repairing"]:
+            raise HTTPException(status_code=409, detail="Reparatur läuft bereits.")
+        _repair_status["repairing"] = True
+        _repair_status["log"] = ["Warte auf Start..."]
+
+    threading.Thread(target=_repair_worker, daemon=True, name="llm-repair").start()
+    return {"ok": True, "message": "Auto-Reparatur im Hintergrund gestartet."}
+
+
+@router.get("/repair-progress")
+async def repair_progress_endpoint():
+    """SSE endpoint streaming pip install repair stdout."""
+    import asyncio
+    import json
+    async def _stream():
+        last_idx = 0
+        while True:
+            with _repair_lock:
+                is_running = _repair_status["repairing"]
+                current_log = list(_repair_status["log"])
+
+            new_lines = current_log[last_idx:]
+            last_idx = len(current_log)
+
+            yield f"data: {json.dumps({'running': is_running, 'new_lines': new_lines})}\n\n"
+            if not is_running:
+                break
+            await asyncio.sleep(0.5)
+    return StreamingResponse(_stream(), media_type="text/event-stream")
