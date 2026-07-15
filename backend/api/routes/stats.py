@@ -23,6 +23,12 @@ def get_document_types():
     return DOCUMENT_TYPES
 
 
+@router.get("/config")
+def get_config():
+    from config_manager import get_settings
+    return get_settings()
+
+
 @router.get("/quality")
 def get_quality():
     """Archive quality / completeness report for the dashboard."""

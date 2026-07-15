@@ -1,28 +1,32 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { getCategories, getDocumentTypes } from './api'
+import { getCategories, getDocumentTypes, getConfig, AppConfig } from './api'
 
 interface ConfigContextType {
   categories: string[]
   documentTypes: string[]
+  config: AppConfig | null
   loading: boolean
 }
 
 const ConfigContext = createContext<ConfigContextType>({
   categories: [],
   documentTypes: [],
+  config: null,
   loading: true
 })
 
 export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<string[]>([])
   const [documentTypes, setDocumentTypes] = useState<string[]>([])
+  const [config, setConfig] = useState<AppConfig | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([getCategories(), getDocumentTypes()])
-      .then(([cats, types]) => {
+    Promise.all([getCategories(), getDocumentTypes(), getConfig()])
+      .then(([cats, types, cfg]) => {
         setCategories(cats)
         setDocumentTypes(types)
+        setConfig(cfg)
         setLoading(false)
       })
       .catch((err) => {
@@ -32,7 +36,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <ConfigContext.Provider value={{ categories, documentTypes, loading }}>
+    <ConfigContext.Provider value={{ categories, documentTypes, config, loading }}>
       {children}
     </ConfigContext.Provider>
   )

@@ -27,18 +27,11 @@ def get_llm():
 
 
 def assert_gpu_support():
-    if N_GPU_LAYERS == 0:
-        raise RuntimeError(
-            f"GPU-Betrieb erzwungen, aber N_GPU_LAYERS=0 (CPU-only). "
-            "Setze N_GPU_LAYERS=-1 in der .env-Datei."
-        )
+    """Soft assertion of GPU support. Logs status instead of raising RuntimeError."""
     if not llama_cpp.llama_supports_gpu_offload():
-        raise RuntimeError(
-            "GPU-Unterstuetzung fehlt: llama-cpp-python wurde ohne GPU-Backend kompiliert. "
-            "Bitte mit CUDA-Index reinstallieren: "
-            "pip install llama-cpp-python==0.3.32 --force-reinstall --no-cache-dir "
-            "--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu132"
-        )
+        log("HINWEIS: llama-cpp-python wurde ohne GPU-Backend kompiliert. CPU-Inferenz wird verwendet.")
+    else:
+        log("GPU-Unterstuetzung (CUDA) ist verfügbar.")
 
 
 def load_model():
@@ -50,14 +43,19 @@ def load_model():
         with _llm_lock:
             if _llm is None:
                 assert_gpu_support()
+                gpu_layers = N_GPU_LAYERS
+                if gpu_layers != 0 and not llama_cpp.llama_supports_gpu_offload():
+                    log("Schalte automatisch auf CPU-Modus (gpu_layers=0) um.")
+                    gpu_layers = 0
+                
                 model_path = _config.MODEL_PATH
                 model_name = os.path.basename(model_path)
                 model_size = os.path.getsize(model_path) / (1024 ** 3) if os.path.exists(model_path) else 0
                 log(f"Lade LLM-Modell: {model_name} ({model_size:.1f} GB)...")
                 t0 = time.time()
-                _llm = Llama(model_path=model_path, n_ctx=4096, n_threads=6, n_gpu_layers=N_GPU_LAYERS, verbose=False, chat_format="chatml", embedding=True)
+                _llm = Llama(model_path=model_path, n_ctx=4096, n_threads=6, n_gpu_layers=gpu_layers, verbose=False, chat_format="chatml", embedding=True)
                 elapsed = time.time() - t0
-                log(f"Modell geladen: {model_name} in {elapsed:.1f}s [GPU-Layer: {N_GPU_LAYERS}]")
+                log(f"Modell geladen: {model_name} in {elapsed:.1f}s [GPU-Layer: {gpu_layers}]")
 
 
 def llm_json_completion(system: str, user: str, max_tokens: int = 512, temperature: float = 0.0) -> dict | list | None:

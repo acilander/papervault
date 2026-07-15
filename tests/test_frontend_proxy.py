@@ -49,7 +49,7 @@ def test_all_api_routes_are_proxied(vite_proxies, backend_routes):
     This would have caught the missing /chat proxy that caused the
     'Fehler bei der Anfrage. Ist der Server erreichbar?' error.
     """
-    skip = {"/", "/favicon.ico", "/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"}
+    skip = {"/", "/favicon.ico", "/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json", "/{path:path}"}
     missing = set()
     for route in backend_routes:
         if route in skip:

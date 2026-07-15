@@ -23,7 +23,7 @@ import TaxYearComparison from './pages/tax/TaxYearComparison'
 import TaxDevelopment from './pages/tax/TaxDevelopment'
 import TaxChat from './pages/tax/TaxChat'
 import axios from 'axios'
-import { ConfigProvider } from './ConfigContext'
+import { ConfigProvider, useConfig } from './ConfigContext'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -88,7 +88,17 @@ function SidebarQuickLinks({ badges }: { badges: SidebarBadges }) {
   )
 }
 
-export default function App() {
+function AppContent() {
+  const { config } = useConfig()
+  const landlordEnabled = config?.landlord?.enabled ?? true
+
+  const activeNav = nav.filter(({ to }) => {
+    if (!landlordEnabled && ['/inventory', '/contracts', '/services', '/tax/years'].includes(to)) {
+      return false
+    }
+    return true
+  })
+
   const [dark, setDark] = useState(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches
   )
@@ -144,13 +154,12 @@ export default function App() {
   }, [])
 
   return (
-    <ConfigProvider>
-      <BrowserRouter>
-        <div className="flex h-screen bg-gray-50 dark:bg-gray-950 text-gray-800 dark:text-gray-100">
+    <BrowserRouter>
+      <div className="flex h-screen bg-gray-50 dark:bg-gray-950 text-gray-800 dark:text-gray-100">
         <aside className="w-56 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col shrink-0">
           <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
             <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight">
-              �️ PaperVault
+              📄 PaperVault
             </h1>
             <button
               onClick={() => setDark(d => !d)}
@@ -161,7 +170,7 @@ export default function App() {
             </button>
           </div>
           <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
-            {nav.map(({ to, label, icon: Icon }) => (
+            {activeNav.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -209,21 +218,28 @@ export default function App() {
             <Route path="/validation" element={<Validation />} />
             <Route path="/collections" element={<Collections />} />
             <Route path="/collections/:id" element={<Collections />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/contracts" element={<Contracts />} />
-            <Route path="/services" element={<Services />} />
+            {landlordEnabled && <Route path="/inventory" element={<Inventory />} />}
+            {landlordEnabled && <Route path="/contracts" element={<Contracts />} />}
+            {landlordEnabled && <Route path="/services" element={<Services />} />}
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/low-value-rules" element={<LowValueRules />} />
-            <Route path="/tax/years" element={<TaxYears />} />
-            <Route path="/tax/years/:id" element={<TaxYearDetail />} />
-            <Route path="/tax/years/:id/comparison" element={<TaxYearComparison />} />
-            <Route path="/tax/development" element={<TaxDevelopment />} />
-            <Route path="/tax/chat" element={<TaxChat />} />
+            {landlordEnabled && <Route path="/tax/years" element={<TaxYears />} />}
+            {landlordEnabled && <Route path="/tax/years/:id" element={<TaxYearDetail />} />}
+            {landlordEnabled && <Route path="/tax/years/:id/comparison" element={<TaxYearComparison />} />}
+            {landlordEnabled && <Route path="/tax/development" element={<TaxDevelopment />} />}
+            {landlordEnabled && <Route path="/tax/chat" element={<TaxChat />} />}
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
       </div>
     </BrowserRouter>
-  </ConfigProvider>
+  )
+}
+
+export default function App() {
+  return (
+    <ConfigProvider>
+      <AppContent />
+    </ConfigProvider>
   )
 }

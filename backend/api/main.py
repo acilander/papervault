@@ -79,3 +79,17 @@ def health():
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
     return Response(status_code=204)
+
+
+# Serve static files of frontend if built
+from fastapi.responses import FileResponse
+FRONTEND_DIST = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "frontend", "dist")
+
+if os.path.isdir(FRONTEND_DIST):
+    @app.get("/{path:path}")
+    async def serve_frontend(path: str):
+        file_path = os.path.join(FRONTEND_DIST, path)
+        if path and os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+

@@ -63,6 +63,27 @@ export const getCategories = () => api.get<string[]>('/stats/categories').then(r
 
 export const getDocumentTypes = () => api.get<string[]>('/stats/document-types').then(r => r.data)
 
+export interface AppConfig {
+  personal: {
+    children: string[]
+    vehicles: Record<string, string[]>
+    owners: string[]
+  }
+  landlord: {
+    enabled: boolean
+    property_units: string[]
+    sqm_total: number
+    sqm_og: number
+    sqm_dg: number
+  }
+  categories: string[]
+  category_folder_map: Record<string, string>
+  categories_config: Record<string, any>
+  document_types: string[]
+}
+
+export const getConfig = () => api.get<AppConfig>('/stats/config').then(r => r.data)
+
 export const getDocuments = (params: {
   q?: string
   category?: string

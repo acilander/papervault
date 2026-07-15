@@ -140,6 +140,7 @@ def _stage_or_archive(file_path: str, new_name: str, confidence: str, data: dict
 
 
 def process_pdf(file_path, doc_id=None):
+    from llm import classify_document, filter_keywords_against_text
     log(f"--- Neue Datei: {os.path.basename(file_path)} ---")
 
     # Phase 1: DB identity

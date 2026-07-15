@@ -36,7 +36,27 @@ LOG_FILE       = os.path.join(TARGET_BASE, "processing_log.jsonl")
 DB_PATH        = os.getenv("DB_PATH", os.path.join(TARGET_BASE, "archive.db"))
 CORS_ORIGINS   = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",") if o.strip()]
 
-from categories import (
-    CATEGORIES, CATEGORY_FOLDER_MAP, DOCUMENT_TYPES, OWNER_NAMES, TYPE_CATEGORY_MAP,
-)
-from prompts import SYSTEM_PROMPT
+from config_manager import get_settings
+
+_settings = get_settings()
+_landlord_enabled = _settings["landlord"]["enabled"]
+
+CATEGORIES = []
+for cat in _settings["categories"]:
+    if not _landlord_enabled and cat in ("Haus_Gemeinkosten", "OG_Miete", "DG_Miete"):
+        continue
+    CATEGORIES.append(cat)
+
+CATEGORY_FOLDER_MAP = {k: v for k, v in _settings["category_folder_map"].items() if _landlord_enabled or k not in ("Haus_Gemeinkosten", "OG_Miete", "DG_Miete")}
+CATEGORIES_CONFIG = {k: v for k, v in _settings["categories_config"].items() if _landlord_enabled or k not in ("Haus_Gemeinkosten", "OG_Miete", "DG_Miete")}
+DOCUMENT_TYPES = _settings["document_types"]
+OWNER_NAMES = _settings["personal"]["owners"]
+
+TYPE_CATEGORY_MAP = {
+    "Kontoauszug":         "Bank & Finanzen",
+    "Versicherungsschein": "Privatversicherungen",
+}
+
+from prompts import build_system_prompt
+SYSTEM_PROMPT = build_system_prompt(_settings)
+
