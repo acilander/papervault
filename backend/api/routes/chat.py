@@ -53,11 +53,25 @@ def _extract_filters(question: str) -> dict:
     if q_clean in ("hallo", "hi", "hey", "moin", "guten tag", "guten morgen", "servus", "hallo!", "hi!"):
         return {}
 
-    llm = get_llm()
-    prompt = FILTER_PROMPT.format(question=question)
+    from llm import llm_completion
+    system_prompt = (
+        "Du bist ein Assistent der Dokumentenverwaltung PaperVault.\n"
+        "Der Nutzer stellt eine Frage über seine archivierten Dokumente.\n\n"
+        "Extrahiere aus der Frage strukturierte Suchfilter als JSON.\n"
+        "Verfügbare Felder:\n"
+        "- sender: Absendername (Firma, Person)\n"
+        "- category: Kategorie (z.B. \"Bank & Finanzen\", \"Fahrzeug & Werkstatt\", \"Wohnen & Eigentum\")\n"
+        "- document_type: Dokumenttyp (z.B. \"Rechnung\", \"Kontoauszug\", \"Vertrag\")\n"
+        "- year: Jahr als String (z.B. \"2024\")\n"
+        "- keywords: Stichwort das im Dokument vorkommen soll\n\n"
+        "Gib NUR ein JSON-Objekt zurück, nur mit den Feldern die in der Frage erkennbar sind.\n"
+        "Beispiel: {\"sender\": \"Autohaus Hohlweck\", \"year\": \"2025\", \"document_type\": \"Rechnung\"}\n"
+        "Wenn keine Filter erkennbar sind: {}"
+    )
     try:
-        output = llm(prompt, max_tokens=200, temperature=0.1, stop=["\n\n"])
-        raw = output["choices"][0]["text"].strip()
+        raw = llm_completion(system_prompt, question, max_tokens=200, temperature=0.1)
+        if not raw:
+            return {}
         # Try to find the first syntactically valid JSON object in the output.
         for match in re.finditer(r'\{.*?\}', raw, re.DOTALL):
             try:
@@ -86,26 +100,34 @@ def _build_context(docs: list[dict]) -> str:
 
 
 def _generate_answer(question: str, docs: list[dict]) -> str:
-    llm = get_llm()
+    from llm import llm_completion
     if not docs:
         # ── Allgemeines Konversations-Routing (Allgemeines Wissen Fallback) ──────
-        GENERAL_PROMPT = (
+        system_prompt = (
             "Du bist ein hilfsbereiter KI-Assistent. Beantworte die Frage des Nutzers auf Deutsch, "
-            "präzise, freundlich und in maximal 3-4 Sätzen.\n\n"
-            f"Frage: {question}"
+            "präzise, freundlich und in maximal 3-4 Sätzen."
         )
         try:
-            output = llm(GENERAL_PROMPT, max_tokens=300, temperature=0.5, stop=["\n\n\n"])
-            return output["choices"][0]["text"].strip()
+            raw = llm_completion(system_prompt, question, max_tokens=300, temperature=0.5)
+            if raw:
+                return raw
+            return "Ich habe keine passenden Dokumente in deinem Archiv gefunden."
         except Exception as e:
             log(f"[Chat] Allgemeines Fallback-Loading fehlgeschlagen: {e}")
             return "Ich habe keine passenden Dokumente in deinem Archiv gefunden."
 
-    context = _build_context(docs)
-    prompt = ANSWER_PROMPT.format(question=question, count=len(docs), context=context)
+    system_prompt = (
+        "Du bist ein Assistent der Dokumentenverwaltung PaperVault.\n"
+        "Beantworte die Frage des Nutzers basierend auf den gefundenen Dokumenten.\n"
+        "Antworte auf Deutsch, präzise und hilfreich. Maximal 3 Sätze.\n"
+        "Wenn keine Dokumente gefunden wurden, sage das klar.\n\n"
+        f"Gefundene Dokumente ({len(docs)} Treffer):\n" + _build_context(docs)
+    )
     try:
-        output = llm(prompt, max_tokens=300, temperature=0.3, stop=["\n\n\n"])
-        return output["choices"][0]["text"].strip()
+        raw = llm_completion(system_prompt, question, max_tokens=300, temperature=0.3)
+        if raw:
+            return raw
+        return f"Ich habe {len(docs)} Dokument(e) gefunden, konnte aber keine Antwort generieren."
     except Exception as e:
         log(f"[Chat] Antwort-Generierung fehlgeschlagen: {e}")
         return f"Ich habe {len(docs)} Dokument(e) gefunden, konnte aber keine Antwort generieren."
