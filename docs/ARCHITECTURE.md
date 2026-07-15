@@ -19,14 +19,14 @@ PaperVault ist eine lokale Dokumentenarchivierungslösung mit drei Hauptschichte
 │  http://localhost:8000               │
 │  - API-Routes                       │
 │  - Repository-Schicht               │
-│  - SQLite Datenbank                 │
+│  - SQLite Datenbank (FTS5 + BLOB)   │
 └──────────────┬──────────────────────┘
                │
 ┌──────────────▼──────────────────────┐
 │  Pipeline (llm, archiver, steps)    │
-│  - OCR / Textextraktion             │
-│  - LLM-Klassifikation               │
-│  - Dateiarchivierung                │
+│  - VLM & OCR / Textextraktion       │
+│  - LLM-Klassifikation & RAG         │
+│  - Office & PDF Archivierung        │
 └─────────────────────────────────────┘
 ```
 
@@ -37,9 +37,9 @@ papervault/
 ├── backend/
 │   ├── api/           # FastAPI Routes und Pydantic-Modelle
 │   ├── db/            # SQLite-Schema, Repositories, Verbindung
-│   ├── pipeline/      # Archiver, Verarbeitungsschritte
+│   ├── pipeline/      # Archiver, Verarbeitungsschritte (PDF, Word, Excel)
 │   ├── tax/           # Steuer-Modul Extraktion / Prompts
-│   ├── llm.py         # LLM-Abstraktion
+│   ├── llm.py         # LLM-Abstraktion (GGUF, Moondream2, Embeddings)
 │   ├── storage.py     # Dateisystem-Operationen, Sender-Registry
 │   └── config.py      # Konfiguration und Pfade
 ├── frontend/
@@ -57,20 +57,29 @@ papervault/
 
 | Tabelle | Zweck |
 |---------|-------|
-| `documents` | Alle Dokumente mit Metadaten, Status, Text |
+| `documents` | Alle Dokumente mit Metadaten, Status, Text, `property_unit` |
 | `documents_fts` | FTS5-Volltextindex für schnelle Suche |
+| `embeddings` | Vektoren als binäre BLOBs für Semantic Search (RAG) |
 | `protected_document_hashes` | SHA256-Hashes für Ignore/Lock-Schutz |
 | `low_value_rules` | Regeln für geringe Werte |
 | `collections` / `collection_documents` | Sammlungen |
 | `tax_years`, `tax_documents`, `tax_positions` | Steuer-Modul |
-| `items`, `services`, `contracts` | Extrahierte Entitäten |
+| `items`, `services`, `contracts` | Extrahierte Entitäten (inkl. MFH Zuordnung) |
 
 ## 4. Sicherheit & Datenschutz
 
 - Alle Daten bleiben lokal.
-- Kein Cloud-LLM; optional GPU-beschleunigtes lokales LLM.
+- Kein Cloud-LLM; GPU-beschleunigtes lokales LLM (llama-cpp-python).
+- VLM (Vision-Language Model) läuft lokal auf der GPU für OCR-Fallback.
 
-## 5. Erweiterbarkeit
+## 5. Neue Architektur-Kernkomponenten (RTX 3060 Power-Features & MFH)
+
+- **MFH (Multi-Family House) Architektur**: Kategorien und Dokumente können nativ Wohneinheiten (`property_unit`: EG, OG, DG, UG, Gesamthaus) zugeordnet werden.
+- **Hybrid RAG Chat**: Die Sucharchitektur kombiniert FTS5 (Keywords) mit semantischer Vektorsuche. Embeddings werden via `llama-cpp-python` generiert, als BLOB in SQLite gespeichert und zur Laufzeit via `numpy` (Cosine Similarity) im RAM abgeglichen.
+- **VLM OCR Fallback**: Falls PyTesseract bei Scans/Fotos weniger als 50 Zeichen liefert, übernimmt Moondream2 (via `vision.py`) die Textextraktion direkt über die GPU, um schiefe oder schwer lesbare Dokumente perfekt zu erfassen.
+- **Zero-Dependency Office Support**: Word (`.docx`) und Excel (`.xlsx`) Dateien werden direkt überwacht und verarbeitet. Die Textextraktion erfolgt ressourcenschonend via `zipfile` und `xml.etree.ElementTree` ohne externe Abhängigkeiten. Die Originaldateien werden unberührt archiviert.
+
+## 6. Erweiterbarkeit
 
 Standard-Workflow für neue Features:
 
@@ -94,6 +103,8 @@ Standard-Workflow für neue Features:
 | Duplikate | [`technical/05-duplicates.md`](technical/05-duplicates.md) |
 | Absender | [`technical/06-senders.md`](technical/06-senders.md) |
 | Steuer-Modul | [`technical/07-tax-module.md`](technical/07-tax-module.md) |
+| Chat & LLM (RAG) | [`technical/09-chat-and-llm.md`](technical/09-chat-and-llm.md) |
+| Inventar, Verträge | [`technical/13-inventory-contracts-services.md`](technical/13-inventory-contracts-services.md) |
 
 ## Siehe auch
 
