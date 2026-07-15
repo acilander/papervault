@@ -69,6 +69,7 @@ class TestAnalyzeLogo:
 
     def test_load_skipped_when_already_cached(self):
         """VisionService._load does nothing if _model is already set (caching guard)."""
+        pytest.importorskip("torch")
         import vision
         service = vision.VisionService()
         sentinel = MagicMock()
