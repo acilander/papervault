@@ -33,25 +33,40 @@ def list_models():
 _load_error: str | None = None
 
 
-def _persist_model_path(model_path: str) -> None:
-    """Write MODEL_PATH into .env so it survives backend restarts."""
+def _persist_env_vars(vars_dict: dict) -> None:
+    """Write multiple variables into .env so they survive backend restarts."""
     here = os.path.dirname(os.path.abspath(__file__))
     env_path = os.path.normpath(os.path.join(here, "..", "..", "..", ".env"))
     if not os.path.exists(env_path):
         return
-    with open(env_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    updated, found = [], False
-    for line in lines:
-        if line.strip().startswith("MODEL_PATH="):
-            updated.append(f"MODEL_PATH=\"{model_path.replace('\\', '/')}\"\n")
-            found = True
-        else:
-            updated.append(line)
-    if not found:
-        updated.append(f"MODEL_PATH=\"{model_path.replace('\\', '/')}\"\n")
-    with open(env_path, "w", encoding="utf-8") as f:
-        f.writelines(updated)
+    try:
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    except Exception:
+        return
+
+    for key, value in vars_dict.items():
+        updated, found = [], False
+        for line in lines:
+            if line.strip().startswith(f"{key}="):
+                updated.append(f"{key}=\"{str(value).replace('\\\\', '/')}\"\n")
+                found = True
+            else:
+                updated.append(line)
+        if not found:
+            updated.append(f"{key}=\"{str(value).replace('\\\\', '/')}\"\n")
+        lines = updated
+
+    try:
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except Exception:
+        pass
+
+
+def _persist_model_path(model_path: str) -> None:
+    """Write MODEL_PATH into .env so it survives backend restarts."""
+    _persist_env_vars({"MODEL_PATH": model_path})
 
 
 @router.get("/model")
@@ -113,12 +128,34 @@ def set_model(req: SetModelRequest):
 @router.get("/settings")
 def get_user_settings():
     from config_manager import get_settings
-    return get_settings()
+    import config
+    settings = get_settings()
+    # Expose path configurations dynamically from config/env
+    settings["paths"] = {
+        "source_dir": config.SOURCE_DIR,
+        "target_base": config.TARGET_BASE
+    }
+    return settings
 
 
 @router.put("/settings")
 def update_user_settings(req: dict):
     from config_manager import save_settings
+    import config
+
+    paths = req.pop("paths", {})
+    if paths:
+        source_dir = paths.get("source_dir", config.SOURCE_DIR)
+        target_base = paths.get("target_base", config.TARGET_BASE)
+        # Update run-time config
+        config.SOURCE_DIR = source_dir
+        config.TARGET_BASE = target_base
+        # Persist into .env
+        _persist_env_vars({
+            "SOURCE_DIR": source_dir,
+            "TARGET_BASE": target_base
+        })
+
     if save_settings(req):
         return {"ok": True, "message": "Einstellungen gespeichert."}
     raise HTTPException(status_code=500, detail="Fehler beim Speichern der Einstellungen.")

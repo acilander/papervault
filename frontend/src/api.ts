@@ -80,6 +80,10 @@ export interface AppConfig {
   category_folder_map: Record<string, string>
   categories_config: Record<string, any>
   document_types: string[]
+  paths?: {
+    source_dir: string
+    target_base: string
+  }
 }
 
 export const getConfig = () => api.get<AppConfig>('/stats/config').then(r => r.data)

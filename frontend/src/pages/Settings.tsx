@@ -362,6 +362,44 @@ export default function Settings() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* System Paths (SOURCE_DIR & TARGET_BASE) */}
+            {settings.paths && (
+              <div className="space-y-4 md:col-span-2 border-b border-gray-100 dark:border-gray-800 pb-5">
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">System-Pfade (Ablagestruktur)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-500">Posteingang (SOURCE_DIR)</label>
+                    <input
+                      type="text"
+                      value={settings.paths.source_dir}
+                      onChange={(e) => setSettings({
+                        ...settings,
+                        paths: { ...settings.paths!, source_dir: e.target.value }
+                      })}
+                      className="w-full text-sm p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-mono text-xs"
+                      placeholder="z.B. C:/Archive/Inbox"
+                    />
+                    <p className="text-[10px] text-gray-400">Dieser Ordner wird auf neu eintreffende Dokumente überwacht.</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-500">Archiv-Ablagepfad (TARGET_BASE)</label>
+                    <input
+                      type="text"
+                      value={settings.paths.target_base}
+                      onChange={(e) => setSettings({
+                        ...settings,
+                        paths: { ...settings.paths!, target_base: e.target.value }
+                      })}
+                      className="w-full text-sm p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-mono text-xs"
+                      placeholder="z.B. C:/Archive"
+                    />
+                    <p className="text-[10px] text-gray-400">Hauptverzeichnis, in das fertig verarbeitete Dokumente verschoben werden.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Archive Owners */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Archivinhaber (Empfänger)</label>
@@ -427,7 +465,7 @@ export default function Settings() {
             </div>
 
             {/* Vehicles Config */}
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2 md:col-span-2 border-t border-gray-100 dark:border-gray-800 pt-5">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Fahrzeuge & Suchfilter</label>
               <p className="text-xs text-gray-400">Definiere deine Fahrzeuge und deren Heuristiken (z.B. 'Golf' sucht nach 'vw', 'golf', 'volkswagen').</p>
 
@@ -450,7 +488,7 @@ export default function Settings() {
               <button
                 type="button"
                 onClick={addVehicle}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 hover:bg-blue-100 rounded-lg"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 hover:bg-blue-100 rounded-lg mt-2"
               >
                 <Plus size={12} /> Fahrzeug hinzufügen
               </button>
