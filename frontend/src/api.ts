@@ -75,6 +75,7 @@ export interface AppConfig {
     sqm_total: number
     sqm_og: number
     sqm_dg: number
+    sqm_ug: number
   }
   categories: string[]
   category_folder_map: Record<string, string>

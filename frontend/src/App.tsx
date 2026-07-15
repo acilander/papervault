@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Receipt, Clock, FileX, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package, ScrollText, Wrench, BookOpen, Calculator } from 'lucide-react'
+import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
+import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package, ScrollText, Wrench, BookOpen, Calculator } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import DocumentDetail from './pages/DocumentDetail'
@@ -55,12 +55,12 @@ const navGroups: NavGroup[] = [
       { to: '/services', label: 'Ausgaben', icon: Wrench },
       { to: '/inventory', label: 'Inventar', icon: Package },
       { to: '/collections', label: 'Sammlungen', icon: FolderOpen },
+      { to: '/tax/years', label: 'Steuer', icon: Calculator },
     ]
   },
   {
-    title: 'Steuern & Qualität',
+    title: 'Qualität & Pflege',
     items: [
-      { to: '/tax/years', label: 'Steuer', icon: Calculator, landlordOnly: true },
       { to: '/senders', label: 'Absender', icon: Users },
       { to: '/duplicates', label: 'Duplikate', icon: ScanSearch },
       { to: '/validation', label: 'Validierung', icon: ShieldCheck },
@@ -88,37 +88,6 @@ interface SidebarBadges {
   review: number
   noSender: number
   lowValue: number
-}
-
-function SidebarQuickLinks({ badges }: { badges: SidebarBadges }) {
-  const navigate = useNavigate()
-  const items = [
-    { label: 'Fehlgeschlagen', icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20', count: badges.failed, filter: '?status=classification_failed' },
-    { label: 'Steuerrelevant', icon: Receipt, color: 'text-yellow-600', bg: 'bg-yellow-50 dark:bg-yellow-900/20', count: badges.tax, filter: '?tax=1' },
-    { label: 'Läuft ab', icon: Clock, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20', count: badges.expiring, filter: '?expires=1' },
-    { label: 'Datei fehlt', icon: FileX, color: 'text-red-700', bg: 'bg-red-50 dark:bg-red-900/20', count: badges.missing, filter: '?status=missing' },
-    { label: 'Kein Absender', icon: FileX, color: 'text-gray-600', bg: 'bg-gray-100 dark:bg-gray-800', count: badges.noSender, filter: '?no_sender=1' },
-    { label: 'Geringer Wert', icon: AlertTriangle, color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800', count: badges.lowValue, filter: '?low_value=1' },
-  ]
-  return (
-    <div className="px-3 pb-3 space-y-1">
-      <p className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 dark:text-gray-600 uppercase tracking-wider">Schnellfilter</p>
-      {items.map((item) => {
-        const { label, icon: Icon, color, bg, count, filter } = item
-        return (
-          <button key={label}
-            onClick={() => (item as any).link ? navigate((item as any).link) : navigate(filter ? `/documents${filter}` : '/dashboard')}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-            <span className={`${bg} ${color} p-1 rounded Pacman`}><Icon size={12} /></span>
-            <span className="flex-1 text-left">{label}</span>
-            {count > 0 && (
-              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${bg} ${color}`}>{count}</span>
-            )}
-          </button>
-        )
-      })}
-    </div>
-  )
 }
 
 function AppContent() {
