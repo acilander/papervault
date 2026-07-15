@@ -74,8 +74,8 @@ class TestDuplicatesEndpoint:
         assert ids == {id1, id2}
 
     def test_metadata_match_detected(self):
-        _insert_doc("/a/m1.pdf", "Sparkasse", "2024-03-15", "Kontoauszug")
-        _insert_doc("/a/m2.pdf", "Sparkasse", "2024-03-15", "Kontoauszug")
+        _insert_doc("/a/m1.pdf", "Sparkasse", "2024-03-15", "Rechnung")
+        _insert_doc("/a/m2.pdf", "Sparkasse", "2024-03-15", "Rechnung")
         resp = client.get("/monitor/duplicates?min_score=60")
         data = resp.json()
         assert data["total"] >= 1
@@ -83,20 +83,20 @@ class TestDuplicatesEndpoint:
         assert any(s == 70 for s in scores)
 
     def test_metadata_different_date_no_match(self):
-        _insert_doc("/a/d1.pdf", "Sparkasse", "2024-01-15", "Kontoauszug")
-        _insert_doc("/a/d2.pdf", "Sparkasse", "2024-02-15", "Kontoauszug")
+        _insert_doc("/a/d1.pdf", "Sparkasse", "2024-01-15", "Rechnung")
+        _insert_doc("/a/d2.pdf", "Sparkasse", "2024-02-15", "Rechnung")
         resp = client.get("/monitor/duplicates?min_score=70")
         data = resp.json()
         assert data["total"] == 0
 
     def test_simhash_near_duplicate_detected(self):
         from pdf_utils import compute_simhash
-        base_text = "Kontoauszug Commerzbank März 2024 Betrag 1234 EUR"
+        base_text = "Rechnung Commerzbank März 2024 Betrag 1234 EUR"
         sim1 = compute_simhash(base_text)
         sim2 = compute_simhash(base_text + " leichte Abweichung")
-        id1 = _insert_doc("/a/s1.pdf", "Commerzbank", "2024-03-01", "Kontoauszug",
+        id1 = _insert_doc("/a/s1.pdf", "Commerzbank", "2024-03-01", "Rechnung",
                            sim_hash=sim1)
-        id2 = _insert_doc("/a/s2.pdf", "Commerzbank", "2024-04-01", "Kontoauszug",
+        id2 = _insert_doc("/a/s2.pdf", "Commerzbank", "2024-04-01", "Rechnung",
                            sim_hash=sim2)
         resp = client.get("/monitor/duplicates?min_score=80")
         data = resp.json()

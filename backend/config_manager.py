@@ -59,6 +59,9 @@ DEFAULT_SETTINGS = {
         "Warenrechnung", "Dienstleistungsrechnung",
         "Abrechnung", "Vertrag", "Versicherungsschein", "Abonnement", "Mahnung", "Kündigung",
         "Bescheid", "Lieferschein", "Kontoauszug", "Angebot", "Sonstiges"
+    ],
+    "periodic_keywords": [
+        "abrechnung", "kontoauszug", "nachweis", "lohn", "gehalt", "entgelt", "kreditkarte", "steuernachweis"
     ]
 }
 

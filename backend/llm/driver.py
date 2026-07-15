@@ -433,10 +433,10 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
     hint_instruction = f"\n\n!!! WICHTIGE ANWEISUNG DES BENUTZERS (hat hoechste Prioritaet, ignoriere nichts davon): {user_hint} !!!" if user_hint else ""
     user_content = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text}{hint_instruction}"
 
-    _CHAR_LIMIT = 7500
+    _CHAR_LIMIT = 12000
     if len(system_prompt) + len(user_content) > _CHAR_LIMIT:
         _overhead = len(system_prompt) + len(sender_hint) + len(filename_hint) + len(header_block) + len(hint_instruction) + 200
-        _text_budget = max(500, _CHAR_LIMIT - _overhead)
+        _text_budget = max(1500, _CHAR_LIMIT - _overhead)
         user_content = f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:_text_budget]}{hint_instruction}"
         log(f"Prompt zu lang – kuerze Text auf {_text_budget} Zeichen.")
 
