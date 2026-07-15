@@ -263,10 +263,10 @@ def _repair_worker():
         _repair_status["log"] = ["Starte CPU-Auto-Reparatur...", "Installiere Universalkompatibles llama-cpp-python Paket..."]
 
     try:
-        # Install universalkompatibles AVX-only pre-compiled CPU wheel (bypasses Windows AVX2 0xc000001d errors)
+        # Install official CPU-optimized pre-compiled wheel (bypasses Windows AVX-512 0xc000001d errors on modern Intel CPUs)
         cmd = [
             sys.executable, "-m", "pip", "install", "llama-cpp-python",
-            "--extra-index-url", "https://jllllll.github.io/llama-cpp-python-cuBLAS-wheels/AVX/cpu",
+            "--extra-index-url", "https://abetlen.github.io/llama-cpp-python/whl/cpu",
             "--force-reinstall", "--no-cache-dir"
         ]
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")

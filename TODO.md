@@ -65,3 +65,5 @@ Jeder Step in `core.py` hat seinen eigenen Fehler-Pfad. Ein zentraler Pipeline-R
 - [x] die menüstruktur an der linken seite ist historisch ewachsen aber nicht wirklich durchdacht. Schlage eine logischere umsetzung vor
 - [x] wie ist deine einschätzung der funktion des Tax moduls, das mir bei der Steuer helfen soll?
 - [x] Es werden dokumente als 100% duplikat erkannt, dabei sind es ähnlich strukturierte dokumente mit anderm datum z.B. Entgeltabrechnung. Wie kann man das verbessern.
+- warum kann ich in den settings nicht den pfad der dokumenten ablage definieren, wie ausgemacht?
+- wurde die KI-Suche mittlerweile verbessert und auf die ganze datenbank erweitert?
