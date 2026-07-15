@@ -62,7 +62,7 @@ export default function DocumentDetail() {
           disabled={disabled}
           className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500">
           <option value="">–</option>
-          {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          {key === 'category' ? CATEGORIES.map(c => <option key={c}>{c}</option>) : config?.document_types.map((t: string) => <option key={t}>{t}</option>)}
         </select>
       ) : type === 'textarea' ? (
         <textarea rows={3} value={edit[key] ?? ''} onChange={e => setEdit(prev => ({ ...prev, [key]: e.target.value }))}
