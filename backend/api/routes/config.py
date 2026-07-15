@@ -239,7 +239,7 @@ async def download_progress():
             with _download_lock:
                 status_copy = dict(_download_status)
             yield f"data: {json.dumps(status_copy)}\n\n"
-            if not status_copy["downloading"] and (status_copy["percent"] == 100.0 or status_copy["error"]):
+            if not status_copy["downloading"]:
                 break
             await asyncio.sleep(1.0)
     return StreamingResponse(_stream(), media_type="text/event-stream")
