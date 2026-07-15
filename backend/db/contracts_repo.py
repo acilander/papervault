@@ -23,7 +23,9 @@ CREATE TABLE IF NOT EXISTS contracts (
     notice_period_days  INTEGER,
     auto_renews         INTEGER DEFAULT 0,
     extracted_at        TEXT,
-    notes               TEXT
+    notes               TEXT,
+    source_text         TEXT,
+    source_page         INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_contracts_document_id ON contracts(document_id);
 CREATE INDEX IF NOT EXISTS idx_contracts_status ON contracts(status);
@@ -55,6 +57,8 @@ def _row_to_dict(row) -> dict:
         "auto_renews":          bool(row["auto_renews"]),
         "extracted_at":         row["extracted_at"],
         "notes":                row["notes"],
+        "source_text":          row["source_text"] if "source_text" in row.keys() else None,
+        "source_page":          row["source_page"] if "source_page" in row.keys() else None,
     }
 
 
@@ -73,8 +77,8 @@ def insert_contract(document_id: int, contract: dict, extracted_at: str) -> int:
             """INSERT INTO contracts
                (document_id, partner, description, category, status, amount, amount_interval,
                 start_date, end_date, next_due_date, cancellation_deadline,
-                notice_period_days, auto_renews, extracted_at, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                notice_period_days, auto_renews, extracted_at, notes, source_text, source_page)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 document_id,
                 contract.get("partner", ""),
@@ -91,6 +95,8 @@ def insert_contract(document_id: int, contract: dict, extracted_at: str) -> int:
                 int(bool(contract.get("auto_renews", False))),
                 extracted_at,
                 contract.get("notes"),
+                contract.get("source_text"),
+                contract.get("source_page"),
             ),
         )
         return cur.lastrowid

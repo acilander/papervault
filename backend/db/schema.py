@@ -147,6 +147,12 @@ MIGRATIONS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_embeddings_document ON document_embeddings(document_id)",
+    "ALTER TABLE contracts ADD COLUMN source_text TEXT DEFAULT NULL",
+    "ALTER TABLE contracts ADD COLUMN source_page INTEGER DEFAULT NULL",
+    "ALTER TABLE items ADD COLUMN source_text TEXT DEFAULT NULL",
+    "ALTER TABLE items ADD COLUMN source_page INTEGER DEFAULT NULL",
+    "ALTER TABLE services ADD COLUMN source_text TEXT DEFAULT NULL",
+    "ALTER TABLE services ADD COLUMN source_page INTEGER DEFAULT NULL",
 ]
 
 def init_db():
@@ -163,7 +169,7 @@ def init_db():
                 conn.execute(migration)
             except sqlite3.OperationalError as e:
                 err_msg = str(e).lower()
-                if "duplicate column name" in err_msg or "already exists" in err_msg:
+                if "duplicate column name" in err_msg or "already exists" in err_msg or "no such table" in err_msg:
                     continue
                 from utils import log as _log_err
                 _log_err(f"SCHWERER FEHLER: Migration fehlgeschlagen: '{migration}' | Fehler: {e}")

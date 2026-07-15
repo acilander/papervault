@@ -20,7 +20,9 @@ CREATE TABLE IF NOT EXISTS items (
     category        TEXT,
     warranty_until  TEXT,
     extracted_at    TEXT,
-    notes           TEXT
+    notes           TEXT,
+    source_text     TEXT,
+    source_page     INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_items_document_id ON items(document_id);
 CREATE INDEX IF NOT EXISTS idx_items_purchase_date ON items(purchase_date);
@@ -49,6 +51,8 @@ def _row_to_dict(row) -> dict:
         "warranty_until": row["warranty_until"],
         "extracted_at":  row["extracted_at"],
         "notes":         row["notes"],
+        "source_text":   row["source_text"] if "source_text" in row.keys() else None,
+        "source_page":   row["source_page"] if "source_page" in row.keys() else None,
     }
 
 
@@ -79,8 +83,8 @@ def insert_items(document_id: int, items: list[dict], extracted_at: str) -> int:
             conn.execute(
                 """INSERT INTO items
                    (document_id, name, description, quantity, unit_price, total_price,
-                    currency, purchase_date, vendor, category, warranty_until, extracted_at, notes)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    currency, purchase_date, vendor, category, warranty_until, extracted_at, notes, source_text, source_page)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     document_id,
                     item.get("name", ""),
@@ -95,6 +99,8 @@ def insert_items(document_id: int, items: list[dict], extracted_at: str) -> int:
                     item.get("warranty_until"),
                     extracted_at,
                     item.get("notes"),
+                    item.get("source_text"),
+                    item.get("source_page"),
                 ),
             )
             count += 1

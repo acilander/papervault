@@ -37,11 +37,14 @@ def extract_contract_from_document(text: str, filename: str = "", sender: str = 
         f"  cancellation_deadline (string YYYY-MM-DD, Datum bis wann gekündigt werden muss, oder null),\n"
         f"  notice_period_days (integer, Kündigungsfrist in Tagen, oder null),\n"
         f"  auto_renews (boolean, verlängert sich automatisch),\n"
-        f"  notes (string, zusätzliche wichtige Hinweise, oder null)\n\n"
+        f"  notes (string, zusätzliche wichtige Hinweise, oder null),\n"
+        f"  source_text (string, das exakte wörtliche Textzitat aus dem Dokumenten-Volltext, das die Vertragsdetails (z.B. Betrag oder Laufzeit) belegt),\n"
+        f"  source_page (integer, die 1-basierte Seitenzahl, auf der die Information gefunden wurde, z.B. 1 oder null)\n\n"
         f"Regeln:\n"
         f"- Bei Kündigung: status='gekündigt', end_date=Datum der Kündigung/Ablauf\n"
         f"- Wenn Datum nicht erkennbar: null\n"
-        f"- Betrag als reine Zahl ohne Währungssymbol\n\n"
+        f"- Betrag als reine Zahl ohne Währungssymbol\n"
+        f"- source_text MUSS ein exaktes, wortwörtliches Zitat aus dem Dokumenten-Text sein.\n\n"
         f"--- DOKUMENTTEXT ---\n{safe_text}"
     )
 

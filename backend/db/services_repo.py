@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS services (
     currency        TEXT DEFAULT 'EUR',
     category        TEXT,
     extracted_at    TEXT,
-    notes           TEXT
+    notes           TEXT,
+    source_text     TEXT,
+    source_page     INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_services_document_id ON services(document_id);
 CREATE INDEX IF NOT EXISTS idx_services_service_date ON services(service_date);
@@ -130,8 +132,8 @@ def insert_services(document_id: int, services: list[dict], extracted_at: str) -
         for s in services:
             conn.execute(
                 "INSERT INTO services (document_id, name, description, provider, "
-                "service_date, amount, currency, category, extracted_at, notes) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                "service_date, amount, currency, category, extracted_at, notes, source_text, source_page) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     document_id,
                     s.get("name", ""),
@@ -143,6 +145,8 @@ def insert_services(document_id: int, services: list[dict], extracted_at: str) -
                     s.get("category"),
                     extracted_at,
                     s.get("notes"),
+                    s.get("source_text"),
+                    s.get("source_page"),
                 )
             )
             count += 1

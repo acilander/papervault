@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { FileText, Download, RefreshCw, ExternalLink, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronUp, Pencil, Check, X, ArrowUpDown } from 'lucide-react'
+import { FileText, Download, RefreshCw, ExternalLink, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronUp, Pencil, Check, X, ArrowUpDown, Info } from 'lucide-react'
 import Pagination from '../components/Pagination'
 
 const PAGE_SIZE = 50
@@ -31,6 +31,8 @@ interface Contract {
   auto_renews: boolean
   extracted_at: string | null
   notes: string | null
+  source_text: string | null
+  source_page: number | null
 }
 
 interface Stats {
@@ -372,7 +374,18 @@ export default function Contracts() {
                   ) : (
                     <>
                       <td className="px-4 py-2.5">
-                        <p className="font-medium text-gray-900 dark:text-gray-100">{c.partner}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-medium text-gray-900 dark:text-gray-100">{c.partner}</p>
+                          {c.source_text && (
+                            <div className="relative group inline-block">
+                              <Info size={12} className="text-gray-400 dark:text-gray-500 cursor-help" />
+                              <div className="absolute left-1/2 bottom-full mb-1 -translate-x-1/2 hidden group-hover:block z-50 w-64 bg-gray-950 text-white text-[10px] p-2 rounded-lg border border-gray-800 shadow-xl leading-relaxed whitespace-pre-line">
+                                <p className="font-bold text-gray-300 border-b border-gray-800/60 pb-0.5 mb-1">Gefunden auf Seite {c.source_page ?? '1'}:</p>
+                                "{c.source_text}"
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         {c.description && <p className="text-xs text-gray-400 truncate max-w-[200px]">{c.description}</p>}
                         {c.auto_renews && <p className="text-xs text-blue-500 dark:text-blue-400 mt-0.5">↻ auto-renewal</p>}
                       </td>

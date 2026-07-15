@@ -156,9 +156,9 @@ def extract_text(file_path):
         for i in pages_to_read:
             page = doc[i]
             text = _extract_page_blocks(page)
-            if i > 0 and num_pages > 2:
+            if i > 0 and num_pages > 2 and i == pages_to_read[-1]:
                 parts.append("\n\n[... WEITERE SEITEN ÜBERSPRUNGEN ...]\n\n")
-            parts.append(text)
+            parts.append(f"--- SEITE {i+1} ---\n{text}")
 
         doc.close()
         doc = None

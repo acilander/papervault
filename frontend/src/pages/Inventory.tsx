@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { Package, Download, RefreshCw, ExternalLink, ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react'
+import { Package, Download, RefreshCw, ExternalLink, ChevronDown, ChevronUp, ArrowUpDown, Info } from 'lucide-react'
 import Pagination from '../components/Pagination'
 
 const PAGE_SIZE = 50
@@ -28,6 +28,8 @@ interface Item {
   warranty_until: string | null
   extracted_at: string | null
   notes: string | null
+  source_text: string | null
+  source_page: number | null
 }
 
 interface Stats {
@@ -322,7 +324,18 @@ export default function Inventory() {
               {items.map(item => (
                 <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
                   <td className="px-4 py-2.5">
-                    <p className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[220px]">{item.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[220px]">{item.name}</p>
+                      {item.source_text && (
+                        <div className="relative group inline-block">
+                          <Info size={12} className="text-gray-400 dark:text-gray-500 cursor-help" />
+                          <div className="absolute left-1/2 bottom-full mb-1 -translate-x-1/2 hidden group-hover:block z-50 w-64 bg-gray-950 text-white text-[10px] p-2 rounded-lg border border-gray-800 shadow-xl leading-relaxed whitespace-pre-line">
+                            <p className="font-bold text-gray-300 border-b border-gray-800/60 pb-0.5 mb-1">Gefunden auf Seite {item.source_page ?? '1'}:</p>
+                            "{item.source_text}"
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     {item.description && (
                       <p className="text-xs text-gray-400 truncate max-w-[220px]">{item.description}</p>
                     )}
