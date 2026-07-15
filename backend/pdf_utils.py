@@ -73,21 +73,55 @@ def extract_text(file_path):
         except Exception as e:
             log(f"Word-Lesefehler ({os.path.basename(file_path)}): {e}")
             return "", "corrupt"
-            
+
     elif ext == ".xlsx":
         import zipfile
         import xml.etree.ElementTree as ET
         try:
+            shared_strings = []
             texts = []
             with zipfile.ZipFile(file_path) as z:
+                # 1. Parse Shared Strings if they exist
                 if "xl/sharedStrings.xml" in z.namelist():
                     xml_content = z.read("xl/sharedStrings.xml")
                     root = ET.fromstring(xml_content)
-                    namespaces = {"ns": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
-                    for t in root.findall(".//ns:t", namespaces):
-                        if t.text:
-                            texts.append(t.text)
-            return "\n".join(texts), "ok"
+                    for elem in root.iter():
+                        tag = elem.tag.split('}')[-1]
+                        if tag == 't' and elem.text:
+                            shared_strings.append(elem.text)
+
+                # 2. Find and parse all worksheet files
+                sheet_files = [f for f in z.namelist() if f.startswith("xl/worksheets/sheet") and f.endswith(".xml")]
+                for sheet_file in sorted(sheet_files):
+                    xml_content = z.read(sheet_file)
+                    root = ET.fromstring(xml_content)
+
+                    current_cell_type = None
+                    in_inline_str = False
+                    for elem in root.iter():
+                        tag = elem.tag.split('}')[-1]
+                        if tag == 'c':
+                            in_inline_str = False
+                            current_cell_type = elem.attrib.get('t')
+                        elif tag == 'is':
+                            in_inline_str = True
+                        elif tag == 'v' and elem.text:
+                            val = elem.text
+                            if current_cell_type == 's':
+                                try:
+                                    idx = int(val)
+                                    if 0 <= idx < len(shared_strings):
+                                        texts.append(shared_strings[idx])
+                                except ValueError:
+                                    texts.append(val)
+                            else:
+                                texts.append(val)
+                        elif tag == 't':
+                            if in_inline_str and elem.text:
+                                texts.append(elem.text)
+
+            non_empty_texts = [t.strip() for t in texts if t and t.strip()]
+            return "\n".join(non_empty_texts), "ok"
         except Exception as e:
             log(f"Excel-Lesefehler ({os.path.basename(file_path)}): {e}")
             return "", "corrupt"
@@ -159,7 +193,7 @@ def ocr_pdf(file_path):
         for i, page in pages_to_ocr:
             log(f"  OCR Seite {i}/{num_pages}...")
             t_text = pytesseract.image_to_string(page, lang="deu+eng")
-            
+
             # Local VLM OCR Fallback if PyTesseract is unsuccessful
             if len(t_text.strip()) < 50:
                 log(f"    PyTesseract unbefriedigend ({len(t_text)} Zeichen). Starte lokales VLM (Moondream2) OCR...")
@@ -171,7 +205,7 @@ def ocr_pdf(file_path):
                         t_text = vlm_text
                 except Exception as ve:
                     log(f"    VLM OCR fehlgeschlagen (ignoriert): {ve}")
-            
+
             parts.append(t_text)
         if num_pages > 2:
             parts.insert(1, "[... WEITERE SEITEN ÜBERSPRUNGEN ...]")

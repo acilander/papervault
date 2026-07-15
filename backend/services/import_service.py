@@ -72,7 +72,7 @@ class ImportService:
         all_files = []
         for root, dirs, files in os.walk(folder):
             for fname in files:
-                if fname.lower().endswith(".pdf"):
+                if fname.lower().endswith((".pdf", ".docx", ".xlsx")):
                     all_files.append(os.path.normpath(os.path.join(root, fname)))
         total = len(all_files)
         yield f"data: {json.dumps({'type': 'start', 'total': total})}\n\n"

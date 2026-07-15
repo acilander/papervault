@@ -10,7 +10,8 @@ from llm.driver import (
     filter_keywords_against_text,
     normalize_sender,
     detect_known_sender,
-    build_similar_docs_hint
+    build_similar_docs_hint,
+    generate_embedding
 )
 
 from pipeline.validation import validate_classification, check_sender_semantic

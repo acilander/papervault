@@ -1,4 +1,4 @@
-﻿# === Core Backend ===
+# === Core Backend ===
 aiofiles==25.1.0
 fastapi==0.138.1
 uvicorn==0.49.0
@@ -17,6 +17,7 @@ pytesseract==0.3.13
 #   pip install llama-cpp-python==0.3.32 --force-reinstall --no-cache-dir --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu132
 # GPU-Nutzung: N_GPU_LAYERS=-1 in .env (alle Layer auf GPU, Pflicht)
 llama_cpp_python==0.3.32
+numpy
 
 # === Vision / Logo Detection ===
 # transformers 4.x required – moondream2 is incompatible with transformers 5.x
