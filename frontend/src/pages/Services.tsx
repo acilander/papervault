@@ -284,6 +284,7 @@ export default function Services() {
             <thead className="border-b border-gray-100 dark:border-gray-800">
               <tr className="text-xs text-gray-500 dark:text-gray-400">
                 <SortHeader col="name" label="Bezeichnung" />
+                <SortHeader col="property_unit" label="Einheit" />
                 <SortHeader col="provider" label="Anbieter" />
                 <SortHeader col="category" label="Kategorie" />
                 <SortHeader col="service_date" label="Datum" />
@@ -309,6 +310,7 @@ export default function Services() {
                     </div>
                     {s.description && <p className="text-xs text-gray-400 truncate max-w-xs mt-0.5">{s.description}</p>}
                   </td>
+                  <td className="px-4 py-2.5 text-gray-500 text-sm">{(s as any).property_unit || '–'}</td>
                   <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{s.provider || '–'}</td>
                   <td className="px-4 py-2.5">
                     {s.category && (

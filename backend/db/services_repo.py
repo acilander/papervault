@@ -88,7 +88,7 @@ def get_services(
             f"SELECT COUNT(*) FROM services s {where}", params
         ).fetchone()[0]
         rows = conn.execute(
-            f"SELECT s.*, d.filename as doc_filename FROM services s "
+            f"SELECT s.*, d.filename as doc_filename, d.property_unit FROM services s "
             f"LEFT JOIN documents d ON s.document_id = d.id "
             f"{where} ORDER BY s.{order_col} {direction} NULLS LAST, s.id DESC "
             f"LIMIT ? OFFSET ?",

@@ -313,6 +313,7 @@ export default function Contracts() {
             <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <SortHeader col="partner" label="Vertragspartner" />
+                <SortHeader col="property_unit" label="Einheit" />
                 <SortHeader col="category" label="Kategorie" />
                 <SortHeader col="status" label="Status" />
                 <SortHeader col="amount" label="Betrag" align="right" />
@@ -332,6 +333,7 @@ export default function Contracts() {
                         <input value={editFields.description ?? c.description ?? ''} onChange={e => setEditFields(f => ({ ...f, description: e.target.value }))}
                           placeholder="Beschreibung" className="w-full mt-1 text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded px-2 py-1" />
                       </td>
+                      <td className="px-4 py-2 text-gray-500 text-sm">{(c as any).property_unit || '–'}</td>
                       <td className="px-4 py-2">
                         <select value={editFields.category ?? c.category ?? ''} onChange={e => setEditFields(f => ({ ...f, category: e.target.value }))}
                           className="text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded px-2 py-1">

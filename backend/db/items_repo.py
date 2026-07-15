@@ -153,14 +153,19 @@ def get_items(
 
     with get_conn() as conn:
         total = conn.execute(
-            f"SELECT COUNT(*) FROM items {where_sql}", params
+            f"SELECT COUNT(*) FROM items i {where_sql.replace('WHERE', 'WHERE i.', 1) if where_sql else ''}", params
         ).fetchone()[0]
+        
+        where_sql_prefixed = "WHERE " + " AND ".join(f"i.{w}" for w in where) if where else ""
+        
         rows = conn.execute(
-            f"SELECT * FROM items {where_sql} ORDER BY {order_col} {direction} NULLS LAST, id DESC LIMIT ? OFFSET ?",
+            f"SELECT i.*, d.filename as doc_filename, d.property_unit FROM items i "
+            f"LEFT JOIN documents d ON i.document_id = d.id "
+            f"{where_sql_prefixed} ORDER BY i.{order_col} {direction} NULLS LAST, i.id DESC LIMIT ? OFFSET ?",
             params + [limit, offset],
         ).fetchall()
 
-    return [_row_to_dict(r) for r in rows], total
+    return [dict(r) for r in rows], total
 
 
 def get_stats() -> dict:

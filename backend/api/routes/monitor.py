@@ -428,13 +428,16 @@ def calculate_mfh_u_allocation(req: MFHCalculationRequest):
         })
 
     # Proportional Allocation
-    eg_sqm = req.total_sqm - req.og_sqm - req.dg_sqm
+    eg_sqm = req.total_sqm - req.og_sqm - req.dg_sqm - req.ug_sqm
     og_share = (req.og_sqm / req.total_sqm) * total_mfh_cost
     dg_share = (req.dg_sqm / req.total_sqm) * total_mfh_cost
+    ug_share = (req.ug_sqm / req.total_sqm) * total_mfh_cost
+    eg_share = (eg_sqm / req.total_sqm) * total_mfh_cost
     return {
         "year": req.year,
         "total_gemeinkosten": round(total_mfh_cost, 2),
         "eg_share": round(eg_share, 2),
+        "ug_share": round(ug_share, 2),
         "og_share": round(og_share, 2),
         "dg_share": round(dg_share, 2),
         "total_sqm": req.total_sqm,
@@ -445,6 +448,7 @@ class ForecastRequest(BaseModel):
     total_sqm: float = 280.0
     og_sqm: float = 80.0
     dg_sqm: float = 80.0
+    ug_sqm: float = 40.0
 
 @router.post("/forecast")
 def get_energy_consumption_forecast(req: ForecastRequest):

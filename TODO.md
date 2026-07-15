@@ -71,3 +71,4 @@ Jeder Step in `core.py` hat seinen eigenen Fehler-Pfad. Ein zentraler Pipeline-R
 - in den md datein haben wir eine neue individualle ordenerstruktur definiert. Findest du das?
 - Die promtgröße muss an das genutze modell angepasst werden.
 - ist die intelligente LLM kaskadae eingebaut? Ein grober prompt der dann an spezialisierte prompts weitergegebn wird?
+- brauche ich die schnellfilter noch im Hauptmenü oder können wir die besser in die ansicht verschieben in der sie auch relevant ist?

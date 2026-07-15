@@ -175,14 +175,18 @@ def get_contracts(
 
     with get_conn() as conn:
         total = conn.execute(
-            f"SELECT COUNT(*) FROM contracts {where_sql}", params
+            f"SELECT COUNT(*) FROM contracts c {where_sql.replace('WHERE', 'WHERE c.', 1) if where_sql else ''}", params
         ).fetchone()[0]
+        
+        # We need to prefix the where clauses for the main table to avoid ambiguity
+        where_sql_prefixed = "WHERE " + " AND ".join(f"c.{w}" for w in where) if where else ""
+        
         rows = conn.execute(
-            f"SELECT * FROM contracts {where_sql} ORDER BY {order_col} {direction} NULLS LAST, id DESC LIMIT ? OFFSET ?",
+            f"SELECT c.*, d.property_unit FROM contracts c LEFT JOIN documents d ON c.document_id = d.id {where_sql_prefixed} ORDER BY c.{order_col} {direction} NULLS LAST, c.id DESC LIMIT ? OFFSET ?",
             params + [limit, offset],
         ).fetchall()
 
-    return [_row_to_dict(r) for r in rows], total
+    return [dict(r) for r in rows], total
 
 
 def get_stats() -> dict:
