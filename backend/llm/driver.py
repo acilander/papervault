@@ -153,6 +153,19 @@ def sanitize_llm_output(data: dict) -> dict:
             val = re.sub(r'[\r\n\t]+', ' ', val)
             val = re.sub(r' {2,}', ' ', val).strip()
             data[field] = val if val else None
+
+    # Auto-register newly invented document types (LLM Freedom Workflow)
+    doc_type = data.get("document_type")
+    if doc_type and isinstance(doc_type, str):
+        from config_manager import get_settings, save_settings
+        settings = get_settings()
+        known_types = settings.get("document_types", [])
+        # Only auto-register if it's a short, concise term (max 4 words, no crazy sentences)
+        if doc_type not in known_types and len(doc_type.split()) <= 4 and len(doc_type) <= 40:
+            log(f"[LLM] Das LLM hat einen neuen Dokumenttyp erfunden: '{doc_type}'. Registriere in Einstellungen.")
+            settings["document_types"].append(doc_type)
+            save_settings(settings)
+
     sender = data.get("sender")
     if isinstance(sender, str) and _looks_like_ocr_garbage(sender):
         log(f"Absender sieht nach OCR-Artefakt aus – setze null: '{sender}'")
@@ -479,14 +492,18 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
                     log(f"Kategorie '{data['category']}' unbekannt – setze 'Sonstiges'")
                     data["category"] = "Sonstiges"
 
-            if data.get("document_type") not in DOCUMENT_TYPES:
-                close = get_close_matches(data["document_type"] or "", DOCUMENT_TYPES, n=1, cutoff=0.6)
+            from config_manager import get_settings
+            active_types = get_settings().get("document_types", DOCUMENT_TYPES)
+            if data.get("document_type") not in active_types:
+                # We do NOT force "Sonstiges" anymore if it's not in the list!
+                # We only try to auto-correct typos against known types, otherwise keep the new invention.
+                close = get_close_matches(data["document_type"] or "", active_types, n=1, cutoff=0.6)
                 if close:
                     log(f"Dokumenttyp '{data['document_type']}' auto-korrigiert zu '{close[0]}'")
                     data["document_type"] = close[0]
                 else:
-                    log(f"Dokumenttyp '{data['document_type']}' unbekannt – setze 'Sonstiges'")
-                    data["document_type"] = "Sonstiges"
+                    # Keep the LLM's invented type!
+                    pass
 
             rule_sender, rule_category = detect_known_sender(header_zone or safe_text[:400])
             if rule_sender:

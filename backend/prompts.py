@@ -92,8 +92,9 @@ Antworte IMMER NUR mit einem JSON-Objekt, ohne Erklaerungen oder Markdown-Format
 JSON-Schema (alle Felder sind Pflicht):
 {schema_desc}
 
-Erlaubte Werte fuer document_type (NUR diese {len(doc_types)}, keine anderen erfinden):
+Erlaubte Werte fuer document_type:
 {doc_types_str}
+Bevorzuge ZWINGEND einen der obigen Typen. NUR WENN das Dokument in absolut keine dieser Kategorien passt (z.B. eine reine Informationsbroschüre oder ein amtlicher Sonderbeleg), darfst du einen eigenen, neuen und hochpräzisen Dokumenttyp erfinden (maximal 1 bis 3 Wörter, z.B. "Informationsbroschüre", "Krankmeldung", "Zollbescheid").
 WICHTIG: Entgeltabrechnung/Lohnabrechnung = document_type=Abrechnung, category=Arbeit & Rente.
 
 Erlaubte Werte fuer category (NUR diese {len(active_categories)}, keine anderen erfinden):
