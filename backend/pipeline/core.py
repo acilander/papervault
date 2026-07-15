@@ -19,6 +19,20 @@ import db
 from utils import log
 from pipeline.steps import check_duplicate, check_fuzzy_duplicate, cleanup_empty_inbox_folders
 
+_COMMON_GERMAN_WORDS = {
+    "der", "die", "das", "und", "ist", "in", "zu", "von", "mit", "den", "dem", "im", "für", "ein", "eine",
+    "einer", "einem", "einen", "eines", "an", "auf", "aus", "bei", "als", "nach", "um", "über", "vor",
+    "durch", "ohne", "gegen", "wie", "so", "noch", "nur", "auch", "mehr", "oder", "aber", "doch", "sich",
+    "sie", "er", "es", "wir", "ihr", "ihm", "ihn", "ihnen", "ihre", "ihres", "ihrem", "ihren", "mein",
+    "dein", "sein", "unser", "euer", "man", "wer", "was", "wo", "wann", "warum", "rechnung", "datum",
+    "betrag", "eur", "euro", "mwst", "steuer", "telefon", "mobilfunk", "kasse", "rechnungsdatum",
+    "kundennummer", "vertrag", "versicherung", "arbeit", "gehalt", "lohn", "miete", "kosten", "strom",
+    "gas", "wasser", "anbieter", "hersteller", "kaufbeleg", "quittung", "bon", "gesamt", "summe",
+    "netto", "brutto", "umsatzsteuer", "beleg", "adresse", "straße", "str", "plz", "ort", "stadt",
+    "deutschland", "fax", "email", "mail", "web", "internet", "online", "sparkasse", "bank", "konto",
+    "iban", "bic", "überweisung", "lastschrift", "abbuchung", "gutschrift", "saldo", "auszug", "kontoauszug"
+}
+
 def _register_doc(file_path: str, doc_id) -> int:
     """Ensure document has a DB identity. Returns doc_id."""
     if doc_id is None:
@@ -73,7 +87,18 @@ def _extract_text(file_path: str, doc_id: int):
 
     log(f"PyMuPDF: {len(text.strip())} Zeichen gefunden.")
 
-    if len(text.strip()) < 50:
+    # Calculate German dictionary density to detect garbage character-soup scan artifacts
+    words = [w.strip(".,;:!?()[]-–\"'").lower() for w in text.split()]
+    words = [w for w in words if w]
+    german_word_count = sum(1 for w in words if w in _COMMON_GERMAN_WORDS)
+    density = (german_word_count / len(words)) if words else 0.0
+
+    log(f"Wörterbuch-Prüfung: {len(words)} Wörter, davon {german_word_count} deutsche Begriffe ({density * 100:.1f}% Dichte)")
+
+    # If character count is too low, OR if the text density is under 15% (strong garbage scan artifact), force OCR!
+    if len(text.strip()) < 50 or (len(text.strip()) >= 50 and density < 0.15):
+        if len(text.strip()) >= 50 and density < 0.15:
+            log(f"WARNUNG: Text-Zeichensalat erkannt (Dichte {density*100:.1f}% < 15%). Erzwinge echtes OCR...")
         text = ocr_pdf(file_path)
 
     if len(text.strip()) < 50:
