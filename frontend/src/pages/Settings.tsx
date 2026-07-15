@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
-import { HardDrive, CheckCircle, AlertCircle, Loader, RefreshCw, FolderX } from 'lucide-react'
-import { cleanupEmptyFolders } from '../api'
+import { HardDrive, CheckCircle, AlertCircle, Loader, RefreshCw, FolderX, User, Download, Trash, Plus } from 'lucide-react'
+import { cleanupEmptyFolders, getConfig, saveUserSettings, startModelDownload, type AppConfig } from '../api'
 
 interface ModelInfo {
   name: string
@@ -15,6 +15,29 @@ interface ActiveModel {
   loaded: boolean
 }
 
+const RECOMMENDED_MODELS = [
+  {
+    label: "Qwen 2.5 1.5B (Sehr Schnell / Für ältere Laptops)",
+    url: "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+    filename: "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+  },
+  {
+    label: "Qwen 2.5 3B (Ausgewogen)",
+    url: "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+    filename: "qwen2.5-3b-instruct-q4_k_m.gguf"
+  },
+  {
+    label: "Qwen 2.5 7B (Hohe Genauigkeit / Standard-PC)",
+    url: "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+    filename: "qwen2.5-7b-instruct-q4_k_m.gguf"
+  },
+  {
+    label: "Qwen 2.5 14B (Maximum / High-End GPU)",
+    url: "https://huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF/resolve/main/Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+    filename: "Qwen2.5-14B-Instruct-Q4_K_M.gguf"
+  }
+]
+
 export default function Settings() {
   const [models, setModels] = useState<ModelInfo[]>([])
   const [active, setActive] = useState<ActiveModel | null>(null)
@@ -24,24 +47,75 @@ export default function Settings() {
   const [success, setSuccess] = useState<string | null>(null)
   const [cleaningFolders, setCleaningFolders] = useState(false)
 
+  // Configuration Form State
+  const [settings, setSettings] = useState<AppConfig | null>(null)
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [newChild, setNewChild] = useState('')
+  const [newOwner, setNewOwner] = useState('')
+  const [newVehicleKey, setNewVehicleKey] = useState('')
+  const [newVehicleTags, setNewVehicleTags] = useState('')
+
+  // Downloader State
+  const [selectedDl, setSelectedDl] = useState(0)
+  const [downloading, setDownloading] = useState(false)
+  const [dlFilename, setDlFilename] = useState('')
+  const [dlPercent, setDlPercent] = useState(0)
+  const [dlProgressText, setDlProgressText] = useState('')
+  const [triggeringDownload, setTriggeringDownload] = useState(false)
+
   const load = async () => {
     setLoading(true)
     setError(null)
     try {
-      const [modelsRes, activeRes] = await Promise.all([
+      const [modelsRes, activeRes, configRes] = await Promise.all([
         axios.get('/config/models'),
         axios.get('/config/model'),
+        getConfig()
       ])
       setModels(modelsRes.data.models)
       setActive(activeRes.data)
+      setSettings(configRes)
     } catch (e: any) {
-      setError('Fehler beim Laden der Modelle.')
+      setError('Fehler beim Laden der Einstellungen.')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+
+    // Establish SSE Connection for Live Download Progress
+    const sse = new EventSource('/config/models/download-progress')
+    sse.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.downloading) {
+          setDownloading(true)
+          setDlFilename(data.filename)
+          setDlPercent(data.percent)
+          setDlProgressText(`${data.downloaded_mb} MB von ${data.total_mb} MB (${data.percent}%)`)
+        } else {
+          setDownloading(false)
+          if (data.percent === 100.0) {
+            setSuccess(`Modell '${data.filename}' erfolgreich heruntergeladen und aktiviert!`)
+            // Trigger instant badge reload in Sidebar
+            window.dispatchEvent(new CustomEvent('documents-changed'))
+            load()
+          } else if (data.error) {
+            setError(`Download-Fehler: ${data.error}`)
+          }
+        }
+      } catch {}
+    }
+    sse.onerror = () => {
+      sse.close()
+    }
+
+    return () => {
+      sse.close()
+    }
+  }, [])
 
   const switchModel = async (path: string) => {
     setSwitching(path)
@@ -49,7 +123,6 @@ export default function Settings() {
     setSuccess(null)
     try {
       await axios.post('/config/model', { model_path: path })
-      // Poll until loaded=true or error
       const poll = async (): Promise<void> => {
         const res = await axios.get('/config/model')
         if (res.data.error) {
@@ -74,8 +147,114 @@ export default function Settings() {
     }
   }
 
+  const handleSaveSettings = async () => {
+    if (!settings) return
+    setSavingSettings(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const res = await saveUserSettings(settings)
+      if (res.ok) {
+        setSuccess('Einstellungen erfolgreich auf Datenträger gespeichert!')
+        // Force refresh UI state config context
+        window.dispatchEvent(new CustomEvent('documents-changed'))
+        await load()
+      }
+    } catch {
+      setError('Fehler beim Speichern der Einstellungen.')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
+  const startDownload = async () => {
+    const target = RECOMMENDED_MODELS[selectedDl]
+    setTriggeringDownload(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const res = await startModelDownload(target.url, target.filename)
+      if (res.ok) {
+        setSuccess(`Download von ${target.filename} im Hintergrund gestartet!`)
+      }
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? 'Konnte Download nicht starten.')
+    } finally {
+      setTriggeringDownload(false)
+    }
+  }
+
+  const removeChild = (idx: number) => {
+    if (!settings) return
+    const updated = settings.personal.children.filter((_, i) => i !== idx)
+    setSettings({
+      ...settings,
+      personal: { ...settings.personal, children: updated }
+    })
+  }
+
+  const addChild = () => {
+    if (!settings || !newChild.trim()) return
+    setSettings({
+      ...settings,
+      personal: {
+        ...settings.personal,
+        children: [...settings.personal.children, newChild.trim()]
+      }
+    })
+    setNewChild('')
+  }
+
+  const removeOwner = (idx: number) => {
+    if (!settings) return
+    const updated = settings.personal.owners.filter((_, i) => i !== idx)
+    setSettings({
+      ...settings,
+      personal: { ...settings.personal, owners: updated }
+    })
+  }
+
+  const addOwner = () => {
+    if (!settings || !newOwner.trim()) return
+    setSettings({
+      ...settings,
+      personal: {
+        ...settings.personal,
+        owners: [...settings.personal.owners, newOwner.trim().toLowerCase()]
+      }
+    })
+    setNewOwner('')
+  }
+
+  const removeVehicle = (key: string) => {
+    if (!settings) return
+    const updated = { ...settings.personal.vehicles }
+    delete updated[key]
+    setSettings({
+      ...settings,
+      personal: { ...settings.personal, vehicles: updated }
+    })
+  }
+
+  const addVehicle = () => {
+    if (!settings || !newVehicleKey.trim()) return
+    const tags = newVehicleTags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+    setSettings({
+      ...settings,
+      personal: {
+        ...settings.personal,
+        vehicles: {
+          ...settings.personal.vehicles,
+          [newVehicleKey.trim()]: tags
+        }
+      }
+    })
+    setNewVehicleKey('')
+    setNewVehicleTags('')
+  }
+
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Einstellungen</h1>
         <button
@@ -100,19 +279,215 @@ export default function Settings() {
         </div>
       )}
 
+      {/* SECTION 1: Personal Configuration Form */}
+      {settings && (
+        <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 space-y-6">
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+            <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100 font-medium">
+              <User size={16} className="text-blue-500" />
+              Persönliche Lebenssituation
+            </div>
+            <button
+              onClick={handleSaveSettings}
+              disabled={savingSettings}
+              className="px-4 py-1.5 text-xs font-medium rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white transition-colors"
+            >
+              {savingSettings ? <Loader size={12} className="animate-spin" /> : 'Änderungen speichern'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Archive Owners */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Archivinhaber (Empfänger)</label>
+              <p className="text-xs text-gray-400">Namen der Personen, die Dokumente erhalten (werden als Empfänger gefiltert, nie Absender).</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="z.B. Alexander Staiger"
+                  value={newOwner}
+                  onChange={(e) => setNewOwner(e.target.value)}
+                  className="flex-1 min-w-0 text-sm p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800"
+                />
+                <button
+                  type="button"
+                  onClick={addOwner}
+                  className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 hover:bg-blue-100 transition-colors"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {settings.personal.owners.map((owner, idx) => (
+                  <span key={owner} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                    {owner}
+                    <button type="button" onClick={() => removeOwner(idx)} className="text-gray-400 hover:text-red-500">
+                      <Trash size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Children Config */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Familienmitglieder (Kinder)</label>
+              <p className="text-xs text-gray-400">Erlaubt es der KI, Unterordner für bestimmte Kinder anzulegen.</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="z.B. Felix"
+                  value={newChild}
+                  onChange={(e) => setNewChild(e.target.value)}
+                  className="flex-1 min-w-0 text-sm p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800"
+                />
+                <button
+                  type="button"
+                  onClick={addChild}
+                  className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 hover:bg-blue-100 transition-colors"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {settings.personal.children.map((child, idx) => (
+                  <span key={child} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                    {child}
+                    <button type="button" onClick={() => removeChild(idx)} className="text-gray-400 hover:text-red-500">
+                      <Trash size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Vehicles Config */}
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Fahrzeuge & Suchfilter</label>
+              <p className="text-xs text-gray-400">Definiere deine Fahrzeuge und deren Heuristiken (z.B. 'Golf' sucht nach 'vw', 'golf', 'volkswagen').</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  placeholder="Fahrzeugname (z.B. Tesla)"
+                  value={newVehicleKey}
+                  onChange={(e) => setNewVehicleKey(e.target.value)}
+                  className="text-sm p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800"
+                />
+                <input
+                  type="text"
+                  placeholder="Suchbegriffe, kommagetrennt"
+                  value={newVehicleTags}
+                  onChange={(e) => setNewVehicleTags(e.target.value)}
+                  className="text-sm p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 md:col-span-2 flex-1"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={addVehicle}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 hover:bg-blue-100 rounded-lg"
+              >
+                <Plus size={12} /> Fahrzeug hinzufügen
+              </button>
+
+              <div className="space-y-1.5 pt-2">
+                {Object.entries(settings.personal.vehicles).map(([key, tags]) => (
+                  <div key={key} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
+                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">{key}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 italic">Filter: {tags.join(', ')}</span>
+                      <button type="button" onClick={() => removeVehicle(key)} className="text-gray-400 hover:text-red-500">
+                        <Trash size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Landlord Feature Toggle */}
+            <div className="space-y-4 md:col-span-2 border-t border-gray-100 dark:border-gray-800 pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Vermieter- & Mehrfamilienhaus-Module aktivieren</label>
+                  <p className="text-xs text-gray-400 mt-0.5">Schaltet die Verwaltung von Mieteinheiten, Quadratmeterschlüsseln und Grundsteuer-Modulen frei.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.landlord.enabled}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      landlord: { ...settings.landlord, enabled: e.target.checked }
+                    })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              {settings.landlord.enabled && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800 rounded-xl">
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium text-gray-500">Gesamt-Fläche (qm)</span>
+                    <input
+                      type="number"
+                      value={settings.landlord.sqm_total}
+                      onChange={(e) => setSettings({
+                        ...settings,
+                        landlord: { ...settings.landlord, sqm_total: parseFloat(e.target.value) || 0 }
+                      })}
+                      className="w-full text-sm p-1.5 rounded-lg border border-gray-200 bg-white dark:bg-gray-800"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium text-gray-500">Fläche OG (qm)</span>
+                    <input
+                      type="number"
+                      value={settings.landlord.sqm_og}
+                      onChange={(e) => setSettings({
+                        ...settings,
+                        landlord: { ...settings.landlord, sqm_og: parseFloat(e.target.value) || 0 }
+                      })}
+                      className="w-full text-sm p-1.5 rounded-lg border border-gray-200 bg-white dark:bg-gray-800"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium text-gray-500">Fläche DG (qm)</span>
+                    <input
+                      type="number"
+                      value={settings.landlord.sqm_dg}
+                      onChange={(e) => setSettings({
+                        ...settings,
+                        landlord: { ...settings.landlord, sqm_dg: parseFloat(e.target.value) || 0 }
+                      })}
+                      className="w-full text-sm p-1.5 rounded-lg border border-gray-200 bg-white dark:bg-gray-800"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </section>
+      )}
+
+      {/* SECTION 2: LLM Model Loader & Local Models list */}
       <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 space-y-4">
-        <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100 font-medium">
-          <HardDrive size={16} />
-          LLM-Modell
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+          <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100 font-medium">
+            <HardDrive size={16} className="text-blue-500" />
+            Installierte KI-Modelle (VRAM / RAM)
+          </div>
         </div>
 
         {active && (
           <div className="text-sm text-gray-500 dark:text-gray-400">
             Aktuell geladen:{' '}
-            <span className="font-medium text-gray-800 dark:text-gray-200">{active.model_name}</span>
+            <span className="font-semibold text-gray-800 dark:text-gray-200">{active.model_name}</span>
             {active.loaded
-              ? <span className="ml-2 text-green-600 dark:text-green-400">(aktiv)</span>
-              : <span className="ml-2 text-yellow-600 dark:text-yellow-400">(noch nicht geladen)</span>
+              ? <span className="ml-2 text-green-600 dark:text-green-400 font-medium">(Aktiviert im VRAM/RAM)</span>
+              : <span className="ml-2 text-yellow-600 dark:text-yellow-400 font-medium">(Noch nicht im Speicher geladen)</span>
             }
           </div>
         )}
@@ -179,10 +554,61 @@ export default function Settings() {
         )}
       </section>
 
+      {/* SECTION 3: Live Model Downloader with Progress Bar */}
+      <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 space-y-4">
+        <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100 font-medium border-b border-gray-100 dark:border-gray-800 pb-3">
+          <Download size={16} className="text-blue-500" />
+          KI-Modelle herunterladen (HuggingFace)
+        </div>
+
+        <p className="text-xs text-gray-400 leading-relaxed">
+          Wähle ein für dein System passendes GGUF-Modell aus. Der Download läuft sicher im Hintergrund. Sobald er abgeschlossen ist, wird das Modell automatisch als aktive Standard-KI eingetragen.
+        </p>
+
+        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+          <select
+            value={selectedDl}
+            onChange={(e) => setSelectedDl(parseInt(e.target.value))}
+            disabled={downloading || triggeringDownload}
+            className="flex-1 text-sm p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+          >
+            {RECOMMENDED_MODELS.map((item, idx) => (
+              <option key={idx} value={idx}>{item.label}</option>
+            ))}
+          </select>
+          <button
+            onClick={startDownload}
+            disabled={downloading || triggeringDownload}
+            className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white transition-colors"
+          >
+            {triggeringDownload ? <Loader size={14} className="animate-spin" /> : <Download size={14} />}
+            {triggeringDownload ? 'Warte…' : 'Herunterladen'}
+          </button>
+        </div>
+
+        {downloading && (
+          <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-semibold text-blue-700 dark:text-blue-400 truncate max-w-xs md:max-w-md">Lade herunter: {dlFilename}</span>
+              <span className="text-blue-600 dark:text-blue-300 font-medium">{dlProgressText}</span>
+            </div>
+
+            {/* Live Progress Bar */}
+            <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${dlPercent}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* SECTION 4: Maintenance */}
       <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 space-y-4">
         <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100 font-medium">
-          <FolderX size={16} />
-          Wartung
+          <FolderX size={16} className="text-gray-500" />
+          Wartung & Bereinigung
         </div>
         <div className="flex items-center justify-between">
           <div>

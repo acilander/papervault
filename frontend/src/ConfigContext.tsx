@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { getCategories, getDocumentTypes, getConfig, AppConfig } from './api'
+import { getCategories, getDocumentTypes, getConfig, type AppConfig } from './api'
 
 interface ConfigContextType {
   categories: string[]

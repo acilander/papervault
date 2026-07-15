@@ -84,6 +84,12 @@ export interface AppConfig {
 
 export const getConfig = () => api.get<AppConfig>('/stats/config').then(r => r.data)
 
+export const getActiveModel = () => api.get<{ model_path: string; model_name: string; loaded: boolean; error: string | null }>('/config/model').then(r => r.data)
+export const setModel = (modelPath: string) => api.post<{ ok: boolean; loading: boolean; model_name: string; model_path: string }>('/config/model', { model_path: modelPath }).then(r => r.data)
+export const listModels = () => api.get<{ models: { name: string; path: string; size_gb: number }[]; models_dir: string }>('/config/models').then(r => r.data)
+export const saveUserSettings = (settings: AppConfig) => api.put<{ ok: boolean; message: string }>('/config/settings', settings).then(r => r.data)
+export const startModelDownload = (url: string, filename: string) => api.post<{ ok: boolean; message: string }>('/config/models/download', { url, filename }).then(r => r.data)
+
 export const getDocuments = (params: {
   q?: string
   category?: string
