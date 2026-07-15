@@ -39,28 +39,28 @@ interface NavGroup {
 
 const navGroups: NavGroup[] = [
   {
-    title: 'Arbeitsplatz',
+    title: 'Eingang & Suche',
     items: [
       { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/inbox', label: 'Inbox', icon: InboxIcon },
+      { to: '/inbox', label: 'Prüfung', icon: InboxIcon },
       { to: '/documents', label: 'Dokumente', icon: FileText },
       { to: '/chat', label: 'KI-Suche', icon: MessageSquare },
     ]
   },
   {
-    title: 'Verwaltung',
+    title: 'Haus & Vermietung',
     landlordOnly: true,
     items: [
-      { to: '/collections', label: 'Sammlungen', icon: FolderOpen },
-      { to: '/inventory', label: 'Inventar', icon: Package },
       { to: '/contracts', label: 'Verträge', icon: ScrollText },
       { to: '/services', label: 'Ausgaben', icon: Wrench },
-      { to: '/tax/years', label: 'Steuer', icon: Calculator },
+      { to: '/inventory', label: 'Inventar', icon: Package },
+      { to: '/collections', label: 'Sammlungen', icon: FolderOpen },
     ]
   },
   {
-    title: 'Qualität & Training',
+    title: 'Steuern & Qualität',
     items: [
+      { to: '/tax/years', label: 'Steuer', icon: Calculator, landlordOnly: true },
       { to: '/senders', label: 'Absender', icon: Users },
       { to: '/duplicates', label: 'Duplikate', icon: ScanSearch },
       { to: '/validation', label: 'Validierung', icon: ShieldCheck },
