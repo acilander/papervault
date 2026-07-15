@@ -53,7 +53,13 @@ def load_model():
                 model_size = os.path.getsize(model_path) / (1024 ** 3) if os.path.exists(model_path) else 0
                 log(f"Lade LLM-Modell: {model_name} ({model_size:.1f} GB)...")
                 t0 = time.time()
-                _llm = Llama(model_path=model_path, n_ctx=4096, n_threads=6, n_gpu_layers=gpu_layers, verbose=False, chat_format="chatml", embedding=True)
+                try:
+                    _llm = Llama(model_path=model_path, n_ctx=4096, n_threads=6, n_gpu_layers=gpu_layers, verbose=False, chat_format="chatml", embedding=True)
+                except OSError as e:
+                    err_str = str(e).lower()
+                    if "0xc000001d" in err_str or "illegal instruction" in err_str or "-1073741795" in err_str:
+                        raise RuntimeError("ILLEGAL_INSTRUCTION_CPU_INCOMPATIBLE")
+                    raise e
                 elapsed = time.time() - t0
                 log(f"Modell geladen: {model_name} in {elapsed:.1f}s [GPU-Layer: {gpu_layers}]")
 
