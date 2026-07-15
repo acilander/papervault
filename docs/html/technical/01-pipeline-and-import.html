@@ -190,7 +190,7 @@
   <main>
 <h1 id="technisch-pipeline-und-import">Technisch: Pipeline und Import</h1>
 <h2 id="1-ziel">1. Ziel</h2>
-<p>PDFs aus dem Inbox-Ordner automatisch klassifizieren, Metadaten extrahieren und strukturiert im Dateisystem ablegen.</p>
+<p>PDFs, sowie Office-Dokumente (<code>.docx</code>, <code>.xlsx</code>) aus dem Inbox-Ordner automatisch klassifizieren, Metadaten extrahieren und strukturiert im Dateisystem ablegen.</p>
 <h2 id="2-beteiligte-komponenten">2. Beteiligte Komponenten</h2>
 <table>
 <thead>
@@ -202,15 +202,23 @@
 <tbody>
 <tr>
 <td><code>backend/pipeline/core.py</code></td>
-<td>Koordiniert die Verarbeitungsschritte</td>
+<td>Koordiniert die Verarbeitungsschritte inkl. Phase 8c (Tax Linking)</td>
 </tr>
 <tr>
 <td><code>backend/pipeline/steps.py</code></td>
-<td>Einzelne Schritte: Hash, OCR, Duplikat, Klassifikation, Archivierung</td>
+<td>Einzelne Schritte: Hash, Duplikat, Klassifikation, Archivierung</td>
+</tr>
+<tr>
+<td><code>backend/pdf_utils.py</code></td>
+<td>Textextraktion für PDF (PyMuPDF) und Office (<code>.docx</code>, <code>.xlsx</code>), VLM Fallback</td>
+</tr>
+<tr>
+<td><code>backend/vision.py</code></td>
+<td>Moondream2 VLM Engine für visuelles OCR</td>
 </tr>
 <tr>
 <td><code>backend/archiver.py</code></td>
-<td>Höherer Einstiegspunkt für Batch-Verarbeitung</td>
+<td>Höherer Einstiegspunkt (Watchdog) für Batch-Verarbeitung</td>
 </tr>
 <tr>
 <td><code>backend/llm.py</code></td>
@@ -225,25 +233,26 @@
 <h2 id="3-ablauf">3. Ablauf</h2>
 <h3 id="31-datei-erkennen">3.1 Datei erkennen</h3>
 <ul>
-<li><strong>Automatisch</strong>: <code>Monitor</code>-Seite startet SSE-Stream; Backend prüft INBOX_DIR.</li>
-<li><strong>Manuell</strong>: Nutzer startet Archiver über Monitor oder Inbox.</li>
-<li><strong>Skript</strong>: <code>python -m archiver</code> oder ähnlich.</li>
+<li><strong>Automatisch</strong>: <code>Monitor</code>-Seite startet SSE-Stream; Backend (<code>archiver.py</code>) prüft INBOX_DIR. Akzeptiert werden <code>.pdf</code>, <code>.docx</code>, <code>.xlsx</code>.</li>
+<li><strong>Manuell</strong>: Nutzer startet Archiver über Monitor oder Prüfung-Seite.</li>
 </ul>
-<h3 id="32-textextraktion">3.2 Textextraktion</h3>
-<pre><code>PDF ──► pdfplumber / PyPDF2 ──► nativer Text
-      └──► pdf2image ──► Tesseract OCR ──► gescannter Text
+<h3 id="32-textextraktion-vlm-ocr-fallback">3.2 Textextraktion &amp; VLM OCR Fallback</h3>
+<pre><code>Office (.docx/.xlsx) ──► zipfile + xml.etree.ElementTree ──► nativer Text
+PDF ──► PyMuPDF ──► nativer Text
+      └──► (bei &lt; 50 Zeichen) ──► PyTesseract OCR ──► gescannter Text
+           └──► (bei &lt; 50 Zeichen) ──► Moondream2 (VLM) ──► perfektionierter VLM-Text
 </code></pre>
 <ul>
-<li>Zuerst wird versucht, nativen Text zu extrahieren.</li>
-<li>Falls wenig oder kein Text → OCR mit Tesseract.</li>
-<li>Ergebnis: <code>full_text</code> wird in der Datenbank gespeichert.</li>
+<li><strong>Office-Dokumente</strong> werden ohne externe Bibliotheken (Zero-Dependency) nativ über Pythons integriertes <code>zipfile</code> und <code>xml.etree</code> geparst, was extrem schnell und ressourcenschonend ist.</li>
+<li>Für <strong>PDFs</strong> wird PyMuPDF verwendet.</li>
+<li><strong>VLM Fallback</strong>: Liefert PyTesseract bei Scans oder Handy-Fotos schlechte Ergebnisse (&lt; 50 Zeichen), schaltet die Pipeline auf das lokale VLM (Moondream2 auf der GPU) um, welches das Dokument visuell liest und als Rohtext ausgibt.</li>
 </ul>
 <h3 id="33-hash-berechnung">3.3 Hash-Berechnung</h3>
 <pre><code class="language-python">content_hash = sha256(text.encode(&quot;utf-8&quot;)).hexdigest()[:16]
 </code></pre>
 <ul>
 <li>16 Zeichen reichen für die Duplikat-Erkennung und reduzieren Speicher.</li>
-<li>Der Hash basiert auf dem <strong>extrahierten Text</strong>, nicht auf der Datei (damit identische Inhalte trotz unterschiedlicher Dateien erkannt werden).</li>
+<li>Der Hash basiert auf dem <strong>extrahierten Text</strong>, nicht auf der Datei.</li>
 </ul>
 <h3 id="34-duplikat-check">3.4 Duplikat-Check</h3>
 <pre><code>1. Prüfe protected_document_hashes:
@@ -263,19 +272,17 @@
   &quot;summary&quot;: &quot;Rechnung für Büromaterial&quot;,
   &quot;amount&quot;: 123.45,
   &quot;tax_relevant&quot;: false,
-  &quot;confidence&quot;: &quot;high&quot;
+  &quot;confidence&quot;: &quot;high&quot;,
+  &quot;vehicle_id&quot;: null,
+  &quot;child_name&quot;: null
 }
 </code></pre>
-<p>Prompts sind typischerweise in <code>backend/prompts.py</code> oder modulspezifisch (z. B. <code>backend/tax/prompts.py</code>).</p>
-<h3 id="36-archivierung">3.6 Archivierung</h3>
-<p>Zielpfad wird aus Kategorie, Sender, Jahr und Monat gebaut:</p>
-<pre><code>TARGET_BASE/&lt;category&gt;/&lt;sender&gt;/&lt;year&gt;/&lt;month&gt;/&lt;filename&gt;
-</code></pre>
-<ul>
-<li>Sonderzeichen werden bereinigt.</li>
-<li>Kollisionsvermeidung durch eindeutige Dateinamen.</li>
-<li><code>archived_at</code> wird auf aktuellen Zeitstempel gesetzt.</li>
-</ul>
+<p>Prompts integrieren nun auch Asset Tracking (<code>vehicle_id</code>, <code>child_name</code>).</p>
+<h3 id="36-archivierung-mfh">3.6 Archivierung &amp; MFH</h3>
+<p>Zielpfad wird aus Kategorie, Sender, Jahr, Monat gebaut. Ist ein Asset Tag vorhanden, wird oft ein spezieller Unterordner erzeugt.
+<strong>Wichtig:</strong> Bei Office-Dateien (<code>.docx</code>, <code>.xlsx</code>) wird die Dateiendung immer beibehalten, der Ursprungsname wird nicht mutiert, um Makros/Referenzen nicht zu brechen.</p>
+<h3 id="37-proactive-tax-linking-phase-8c">3.7 Proactive Tax Linking (Phase 8c)</h3>
+<p>Am Ende von <code>core.py</code> (Phase 8c) greift das Proactive Tax Linking. Wenn die zugeordnete Kategorie eines neuen Dokuments steuer- oder nebenkostenrelevant ist (z. B. <code>Haus_Gemeinkosten</code>, <code>OG_Miete</code>, <code>DG_Miete</code>), wird automatisch in der <code>tax_documents</code> Tabelle ein verknüpfter Draft-Eintrag für das entsprechende Steuerjahr angelegt. Dies erspart die manuelle Zuordnung am Jahresende komplett.</p>
 <h2 id="4-zustande-status">4. Zustände (Status)</h2>
 <table>
 <thead>
@@ -315,19 +322,19 @@
 </tr>
 <tr>
 <td><code>missing</code></td>
-<td>Datei existiert nicht mehr auf dem Datenträger</td>
+<td>Datei existiert nicht mehr</td>
 </tr>
 <tr>
 <td><code>encrypted</code></td>
-<td>PDF ist passwortgeschützt</td>
+<td>Datei ist passwortgeschützt</td>
 </tr>
 <tr>
 <td><code>corrupt</code></td>
-<td>PDF kann nicht gelesen werden</td>
+<td>Datei kann nicht gelesen werden</td>
 </tr>
 <tr>
 <td><code>no_text</code></td>
-<td>Kein Text extrahierbar</td>
+<td>Kein Text extrahierbar (auch nach VLM)</td>
 </tr>
 <tr>
 <td><code>classification_failed</code></td>
@@ -336,42 +343,26 @@
 </tbody>
 </table>
 <h2 id="5-mathematik-algorithmik">5. Mathematik &amp; Algorithmik</h2>
-<h3 id="51-hash-kollisionswahrscheinlichkeit">5.1 Hash-Kollisionswahrscheinlichkeit</h3>
-<ul>
-<li>SHA256 liefert 256 Bit.</li>
-<li>Verwendung von 16 Hex-Zeichen = 64 Bit.</li>
-<li>Kollisionswahrscheinlichkeit bei 1 Million Dokumenten: ca. (10^{-10}) (vernachlässigbar für diesen Anwendungsfall).</li>
-</ul>
-<h3 id="52-ocr-entscheidung">5.2 OCR-Entscheidung</h3>
-<p>Typische Heuristik:</p>
-<pre><code class="language-python">if len(extracted_text.strip()) &lt; MIN_TEXT_LENGTH:
-    use_ocr()
+<h3 id="51-ocr-entscheidung">5.1 OCR-Entscheidung</h3>
+<pre><code class="language-python">if len(extracted_text.strip()) &lt; 50:
+    text = use_ocr()
+    if len(text.strip()) &lt; 50:
+        text = use_vlm() # Moondream2 GPU
 </code></pre>
-<p><code>MIN_TEXT_LENGTH</code> liegt oft bei 50–100 Zeichen.</p>
-<h3 id="53-confidence-score">5.3 Confidence-Score</h3>
-<p>Das LLM liefert kategorische Confidence (<code>low</code>, <code>medium</code>, <code>high</code>).
-Diese wird später für Filter und Review-Priorisierung genutzt.</p>
+<h3 id="52-confidence-score">5.2 Confidence-Score</h3>
+<p>Das LLM liefert kategorische Confidence (<code>low</code>, <code>medium</code>, <code>high</code>).</p>
 <h2 id="6-fehlerbehandlung">6. Fehlerbehandlung</h2>
-<p>Fehler in einem Schritt setzen den Status:</p>
 <ul>
-<li>OCR-Fehler → <code>no_text</code> oder <code>corrupt</code></li>
+<li>OCR/VLM-Fehler → <code>no_text</code> oder <code>corrupt</code></li>
 <li>LLM-Fehler → <code>classification_failed</code></li>
 <li>Duplikat → <code>duplicate</code></li>
-<li>Geschützter Hash → <code>ignored</code> oder <code>duplicate</code></li>
 </ul>
 <h2 id="7-tests">7. Tests</h2>
 <ul>
 <li><code>tests/test_pipeline_steps.py</code></li>
 <li><code>tests/test_archiver.py</code></li>
-</ul>
-<h2 id="8-konfiguration">8. Konfiguration</h2>
-<p>Wichtige Pfade in <code>backend/config.py</code>:</p>
-<ul>
-<li><code>SOURCE_DIR</code> / <code>INBOX_DIR</code>: Eingangsordner</li>
-<li><code>TARGET_BASE</code>: Archiv-Ordner</li>
-<li><code>DUPLICATES_DIR</code>: Duplikat-Ordner</li>
-<li><code>IGNORED_DIR</code>: Ignorierte Dateien</li>
-<li><code>DB_PATH</code>: SQLite-Datenbank</li>
+<li><code>tests/test_extra_concurrency_and_formats.py</code> (für Word/Excel)</li>
+<li><code>tests/test_vision.py</code> (für VLM)</li>
 </ul>
     <footer>
       PaperVault Dokumentation · Generiert aus Markdown

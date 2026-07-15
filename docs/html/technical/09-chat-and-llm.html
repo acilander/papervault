@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Technisch: KI-Suche und Chat – PaperVault Doku</title>
+  <title>Technisch: KI-Suche und Chat (Hybrid RAG) – PaperVault Doku</title>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
@@ -188,9 +188,9 @@
     </nav>
   </aside>
   <main>
-<h1 id="technisch-ki-suche-und-chat">Technisch: KI-Suche und Chat</h1>
+<h1 id="technisch-ki-suche-und-chat-hybrid-rag">Technisch: KI-Suche und Chat (Hybrid RAG)</h1>
 <h2 id="1-ziel">1. Ziel</h2>
-<p>Nutzer können Fragen an das lokale LLM stellen. Die Antworten basieren auf den im Archiv indexierten Dokumenteninhalten.</p>
+<p>Nutzer können semantische Fragen an das lokale LLM stellen. Die Antworten basieren auf den im Archiv indexierten Dokumenteninhalten durch ein <strong>Hybrid Retrieval-Augmented Generation (RAG)</strong> System.</p>
 <h2 id="2-komponenten">2. Komponenten</h2>
 <table>
 <thead>
@@ -202,11 +202,15 @@
 <tbody>
 <tr>
 <td><code>backend/llm.py</code></td>
-<td>LLM-Initialisierung, Prompting, JSON-Parsing</td>
+<td>LLM-Initialisierung, Prompting, JSON-Parsing, <strong>Embeddings-Generierung</strong></td>
+</tr>
+<tr>
+<td><code>backend/db/embeddings_repo.py</code></td>
+<td>Speichern und Laden von Vektor-Embeddings als SQLite BLOBs</td>
 </tr>
 <tr>
 <td><code>backend/api/routes/chat.py</code></td>
-<td>Chat-Endpunkte</td>
+<td>Chat-Endpunkte mit Numpy Cosine Similarity</td>
 </tr>
 <tr>
 <td><code>backend/tax/chat.py</code></td>
@@ -216,64 +220,70 @@
 <td><code>frontend/src/pages/Chat.tsx</code></td>
 <td>Allgemeiner Chat</td>
 </tr>
-<tr>
-<td><code>frontend/src/pages/tax/TaxChat.tsx</code></td>
-<td>Steuer-Chat</td>
-</tr>
 </tbody>
 </table>
-<h2 id="3-llm-initialisierung">3. LLM-Initialisierung</h2>
+<h2 id="3-llm-initialisierung-embeddings">3. LLM-Initialisierung &amp; Embeddings</h2>
 <pre><code class="language-python">load_model(model_path)
 </code></pre>
 <ul>
 <li>Lädt GGUF-Modell über <code>llama-cpp-python</code>.</li>
 <li>Optional GPU-beschleunigt (CUDA).</li>
 <li>Startet im Hintergrund-Thread beim Backend-Start.</li>
+<li>Das Modell liefert neben Textgenerierung auch dichte Vektor-Embeddings für Dokumententexte (<code>create_embedding</code>).</li>
 </ul>
-<h2 id="4-chat-ablauf">4. Chat-Ablauf</h2>
-<h3 id="41-allgemeiner-chat">4.1 Allgemeiner Chat</h3>
+<h2 id="4-hybrid-rag-architektur">4. Hybrid RAG Architektur</h2>
+<p>Um Vektor-Datenbank-Overhead (wie ChromaDB/Qdrant) zu vermeiden, nutzt PaperVault eine hochperformante lokale Hybrid-Lösung:</p>
 <ol>
-<li>Nutzer stellt Frage.</li>
-<li>Backend sucht relevante Dokumente (FTS5 oder Filter).</li>
-<li>Kontext wird aus <code>full_text</code>, <code>summary</code>, <code>keywords</code> gebaut.</li>
+<li><strong>Embedding-Generierung:</strong> Beim Import wird der Text durch das LLM in einen Vektor (z.B. 1024 Dimensionen) umgewandelt.</li>
+<li><strong>SQLite BLOB Storage:</strong> Dieser Float-Array wird via <code>struct.pack</code> in ein binäres BLOB komprimiert und in der Tabelle <code>embeddings</code> (<code>embeddings_repo.py</code>) neben der <code>document_id</code> gespeichert.</li>
+<li><strong>RAM-Inference (Numpy):</strong> Bei einer Chat-Anfrage wird die Frage ebenfalls vektorisiert. Alle BLOBs werden in den RAM geladen und mit <strong>Numpy</strong> (<code>np.dot</code> / Cosine Similarity) verglichen. Dies dauert bei &lt;100.000 Dokumenten nur Millisekunden.</li>
+<li><strong>Hybrid Retrieval:</strong> Die Top-K Dokumente aus der semantischen Vektorsuche werden mit den Top-K Dokumenten einer klassischen Keyword-Suche (SQLite FTS5) kombiniert und dedupliziert.</li>
+</ol>
+<h2 id="5-chat-ablauf">5. Chat-Ablauf</h2>
+<h3 id="51-allgemeiner-chat">5.1 Allgemeiner Chat</h3>
+<ol>
+<li>Nutzer stellt Frage (z.B. "Wo ist der Vertrag für das Internet?").</li>
+<li>Backend führt Hybrid Search (Numpy Cosine Similarity + FTS5) durch.</li>
+<li>Kontext wird aus den Top-K Treffern (<code>full_text</code>, <code>summary</code>, <code>keywords</code>) gebaut.</li>
 <li>Prompt an LLM:</li>
 </ol>
 <pre><code>Du bist ein Assistent für ein Dokumentenarchiv.
 Kontext:
-- Dokument A: Rechnung Musterfirma, 123 EUR, Büromaterial
-- Dokument B: ...
+- Dokument A (ID: 1): Rechnung Breitbandanschluss...
+- Dokument B (ID: 2): ...
 
-Frage: Wie viel habe ich 2024 für Büromaterial ausgegeben?
+Frage: Wo ist der Vertrag für das Internet?
 </code></pre>
 <ol>
-<li>LLM generiert Antwort.</li>
+<li>LLM generiert Antwort ("Im Dokument 'Rechnung Breitbandanschluss' (ID: 1) ...").</li>
 <li>Antwort wird als SSE-Stream oder JSON zurückgegeben.</li>
 </ol>
-<h3 id="42-steuer-chat">4.2 Steuer-Chat</h3>
+<h3 id="52-steuer-chat">5.2 Steuer-Chat</h3>
 <ul>
 <li>Zusätzlicher Kontext aus <code>tax_years</code>, <code>tax_positions</code>, <code>tax_documents</code>.</li>
 <li>Eingeschränkt auf steuerliche Fragen.</li>
 </ul>
-<h2 id="5-architektur">5. Architektur</h2>
+<h2 id="6-architektur-performance">6. Architektur &amp; Performance</h2>
 <h3 id="prompt-engineering">Prompt Engineering</h3>
 <ul>
 <li>System-Prompt definiert Rolle und Ausgabeformat.</li>
 <li>Few-shot-Beispiele je nach Modul.</li>
 <li>JSON-Modus für strukturierte Extraktionen.</li>
 </ul>
-<h3 id="token-management">Token-Management</h3>
+<h3 id="token-management-chunking">Token-Management &amp; Chunking</h3>
 <ul>
-<li>Lange Dokumententexte werden gekürzt (<code>prepare_text_long_trimmed</code>).</li>
-<li>Chunking oder Top-K-Auswahl relevanter Dokumente.</li>
+<li>Lange Dokumententexte werden gekürzt (<code>prepare_text_long_trimmed</code>), bevor Embeddings generiert werden.</li>
+<li>Die Context-Window des GGUF-Modells wird strikt überwacht.</li>
 </ul>
-<h2 id="6-fehlerbehandlung">6. Fehlerbehandlung</h2>
+<h2 id="7-fehlerbehandlung">7. Fehlerbehandlung</h2>
 <ul>
 <li>Modell nicht geladen → Fehlermeldung.</li>
 <li>JSON nicht parsebar → Retry oder Fallback auf Textantwort.</li>
 </ul>
-<h2 id="7-tests">7. Tests</h2>
+<h2 id="8-tests">8. Tests</h2>
 <ul>
 <li><code>tests/test_chat_api.py</code></li>
+<li><code>tests/test_embeddings_repo.py</code> (BLOB Packing/Unpacking)</li>
 </ul>
     <footer>
       PaperVault Dokumentation · Generiert aus Markdown

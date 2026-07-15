@@ -191,14 +191,14 @@
 │  http://localhost:8000               │
 │  - API-Routes                       │
 │  - Repository-Schicht               │
-│  - SQLite Datenbank                 │
+│  - SQLite Datenbank (FTS5 + BLOB)   │
 └──────────────┬──────────────────────┘
                │
 ┌──────────────▼──────────────────────┐
 │  Pipeline (llm, archiver, steps)    │
-│  - OCR / Textextraktion             │
-│  - LLM-Klassifikation               │
-│  - Dateiarchivierung                │
+│  - VLM &amp; OCR / Textextraktion       │
+│  - LLM-Klassifikation &amp; RAG         │
+│  - Office &amp; PDF Archivierung        │
 └─────────────────────────────────────┘
 </code></pre>
 <h2 id="2-verzeichnisstruktur">2. Verzeichnisstruktur</h2>
@@ -206,9 +206,9 @@
 ├── backend/
 │   ├── api/           # FastAPI Routes und Pydantic-Modelle
 │   ├── db/            # SQLite-Schema, Repositories, Verbindung
-│   ├── pipeline/      # Archiver, Verarbeitungsschritte
+│   ├── pipeline/      # Archiver, Verarbeitungsschritte (PDF, Word, Excel)
 │   ├── tax/           # Steuer-Modul Extraktion / Prompts
-│   ├── llm.py         # LLM-Abstraktion
+│   ├── llm.py         # LLM-Abstraktion (GGUF, Moondream2, Embeddings)
 │   ├── storage.py     # Dateisystem-Operationen, Sender-Registry
 │   └── config.py      # Konfiguration und Pfade
 ├── frontend/
@@ -232,11 +232,15 @@
 <tbody>
 <tr>
 <td><code>documents</code></td>
-<td>Alle Dokumente mit Metadaten, Status, Text</td>
+<td>Alle Dokumente mit Metadaten, Status, Text, <code>property_unit</code></td>
 </tr>
 <tr>
 <td><code>documents_fts</code></td>
 <td>FTS5-Volltextindex für schnelle Suche</td>
+</tr>
+<tr>
+<td><code>embeddings</code></td>
+<td>Vektoren als binäre BLOBs für Semantic Search (RAG)</td>
 </tr>
 <tr>
 <td><code>protected_document_hashes</code></td>
@@ -256,16 +260,24 @@
 </tr>
 <tr>
 <td><code>items</code>, <code>services</code>, <code>contracts</code></td>
-<td>Extrahierte Entitäten</td>
+<td>Extrahierte Entitäten (inkl. MFH Zuordnung)</td>
 </tr>
 </tbody>
 </table>
 <h2 id="4-sicherheit-datenschutz">4. Sicherheit &amp; Datenschutz</h2>
 <ul>
 <li>Alle Daten bleiben lokal.</li>
-<li>Kein Cloud-LLM; optional GPU-beschleunigtes lokales LLM.</li>
+<li>Kein Cloud-LLM; GPU-beschleunigtes lokales LLM (llama-cpp-python).</li>
+<li>VLM (Vision-Language Model) läuft lokal auf der GPU für OCR-Fallback.</li>
 </ul>
-<h2 id="5-erweiterbarkeit">5. Erweiterbarkeit</h2>
+<h2 id="5-neue-architektur-kernkomponenten-rtx-3060-power-features-mfh">5. Neue Architektur-Kernkomponenten (RTX 3060 Power-Features &amp; MFH)</h2>
+<ul>
+<li><strong>MFH (Multi-Family House) Architektur</strong>: Kategorien und Dokumente können nativ Wohneinheiten (<code>property_unit</code>: EG, OG, DG, UG, Gesamthaus) zugeordnet werden.</li>
+<li><strong>Hybrid RAG Chat</strong>: Die Sucharchitektur kombiniert FTS5 (Keywords) mit semantischer Vektorsuche. Embeddings werden via <code>llama-cpp-python</code> generiert, als BLOB in SQLite gespeichert und zur Laufzeit via <code>numpy</code> (Cosine Similarity) im RAM abgeglichen.</li>
+<li><strong>VLM OCR Fallback</strong>: Falls PyTesseract bei Scans/Fotos weniger als 50 Zeichen liefert, übernimmt Moondream2 (via <code>vision.py</code>) die Textextraktion direkt über die GPU, um schiefe oder schwer lesbare Dokumente perfekt zu erfassen.</li>
+<li><strong>Zero-Dependency Office Support</strong>: Word (<code>.docx</code>) und Excel (<code>.xlsx</code>) Dateien werden direkt überwacht und verarbeitet. Die Textextraktion erfolgt ressourcenschonend via <code>zipfile</code> und <code>xml.etree.ElementTree</code> ohne externe Abhängigkeiten. Die Originaldateien werden unberührt archiviert.</li>
+</ul>
+<h2 id="6-erweiterbarkeit">6. Erweiterbarkeit</h2>
 <p>Standard-Workflow für neue Features:</p>
 <ol>
 <li>DB-Schema in <code>backend/db/schema.py</code></li>
@@ -313,6 +325,14 @@
 <tr>
 <td>Steuer-Modul</td>
 <td><a href="technical/07-tax-module.md"><code>technical/07-tax-module.md</code></a></td>
+</tr>
+<tr>
+<td>Chat &amp; LLM (RAG)</td>
+<td><a href="technical/09-chat-and-llm.md"><code>technical/09-chat-and-llm.md</code></a></td>
+</tr>
+<tr>
+<td>Inventar, Verträge</td>
+<td><a href="technical/13-inventory-contracts-services.md"><code>technical/13-inventory-contracts-services.md</code></a></td>
 </tr>
 </tbody>
 </table>

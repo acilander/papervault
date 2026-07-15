@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>14. Two-Stage Klassifizierung &amp; Bugfixes – PaperVault Doku</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --border: #e2e8f0;
+      --code-bg: #f1f5f9;
+      --nav-bg: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #60a5fa;
+        --border: #334155;
+        --code-bg: #0f172a;
+        --nav-bg: #1e293b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      display: flex;
+      min-height: 100vh;
+    }
+    aside {
+      width: 280px;
+      background: var(--nav-bg);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+    }
+    aside h1 {
+      font-size: 1.25rem;
+      margin: 0 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .nav-link {
+      display: block;
+      padding: .45rem .6rem;
+      border-radius: .4rem;
+      color: var(--text);
+      text-decoration: none;
+      font-size: .92rem;
+      margin-bottom: .15rem;
+    }
+    .nav-link:hover { background: var(--bg); }
+    .nav-link.active { background: var(--accent); color: #fff; }
+    .nav-group { margin-bottom: 1rem; }
+    .nav-group h3 {
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+      margin: 0 0 .4rem .6rem;
+      font-weight: 600;
+    }
+    main {
+      margin-left: 280px;
+      flex: 1;
+      max-width: 900px;
+      padding: 2.5rem;
+    }
+    h1 { font-size: 2rem; margin-top: 0; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: .35rem; margin-top: 2.2rem; }
+    h3 { margin-top: 1.6rem; }
+    a { color: var(--accent); }
+    code, pre {
+      background: var(--code-bg);
+      border-radius: .35rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .9em;
+    }
+    code { padding: .15rem .35rem; }
+    pre {
+      padding: 1rem;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code { padding: 0; background: transparent; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: .55rem .75rem;
+      text-align: left;
+    }
+    th { background: var(--surface); }
+    blockquote {
+      border-left: 4px solid var(--accent);
+      margin: 1rem 0;
+      padding: .5rem 1rem;
+      background: var(--surface);
+      border-radius: 0 .4rem .4rem 0;
+    }
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .mermaid svg { max-width: 100%; }
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .toc ul { padding-left: 1.2rem; }
+    .toc > ul { padding-left: 0; list-style: none; }
+    footer {
+      margin-top: 4rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .875rem;
+    }
+    @media (max-width: 900px) {
+      aside { display: none; }
+      main { margin-left: 0; padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>📚 PaperVault Doku</h1>
+    <nav>
+<div class="nav-group"><h3>Einstieg</h3>
+<a class="nav-link" href="../index.html">Übersicht</a>
+<a class="nav-link" href="../USER_GUIDE.html">Bedienungsanleitung</a>
+<a class="nav-link" href="../FEATURES.html">Feature-Liste</a>
+</div>
+<div class="nav-group"><h3>System</h3>
+<a class="nav-link" href="../ARCHITECTURE.html">Systemarchitektur</a>
+<a class="nav-link" href="../DOCUMENTATION_STRUCTURE.html">Doku-Struktur</a>
+</div>
+<div class="nav-group"><h3>Features</h3>
+<a class="nav-link" href="../feature-ignore-lock.html">Ignore / Lock</a>
+<a class="nav-link" href="../feature-low-value-rules.html">Low-Value-Rules</a>
+</div>
+<div class="nav-group"><h3>Tiefe</h3>
+<a class="nav-link" href="../technical/index.html">Technische Tiefe</a>
+</div>
+<div class="nav-group"><h3>Sonstiges</h3>
+<a class="nav-link" href="../llm-cascade-scenarios.html">LLM-Cascade-Szenarien</a>
+</div>
+<div class="nav-group"><h3>Kapitel</h3>
+<a class="nav-link" href="../technical/01-pipeline-and-import.html">01 Pipeline & Import</a>
+<a class="nav-link" href="../technical/02-documents-search-and-filter.html">02 Suche & Filter</a>
+<a class="nav-link" href="../technical/03-ignore-lock.html">03 Ignore / Lock</a>
+<a class="nav-link" href="../technical/04-low-value-rules.html">04 Low-Value-Rules</a>
+<a class="nav-link" href="../technical/05-duplicates.html">05 Duplikate</a>
+<a class="nav-link" href="../technical/06-senders.html">06 Absender</a>
+<a class="nav-link" href="../technical/07-tax-module.html">07 Steuer-Modul</a>
+<a class="nav-link" href="../technical/08-collections.html">08 Sammlungen</a>
+<a class="nav-link" href="../technical/09-chat-and-llm.html">09 KI-Suche</a>
+<a class="nav-link" href="../technical/10-monitor.html">10 Monitor</a>
+<a class="nav-link" href="../technical/11-feedback.html">11 Feedback</a>
+<a class="nav-link" href="../technical/12-settings-and-config.html">12 Einstellungen</a>
+<a class="nav-link" href="../technical/13-inventory-contracts-services.html">13 Inventar / Verträge / Ausgaben</a>
+</div>
+    </nav>
+  </aside>
+  <main>
+<h1 id="14-two-stage-klassifizierung-bugfixes">14. Two-Stage Klassifizierung &amp; Bugfixes</h1>
+<p>Dieses Dokument beschreibt das am 14. Juli 2026 durchgeführte Architektur-Refactoring der Klassifizierungs-Pipeline sowie die Behebung von fünf teilweise kritischen Bugs.</p>
+<hr />
+<h2 id="1-architektur-refactoring-lineare-two-stage-klassifizierung">1. Architektur-Refactoring: Lineare Two-Stage-Klassifizierung</h2>
+<h3 id="ausgangslage-problemstellung-der-flaschenhals">Ausgangslage &amp; Problemstellung (Der Flaschenhals)</h3>
+<p>Bisher war in PaperVault ein logischer Konflikt zwischen der primären Klassifizierung (Stufe 1) und den spezialisierten Artikel- und Service-Extraktoren (Stufe 2) vorhanden:
+1. Der System-Prompt enthielt den generischen Dokumenttyp <code>Rechnung</code> als Auffangwert.
+2. In der Absenderdatenbank (<code>senders</code>) waren viele alte Absender fest auf <code>pinned_document_type = "Rechnung"</code> gepinnt.
+3. Durch diesen Zwang klassifizierte Stufe 1 ein Dokument extrem häufig als generische <code>Rechnung</code>.
+4. In Phase 8 der Pipeline triggerte der Typ <code>Rechnung</code> <strong>sowohl</strong> den Artikel-Extraktor (<code>extract_items_from_invoice</code>) als auch den Dienstleistungs-Extraktor (<code>extract_services_from_invoice</code>).</p>
+<p><strong>Die Folge:</strong> Bei fast jedem Beleg führte das System <strong>drei vollständige, sehr teure lokale LLM-Inferenzrunden</strong> aus. Dies verlangsamte die Verarbeitung auf lokaler Hardware massiv und führte zu redundanten Falscheinträgen (Halluzinationen) in den Ausgaben- und Inventar-Tabellen.</p>
+<h3 id="die-losung-no-generic-rechnung">Die Lösung (No-generic-Rechnung)</h3>
+<p>Um diesen Latenz- und Datenqualitäts-Engpass aufzulösen, wurde das System auf ein <strong>strikt exklusives, zweistufiges Modell</strong> umgestellt:</p>
+<ol>
+<li><strong>Verbannung des generischen Typs:</strong> Der Dokumenttyp <code>Rechnung</code> wurde vollständig aus <code>categories.py</code> und dem System-Prompt in <code>prompts.py</code> gestrichen. Das Modell wird nun gezwungen, sich immer exklusiv zwischen <code>Warenrechnung</code> (Artikel/Inventar) und <code>Dienstleistungsrechnung</code> (Services/Ausgaben) zu entscheiden. Bei gemischten Dokumenten entscheidet das Modell nach dem wertmäßig dominanten Teil.</li>
+<li><strong>Korrektur im System-Prompt:</strong> Ein Tippfehler im System-Prompt (<code>ALTIMER</code>) wurde zu <code>IMMER</code> korrigiert, um die spezifische Zuweisung zu schärfen.</li>
+<li><strong>Kassenbon-Kompabilität:</strong> Die automatische Kassenbon-Erkennung in <code>core.py</code> setzt den standardmäßigen LLM-Hinweis nun direkt auf <code>Warenrechnung</code>.</li>
+<li><strong>Strikt exklusives Routing:</strong> Phase 8 der Pipeline (<code>backend/pipeline/core.py</code>) wurde so angepasst, dass Warenrechnungen <em>ausschließlich</em> Artikel im Inventar eintragen und Dienstleistungsrechnungen <em>ausschließlich</em> Services unter den Ausgaben erfassen. Doppelte parallele LLM-Inferenzrunden für denselben Beleg sind damit ausgeschlossen.</li>
+</ol>
+<hr />
+<h2 id="2-behebung-der-5-identifizierten-bugs">2. Behebung der 5 identifizierten Bugs</h2>
+<h3 id="bug-1-pdf-dateisperre-bei-verarbeitungsfehlern-windows-spezifisch">Bug 1: PDF-Dateisperre bei Verarbeitungsfehlern (Windows-spezifisch)</h3>
+<ul>
+<li><strong>Datei:</strong> <code>backend/pdf_utils.py</code> (in <code>extract_text()</code>)</li>
+<li><strong>Problem:</strong> Trat beim Auslesen der PDF-Seiten nach dem Öffnen des Dokuments ein Fehler auf, wurde der <code>except</code>-Block getriggert und die Methode beendet, ohne dass <code>doc.close()</code> ausgeführt wurde. Unter Windows führte dieses ungeschlossene Datei-Handle zu einer dauerhaften Zugriffssperre (<code>PermissionError</code>). Das Verschieben des PDFs nach <code>failed/</code> schlug daraufhin fehl und blockierte die Pipeline.</li>
+<li><strong>Behebung:</strong> Die gesamte Textextraktion wurde in eine saubere <code>try-finally</code>-Logik eingebettet, die das Schließen des PDF-Handles unter allen Umständen garantiert.</li>
+</ul>
+<h3 id="bug-2-test-absturz-im-cpu-only-modus">Bug 2: Test-Absturz im CPU-only-Modus</h3>
+<ul>
+<li><strong>Datei:</strong> <code>tests/test_startup.py</code> (in <code>test_api_lifespan_creates_source_dir</code>)</li>
+<li><strong>Problem:</strong> Für die Produktion ist ein CPU-only Fallback absichtlich gesperrt, um "schleichende" CPU-Inferenz-Verzögerungen zu verhindern. Da im Testumfeld (Entwickler-PCs ohne GPU oder CI-Server) jedoch kein CUDA aktiv ist und wir das echte 14GB GGUF-Modell in Tests ohnehin nicht laden wollen, stürzte der API-Startup-Test bei der echten GPU-Prüfung unweigerlich mit einer <code>RuntimeError</code>-Exception ab.</li>
+<li><strong>Behebung:</strong> Die Test-Lifespan-Methode patcht nun standardmäßig <code>config.MOCK_LLM = True</code> via <code>monkeypatch</code>, damit die Tests hardwareunabhängig immer grün durchlaufen.</li>
+</ul>
+<h3 id="bug-3-race-condition-beim-modell-preloading">Bug 3: Race Condition beim Modell-Preloading</h3>
+<ul>
+<li><strong>Datei:</strong> <code>backend/llm.py</code> (in <code>load_model()</code>)</li>
+<li><strong>Problem:</strong> Beim API-Startup lädt ein Hintergrund-Daemon-Thread das GGUF-Modell im Hintergrund vor. Die Variable <code>_llm</code> wurde dabei jedoch ohne Thread-Sperre gelesen und geschrieben. Trafen zeitgleich API-Anfragen ein, konnte es passieren, dass das teure Modell zweimal parallel in den VRAM geladen wurde (CUDA OOM / Absturz).</li>
+<li><strong>Behebung:</strong> Die Instanziierung des Llama-Modells wurde mit einem "Double-Checked Locking" unter Verwendung des globalen <code>_llm_lock</code> abgesichert.</li>
+</ul>
+<h3 id="bug-4-legacy-overrides-blockierten-feine-typen">Bug 4: Legacy Overrides blockierten feine Typen</h3>
+<ul>
+<li><strong>Datei:</strong> <code>backend/storage.py</code> (in <code>apply_sender_overrides()</code>)</li>
+<li><strong>Problem:</strong> Wenn in der Absenderdatenbank für einen alten Absender noch der veraltete Typ <code>pinned_document_type = "Rechnung"</code> hinterlegt war, bügelte die Registry-Logik die präzise LLM-Erkennung (<code>Warenrechnung</code>/<code>Dienstleistungsrechnung</code>) unbemerkt nieder und überschrieb sie wieder mit dem unpräzisen <code>"Rechnung"</code>.</li>
+<li><strong>Behebung:</strong> In <code>apply_sender_overrides()</code> wird ein veralteter <code>"Rechnung"</code>-Pin nun gezielt abgefangen und verworfen, um die feine Klassifizierung des LLMs zu schützen.</li>
+</ul>
+<h3 id="bug-5-toter-hashing-code">Bug 5: Toter Hashing-Code</h3>
+<ul>
+<li><strong>Datei:</strong> <code>backend/storage.py</code></li>
+<li><strong>Problem:</strong> Seit der Migration der Duplikatsprüfung von <code>hashes.json</code> zu SQLite-basierten Abfragen waren die globale Variable <code>content_hashes</code> und die Funktion <code>load_hashes()</code> im gesamten Projekt verwaist und ungenutzt.</li>
+<li><strong>Behebung:</strong> Der tote Code und die dazugehörigen Alt-Tests in <code>tests/test_storage.py</code> wurden rückstandslos gelöscht, um die Code-Qualität und Wartbarkeit zu erhöhen.</li>
+</ul>
+    <footer>
+      PaperVault Dokumentation · Generiert aus Markdown
+    </footer>
+  </main>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    // Toggle highlight.js theme based on dark mode
+    const darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.getElementById('light-hljs').disabled = darkMode;
+    document.getElementById('dark-hljs').disabled = !darkMode;
+  </script>
+</body>
+</html>

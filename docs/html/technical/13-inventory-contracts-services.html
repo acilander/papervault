@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Technisch: Inventar, Verträge und Ausgaben – PaperVault Doku</title>
+  <title>Technisch: Haus &amp; Vermietung (MFH), Inventar, Verträge und Ausgaben – PaperVault Doku</title>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="light-hljs" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="dark-hljs" disabled />
@@ -188,13 +188,14 @@
     </nav>
   </aside>
   <main>
-<h1 id="technisch-inventar-vertrage-und-ausgaben">Technisch: Inventar, Verträge und Ausgaben</h1>
+<h1 id="technisch-haus-vermietung-mfh-inventar-vertrage-und-ausgaben">Technisch: Haus &amp; Vermietung (MFH), Inventar, Verträge und Ausgaben</h1>
 <h2 id="1-ubersicht">1. Übersicht</h2>
-<p>Diese Module extrahieren und verwalten spezifische Entitäten aus Dokumenten. Sie bilden eine zusätzliche Schicht über der reinen Dokumentenverwaltung.</p>
-<h2 id="2-inventar">2. Inventar</h2>
+<p>Diese Module extrahieren und verwalten spezifische Entitäten aus Dokumenten und bilden das Rückgrat der "Haus &amp; Vermietung"-Architektur (MFH = Mehrfamilienhaus). Sie bieten eine Schicht über der reinen Dokumentenverwaltung.</p>
+<h2 id="2-inventar-assets">2. Inventar (Assets)</h2>
 <h3 id="zweck">Zweck</h3>
 <ul>
-<li>Verwaltung von Gegenständen und Geräten.</li>
+<li>Verwaltung von Gegenständen und Geräten (Assets).</li>
+<li><strong>Neu:</strong> Verknüpfung mit Wohneinheiten (<code>property_unit</code>).</li>
 <li>Verknüpfung mit Kaufbelegen.</li>
 </ul>
 <h3 id="typische-felder">Typische Felder</h3>
@@ -205,18 +206,20 @@
 <li><code>price</code></li>
 <li><code>warranty_until</code></li>
 <li><code>document_id</code></li>
+<li><code>property_unit</code> (EG, OG, DG, UG, Gesamthaus)</li>
 </ul>
 <h3 id="ablauf">Ablauf</h3>
 <ol>
 <li>LLM oder manuelle Erfassung erstellt Inventar-Eintrag.</li>
 <li>Eintrag wird in dedizierter Tabelle gespeichert.</li>
-<li>Frontend-Seite <code>Inventory.tsx</code> zeigt Übersicht.</li>
+<li>Frontend-Seite <code>Inventory.tsx</code> zeigt Übersicht pro Haus/Einheit.</li>
 </ol>
-<h2 id="3-vertrage">3. Verträge</h2>
+<h2 id="3-vertrage-contract-risk-auditor">3. Verträge &amp; Contract Risk Auditor</h2>
 <h3 id="zweck_1">Zweck</h3>
 <ul>
 <li>Erfassung laufender Verträge.</li>
 <li>Ablaufdaten und Kündigungsfristen im Blick behalten.</li>
+<li><strong>Contract Risk Auditor:</strong> Automatische Identifikation von Risiken wie Indexmiete.</li>
 </ul>
 <h3 id="typische-felder_1">Typische Felder</h3>
 <ul>
@@ -227,18 +230,21 @@
 <li><code>cancellation_period</code></li>
 <li><code>amount</code></li>
 <li><code>document_id</code></li>
+<li><code>property_unit</code></li>
 </ul>
-<h3 id="ablauf_1">Ablauf</h3>
+<h3 id="ablauf-auditor">Ablauf &amp; Auditor</h3>
 <ol>
 <li>Dokument wird als Vertrag klassifiziert.</li>
-<li>LLM extrahiert Vertragsdaten oder Nutzer erfasst manuell.</li>
-<li>Seite <code>Contracts.tsx</code> listet Verträge.</li>
+<li>LLM extrahiert Vertragsdaten.</li>
+<li><strong>Auditor-Modul:</strong> Die Pipeline durchsucht den Text parallel nach Mustern ("Indexmiete", "Staffelmiete", "Selbstbeteiligung").</li>
+<li>Warnungen werden direkt in das <code>notes</code> Feld des Vertrages oder Dokuments geschrieben, um den Nutzer sofort bei der Prüfung darauf aufmerksam zu machen.</li>
+<li>Seite <code>Contracts.tsx</code> listet Verträge inklusive ihrer Risikofaktoren.</li>
 </ol>
-<h2 id="4-ausgaben-services">4. Ausgaben (Services)</h2>
+<h2 id="4-ausgaben-services-predictive-forecasting">4. Ausgaben (Services) &amp; Predictive Forecasting</h2>
 <h3 id="zweck_2">Zweck</h3>
 <ul>
-<li>Erfassung wiederkehrender oder einmaliger Ausgaben.</li>
-<li>Grundlage für Auswertungen und Steuer-Positionen.</li>
+<li>Erfassung wiederkehrender oder einmaliger Ausgaben (Strom, Wasser, Handwerker).</li>
+<li>Grundlage für Auswertungen, Steuer-Positionen und Prognosen.</li>
 </ul>
 <h3 id="typische-felder_2">Typische Felder</h3>
 <ul>
@@ -248,27 +254,28 @@
 <li><code>date</code></li>
 <li><code>category</code></li>
 <li><code>document_id</code></li>
+<li><code>property_unit</code></li>
 </ul>
-<h3 id="ablauf_2">Ablauf</h3>
-<ol>
-<li>Rechnung oder Beleg wird importiert.</li>
-<li><code>services</code>-Eintrag wird aus dem Dokument extrahiert.</li>
-<li>Seite <code>Services.tsx</code> zeigt Ausgabenübersicht.</li>
-</ol>
-<h2 id="5-gemeinsame-muster">5. Gemeinsame Muster</h2>
+<h3 id="predictive-utility-forecasting-monitor">Predictive Utility Forecasting (Monitor)</h3>
+<p>Die historischen Ausgabendaten (Services) der Kategorien Strom, Wasser, Heizung bilden die Datenbasis für das <strong>Forecasting</strong>.
+- Der Endpunkt <code>/monitor/forecast</code> lädt Zeitreihen aus der Datenbank.
+- Mittels <code>numpy.polyfit</code> (lineare Regression ersten Grades) wird ein Trend für das Folgejahr errechnet.
+- Das System generiert daraus natürliche Sprach-Empfehlungen ("Die Nebenkosten steigen um 8%. Es wird empfohlen, die Vorauszahlungen der Mieter anzupassen.").</p>
+<h2 id="5-gemeinsame-muster-mfh">5. Gemeinsame Muster &amp; MFH</h2>
 <ul>
 <li>Jedes Modul hat ein Repository unter <code>backend/db/</code>.</li>
 <li>API-Router unter <code>backend/api/routes/</code>.</li>
 <li>Frontend-Seite unter <code>frontend/src/pages/</code>.</li>
 <li>Verknüpfung zum Quelldokument über <code>document_id</code>.</li>
+<li><strong>MFH-Zentrierung:</strong> Alle drei Tabellen (<code>items</code>, <code>contracts</code>, <code>services</code>) besitzen die Spalte <code>property_unit</code>. Dies erlaubt eine schnelle Aggregation (z.B. "Wie viel kostet das EG?").</li>
 </ul>
 <h2 id="6-integration-mit-steuer-modul">6. Integration mit Steuer-Modul</h2>
 <ul>
 <li><code>services.amount</code>, <code>contracts.amount</code> und <code>items.total_price</code> fließen in die Low-Value-Betragsprüfung ein.</li>
-<li>Steuer-Positionen können aus diesen Entitäten abgeleitet werden.</li>
+<li>Steuer-Positionen können aus diesen Entitäten abgeleitet werden. (Siehe Proactive Tax Linking in Phase 8c).</li>
 </ul>
 <h2 id="7-hinweis">7. Hinweis</h2>
-<p>Diese Module sind primär Datenerfassungs- und Übersichtsmodule. Die genaue Extraktionslogik pro Dokumententyp befindet sich in den jeweiligen Repositories und Prompts.</p>
+<p>Diese Module sind primär Datenerfassungs- und Übersichtsmodule. Die genaue Extraktionslogik pro Dokumententyp befindet sich in den jeweiligen Repositories und Prompts (<code>backend/prompts.py</code>).</p>
     <footer>
       PaperVault Dokumentation · Generiert aus Markdown
     </footer>

@@ -182,7 +182,7 @@
 <ol>
 <li><a href="#1-erste-schritte">Erste Schritte</a></li>
 <li><a href="#2-dashboard">Dashboard</a></li>
-<li><a href="#3-inbox--dokumente-prüfen">Inbox – Dokumente prüfen</a></li>
+<li><a href="#3-prüfung--dokumente-kontrollieren">Prüfung – Dokumente kontrollieren</a></li>
 <li><a href="#4-dokumente-durchsuchen">Dokumente durchsuchen</a></li>
 <li><a href="#5-dokument-bearbeiten">Dokument bearbeiten</a></li>
 <li><a href="#6-duplikate">Duplikate</a></li>
@@ -191,9 +191,9 @@
 <li><a href="#9-ignorieren-und-sperren">Ignorieren und Sperren</a></li>
 <li><a href="#10-sammlungen">Sammlungen</a></li>
 <li><a href="#11-steuer-modul">Steuer-Modul</a></li>
-<li><a href="#12-inventar-verträge-ausgaben">Inventar, Verträge, Ausgaben</a></li>
-<li><a href="#13-ki-suche">KI-Suche</a></li>
-<li><a href="#14-monitor">Monitor</a></li>
+<li><a href="#12-haus--vermietung-mfh-verträge-ausgaben">Haus &amp; Vermietung (MFH), Verträge, Ausgaben</a></li>
+<li><a href="#13-ki-suche--hybrid-rag">KI-Suche &amp; Hybrid RAG</a></li>
+<li><a href="#14-monitor--forecasting">Monitor &amp; Forecasting</a></li>
 <li><a href="#15-feedback">Feedback</a></li>
 <li><a href="#16-einstellungen">Einstellungen</a></li>
 <li><a href="#17-fehlerbehebung">Fehlerbehebung</a></li>
@@ -213,17 +213,17 @@ cd frontend
 npm run dev
 </code></pre>
 <p>Die Web-App ist dann unter <code>http://localhost:5173</code> erreichbar, das Backend unter <code>http://localhost:8000</code>.</p>
+<h3 id="navigation-sidebar">Navigation &amp; Sidebar</h3>
+<p>Die Navigation ist in vier übersichtliche Bereiche gegliedert:
+- <strong>Eingang &amp; Suche:</strong> Dashboard, Prüfung (früher Inbox), Dokumente, Sammlungen, KI-Suche.
+- <strong>Haus &amp; Vermietung:</strong> Inventar, Verträge, Services, Absender.
+- <strong>Steuern &amp; Qualität:</strong> Steuer-Modul, Geringer Wert, Feedback, Duplikate.
+- <strong>System:</strong> Monitor, Einstellungen.</p>
 <h3 id="dark-mode">Dark Mode</h3>
 <ul>
 <li>Über das Sonne/Mond-Icon oben links in der Sidebar umschalten.</li>
 <li>Der Modus folgt initial der Systemeinstellung.</li>
 </ul>
-<h3 id="erstkonfiguration">Erstkonfiguration</h3>
-<ol>
-<li>Unter <strong>Einstellungen</strong> das Archiv-Verzeichnis und das Quellverzeichnis prüfen.</li>
-<li>Ein geeignetes LLM-Modell (GGUF) hinterlegen.</li>
-<li>Optionale OCR-Tools (Tesseract, Poppler) im PATH prüfen.</li>
-</ol>
 <hr />
 <h2 id="2-dashboard">2. Dashboard</h2>
 <p>Das Dashboard zeigt einen schnellen Überblick:</p>
@@ -236,69 +236,22 @@ npm run dev
 </ul>
 <p>Klick auf eine Karte oder ein Diagramm führt oft direkt zur gefilterten Dokumentenliste.</p>
 <hr />
-<h2 id="3-inbox-dokumente-prufen">3. Inbox – Dokumente prüfen</h2>
-<p>Die Inbox zeigt Dokumente, die noch nicht als endgültig klassifiziert sind.</p>
+<h2 id="3-prufung-dokumente-kontrollieren">3. Prüfung – Dokumente kontrollieren</h2>
+<p>Unter <strong>Prüfung</strong> (früher "Inbox") finden Sie Dokumente, die noch nicht als endgültig klassifiziert sind.</p>
 <h3 id="reiter">Reiter</h3>
 <ul>
 <li><strong>Zu überprüfen</strong> (<code>review</code>): Dokumente, bei denen die KI-Klassifikation geprüft werden soll.</li>
-<li><strong>In Verarbeitung</strong> (<code>processing</code> / <code>pending</code>): Dokumente, die gerade verarbeitet werden.</li>
-<li><strong>Fehlgeschlagen</strong> (<code>classification_failed</code>): Dokumente, die nicht automatisch klassifiziert werden konnten (z. B. verschlüsselte oder korrupte PDFs).</li>
+<li><strong>In Verarbeitung</strong> (<code>processing</code> / <code>pending</code>): Dokumente, die gerade verarbeitet werden (PDF, Word, Excel).</li>
+<li><strong>Fehlgeschlagen</strong> (<code>classification_failed</code>): Dokumente, die nicht automatisch klassifiziert werden konnten.</li>
 </ul>
 <h3 id="aktionen-pro-dokument">Aktionen pro Dokument</h3>
 <ul>
-<li><strong>Öffnen</strong>: PDF ansehen.</li>
-<li><strong>Bearbeiten</strong>: Sender, Datum, Kategorie, Dokumententyp, Zusammenfassung korrigieren.</li>
+<li><strong>Öffnen</strong>: Datei ansehen.</li>
+<li><strong>Bearbeiten</strong>: Sender, Datum, Kategorie, Dokumententyp, Wohneinheit (MFH), Zusammenfassung korrigieren.</li>
 <li><strong>Bestätigen</strong>: Dokument als überprüft markieren (<code>status = ok</code>).</li>
 <li><strong>Neu verarbeiten</strong>: KI-Klassifikation mit optionalem Hinweis wiederholen.</li>
 <li><strong>Löschen</strong>: Dokument samt Datei entfernen.</li>
 </ul>
-<h3 id="massenbearbeitung">Massenbearbeitung</h3>
-<ul>
-<li>Mehrere Dokumente über Checkboxen auswählen.</li>
-<li>Mit den Buttons oben alle ausgewählten Dokumente bestätigen oder neu verarbeiten.</li>
-</ul>
-<h3 id="wichtige-ui-elemente">Wichtige UI-Elemente</h3>
-<table>
-<thead>
-<tr>
-<th>Element</th>
-<th>Typ</th>
-<th>Funktion</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Zu überprüfen / In Verarbeitung / Fehlgeschlagen</td>
-<td>Tabs</td>
-<td>Wechselt die Dokumentengruppe</td>
-</tr>
-<tr>
-<td>Checkbox</td>
-<td>Checkbox</td>
-<td>Dokument für Massenaktion selektieren</td>
-</tr>
-<tr>
-<td>Expand-Icon</td>
-<td>Button</td>
-<td>Klappbare Detail-Bearbeitung öffnen</td>
-</tr>
-<tr>
-<td>Sender / Datum / Kategorie / Typ</td>
-<td>Eingabe- und Dropdown-Felder</td>
-<td>Metadaten im Expand-Bereich korrigieren</td>
-</tr>
-<tr>
-<td>Öffnen / Bestätigen / Neu verarbeiten / Löschen</td>
-<td>Buttons</td>
-<td>Aktionen pro Dokument</td>
-</tr>
-<tr>
-<td>Alle bestätigen / Alle neu verarbeiten</td>
-<td>Buttons</td>
-<td>Massenaktionen für selektierte Dokumente</td>
-</tr>
-</tbody>
-</table>
 <hr />
 <h2 id="4-dokumente-durchsuchen">4. Dokumente durchsuchen</h2>
 <p>Unter <strong>Dokumente</strong> befindet sich die zentrale Übersicht aller archivierten Dokumente.</p>
@@ -311,656 +264,68 @@ npm run dev
 <p>Oben in der Leiste stehen verschiedene Filter zur Verfügung:</p>
 <ul>
 <li><strong>Suche</strong> (<code>q</code>): Volltextsuche über Dateiname, Sender, Zusammenfassung, Keywords.</li>
-<li><strong>Kategorie</strong>: Nach Dokumentenkategorie filtern.</li>
+<li><strong>Kategorie &amp; Wohneinheit</strong>: Nach Dokumentenkategorie oder MFH-Einheit (EG, OG) filtern.</li>
 <li><strong>Jahr</strong>: Archivierungsjahr.</li>
 <li><strong>Sender</strong>: Nach Absender filtern.</li>
 <li><strong>Status</strong>: z. B. <code>ok</code>, <code>review</code>, <code>locked</code>, <code>ignored</code>, <code>missing</code>.</li>
 <li><strong>Steuerrelevant</strong>: Nur als steuerrelevant markierte Dokumente.</li>
-<li><strong>Geringer Wert</strong>: Nur Dokumente mit <code>low_value = 1</code>.</li>
-<li><strong>Kein Absender</strong>: Dokumente ohne erkannten Absender.</li>
-<li><strong>Confidence</strong>: Nach Klassifikations-Confidence filtern (<code>low</code>, <code>medium</code>, <code>high</code>).</li>
-<li><strong>Tag</strong>: Nach Tag filtern (sofern Tags vergeben sind).</li>
 </ul>
-<h3 id="schnellfilter-in-der-sidebar">Schnellfilter in der Sidebar</h3>
-<ul>
-<li><strong>Fehlgeschlagen</strong></li>
-<li><strong>Steuerrelevant</strong></li>
-<li><strong>Läuft ab</strong> (nächste 60 Tage)</li>
-<li><strong>Datei fehlt</strong></li>
-<li><strong>Kein Absender</strong></li>
-<li><strong>Geringer Wert</strong></li>
-</ul>
-<p>Klick auf einen Schnellfilter öffnet die Dokumentenliste mit dem passenden Filter.</p>
-<h3 id="sortierung">Sortierung</h3>
-<ul>
-<li>Nach Dateiname, Sender, Datum, Kategorie, Status, Archivierungsdatum sortierbar.</li>
-<li>Auf- oder absteigend.</li>
-</ul>
-<h3 id="selektion-und-bulk-edit">Selektion und Bulk-Edit</h3>
-<ul>
-<li>Checkboxen in der Liste ermöglichen die Mehrfachauswahl.</li>
-<li>Oben rechts „Bulk-Edit“: Feld wählen (z. B. Kategorie, Steuerjahr, Tags), Wert eingeben, auf alle ausgewählten Dokumente anwenden.</li>
-<li>Rückgängig machen über den gelben Undo-Banner, der nach einem Bulk-Edit erscheint.</li>
-</ul>
-<h3 id="wichtige-ui-elemente_1">Wichtige UI-Elemente</h3>
-<table>
-<thead>
-<tr>
-<th>Element</th>
-<th>Typ</th>
-<th>Funktion</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Volltext suchen</td>
-<td>Eingabefeld</td>
-<td>Volltextsuche über Dateiname, Sender, Summary, Keywords</td>
-</tr>
-<tr>
-<td>Kategorie / Jahr / Status</td>
-<td>Dropdowns</td>
-<td>Filter nach Kategorie, Archivierungsjahr oder Status</td>
-</tr>
-<tr>
-<td>Steuer / Läuft ab / Kein Absender / Geringer Wert</td>
-<td>Toggle-Buttons</td>
-<td>Schnellfilter umschalten</td>
-</tr>
-<tr>
-<td>Confidence</td>
-<td>Dropdown</td>
-<td>Filter nach Klassifikations-Confidence</td>
-</tr>
-<tr>
-<td>Suchen</td>
-<td>Button</td>
-<td>Lädt Ergebnisse mit aktiven Filtern</td>
-</tr>
-<tr>
-<td>Zurücksetzen</td>
-<td>Button</td>
-<td>Entfernt alle Filter</td>
-</tr>
-<tr>
-<td>Aktive Filter-Pills</td>
-<td>Badges</td>
-<td>Zeigt gesetzte Filter mit ✕ zum Entfernen</td>
-</tr>
-<tr>
-<td>CSV</td>
-<td>Link</td>
-<td>Exportiert gefilterte Liste als CSV</td>
-</tr>
-<tr>
-<td>Listen-/Grid-Ansicht</td>
-<td>Buttons</td>
-<td>Wechselt zwischen Tabelle und Thumbnails</td>
-</tr>
-<tr>
-<td>Checkboxen in Tabelle</td>
-<td>Checkboxen</td>
-<td>Selektion für Bulk-Edit</td>
-</tr>
-<tr>
-<td>Dateiname</td>
-<td>Link</td>
-<td>Öffnet Dokumenten-Detailansicht</td>
-</tr>
-<tr>
-<td>Pagination</td>
-<td>Buttons</td>
-<td>Blättern zwischen Seiten</td>
-</tr>
-</tbody>
-</table>
 <hr />
 <h2 id="5-dokument-bearbeiten">5. Dokument bearbeiten</h2>
 <p>Klick auf einen Dateinamen öffnet die Detailansicht.</p>
 <h3 id="metadaten-bearbeiten">Metadaten bearbeiten</h3>
 <p>Folgende Felder können geändert werden:</p>
 <ul>
-<li>Dateiname (optional umbenennen)</li>
+<li>Dateiname (optional umbenennen, bei Office-Dateien bleibt die Endung)</li>
 <li>Sender</li>
 <li>Datum</li>
 <li>Dokumententyp</li>
-<li>Kategorie</li>
+<li>Kategorie &amp; <strong>Wohneinheit (MFH)</strong> (EG, OG, DG, UG, Gesamthaus)</li>
 <li>Zusammenfassung</li>
-<li>Tags (kommasepariert)</li>
-<li>Steuerrelevant (Checkbox)</li>
-<li>Steuerjahr</li>
+<li>Tags (kommasepariert, z.B. Auto-Modell <code>vehicle_id</code> oder Kind <code>child_name</code>)</li>
+<li>Steuerrelevant &amp; Steuerjahr</li>
 <li>Läuft ab (Ablaufdatum)</li>
-<li>Notizen</li>
-<li>Status</li>
+<li>Notizen (Hier hinterlegt der Contract Auditor auch Warnungen)</li>
 </ul>
-<h3 id="wichtige-hinweise">Wichtige Hinweise</h3>
-<ul>
-<li><strong>Gesperrte Dokumente</strong> (<code>locked</code>) können nicht bearbeitet werden. Entsperren vor einer Änderung.</li>
-<li><strong>Ignorierte Dokumente</strong> (<code>ignored</code>) können ebenfalls nicht bearbeitet werden.</li>
-<li>Änderungen an Metadaten werden gespeichert, sobald der „Speichern“-Button geklickt wird.</li>
-</ul>
-<h3 id="pdf-ansehen">PDF ansehen</h3>
-<ul>
-<li>Klick auf das PDF zeigt die Datei an (sofern vorhanden).</li>
-<li>Bei fehlender Datei wird der Status automatisch auf <code>missing</code> gesetzt.</li>
-</ul>
-<h3 id="aktionen">Aktionen</h3>
-<ul>
-<li><strong>Neu verarbeiten</strong>: LLM-Klassifikation wiederholen.</li>
-<li><strong>Bestätigen</strong>: Status auf <code>ok</code> setzen.</li>
-<li><strong>Ignorieren / Wiederherstellen</strong></li>
-<li><strong>Sperren / Entsperren</strong></li>
-<li><strong>Löschen</strong>: Dokument samt Datei entfernen.</li>
-</ul>
-<h3 id="wichtige-ui-elemente_2">Wichtige UI-Elemente</h3>
-<table>
-<thead>
-<tr>
-<th>Element</th>
-<th>Typ</th>
-<th>Funktion</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Zurück</td>
-<td>Button</td>
-<td>Zurück zur Dokumentenliste</td>
-</tr>
-<tr>
-<td>Dateiname</td>
-<td>Eingabefeld</td>
-<td>Umbenennen (gesperrt bei locked/ignored)</td>
-</tr>
-<tr>
-<td>Sender</td>
-<td>Eingabefeld mit Autocomplete</td>
-<td>Absender ändern</td>
-</tr>
-<tr>
-<td>Datum / Typ / Kategorie</td>
-<td>Eingabe- und Dropdown-Felder</td>
-<td>Metadaten bearbeiten</td>
-</tr>
-<tr>
-<td>Zusammenfassung / Notizen</td>
-<td>Textareas</td>
-<td>Freitext</td>
-</tr>
-<tr>
-<td>Tags</td>
-<td>Eingabefeld</td>
-<td>Kommaseparierte Tags</td>
-</tr>
-<tr>
-<td>Steuerrelevant / Steuerjahr / Läuft ab</td>
-<td>Checkbox / Felder</td>
-<td>Steuer- und Ablaufdaten</td>
-</tr>
-<tr>
-<td>Status</td>
-<td>Dropdown</td>
-<td>Dokumentenstatus ändern</td>
-</tr>
-<tr>
-<td>Speichern</td>
-<td>Button</td>
-<td>Speichert alle Änderungen</td>
-</tr>
-<tr>
-<td>PDF-Vorschau</td>
-<td>Bereich</td>
-<td>Zeigt die PDF-Datei an</td>
-</tr>
-<tr>
-<td>Neu verarbeiten / Bestätigen / Ignorieren / Sperren / Löschen</td>
-<td>Buttons</td>
-<td>Dokumentenaktionen</td>
-</tr>
-</tbody>
-</table>
 <hr />
 <h2 id="6-duplikate">6. Duplikate</h2>
-<p>Unter <strong>Duplikate</strong> werden Dokumente angezeigt, die denselben Inhaltshash haben.</p>
-<h3 id="ablauf">Ablauf</h3>
-<ul>
-<li>Beim Import wird anhand des SHA256-Hashes geprüft, ob ein Dokument bereits existiert.</li>
-<li>Doppelte Dateien werden automatisch in den <code>duplicates/</code>-Ordner verschoben und mit Status <code>duplicate</code> markiert.</li>
-<li>Wenn der Original-Hash als <code>locked</code> geschützt ist, wird das Duplikat ebenfalls abgelehnt.</li>
-</ul>
-<h3 id="manueller-umgang">Manueller Umgang</h3>
-<ul>
-<li>Duplikate können eingesehen und gelöscht werden.</li>
-<li>Das Original-Dokument behält den Status <code>ok</code> oder <code>locked</code>.</li>
-</ul>
-<hr />
 <h2 id="7-absender-verwalten">7. Absender verwalten</h2>
-<p>Unter <strong>Absender</strong> werden alle erkannten Absender aufgelistet.</p>
-<h3 id="ansicht">Ansicht</h3>
-<ul>
-<li>Name des Absenders</li>
-<li>Anzahl der zugeordneten Dokumente</li>
-<li>Zugeordnete Kategorien</li>
-<li>Festgepinnte Kategorie/Dokumententyp</li>
-<li>Review-Status</li>
-</ul>
-<h3 id="aktionen_1">Aktionen</h3>
-<ul>
-<li><strong>Kategorie festlegen</strong>: Feste Kategorie für alle zukünftigen Dokumente dieses Absenders setzen.</li>
-<li><strong>Dokumententyp festlegen</strong>: Typ vorbelegen.</li>
-<li><strong>Reviewed</strong>: Absender als geprüft markieren.</li>
-<li><strong>Zusammenführen</strong>: Zwei Absender-Einträge vereinen.</li>
-<li><strong>Umbenennen</strong>: Schreibweise korrigieren.</li>
-<li><strong>Neu laden</strong>: <code>senders.json</code> ohne Backend-Neustart neu einlesen.</li>
-<li><strong>Neu aufbauen</strong>: Sender-Registry aus allen Dokumenten neu generieren.</li>
-<li><strong>Audit</strong>: Plausibilitätsprüfung für Absender starten (sofern implementiert).</li>
-</ul>
-<h3 id="tipps">Tipps</h3>
-<ul>
-<li>Unreviewte Absender werden im Sidebar-Badge angezeigt.</li>
-<li>Eine feste Kategorie beschleunigt die zukünftige Klassifikation.</li>
-</ul>
-<h3 id="wichtige-ui-elemente_3">Wichtige UI-Elemente</h3>
-<table>
-<thead>
-<tr>
-<th>Element</th>
-<th>Typ</th>
-<th>Funktion</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Suche</td>
-<td>Eingabefeld</td>
-<td>Filter nach Absendernamen</td>
-</tr>
-<tr>
-<td>Nur Unreviewed</td>
-<td>Toggle</td>
-<td>Zeigt nur unreviewte Absender</td>
-</tr>
-<tr>
-<td>Neu laden / Neu aufbauen / Audit</td>
-<td>Buttons</td>
-<td>Registry-Verwaltung</td>
-</tr>
-<tr>
-<td>Name / Anzahl / Kategorien / Gepinnt</td>
-<td>Tabellenspalten</td>
-<td>Absenderübersicht</td>
-</tr>
-<tr>
-<td>Gepinnte Kategorie / Gepinnter Typ</td>
-<td>Dropdowns</td>
-<td>Inline-Edit für Kategorie/Typ</td>
-</tr>
-<tr>
-<td>Reviewed</td>
-<td>Checkbox</td>
-<td>Absender als geprüft markieren</td>
-</tr>
-<tr>
-<td>Zusammenführen</td>
-<td>Dropdown</td>
-<td>Merge-Ziel für Absender wählen</td>
-</tr>
-<tr>
-<td>Umbenennen / Löschen</td>
-<td>Buttons</td>
-<td>Absender-Änderungen</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h2 id="8-geringer-wert-regeln">8. Geringer-Wert-Regeln</h2>
-<p>Siehe auch: <a href="feature-low-value-rules.md"><code>feature-low-value-rules.md</code></a></p>
-<h3 id="zweck">Zweck</h3>
-<p>Dokumente automatisch als „geringer Wert“ markieren, um unwichtige Belege zu kennzeichnen.</p>
-<h3 id="regeln-erstellen">Regeln erstellen</h3>
-<ol>
-<li>Menü <strong>Geringer Wert</strong> in der Sidebar öffnen.</li>
-<li>Name vergeben.</li>
-<li>Bedingungen auswählen:</li>
-<li>Kategorie</li>
-<li>Dokumententyp</li>
-<li>Maximalbetrag (wird gegen <code>items</code>, <code>services</code>, <code>contracts</code> geprüft)</li>
-<li>Älter als X Tage</li>
-<li><strong>Regel erstellen</strong>.</li>
-</ol>
-<h3 id="regel-testen-und-anwenden">Regel testen und anwenden</h3>
-<ul>
-<li><strong>Vorschau</strong> zeigt alle passenden Dokumente, ohne sie zu verändern.</li>
-<li><strong>Anwenden</strong> markiert alle passenden Dokumente mit <code>low_value = 1</code>.</li>
-</ul>
-<h3 id="filter-in-dokumentenliste">Filter in Dokumentenliste</h3>
-<ul>
-<li>Über den Button <strong>Geringer Wert</strong> oder den Sidebar-Schnellfilter lassen sich als gering markierte Dokumente anzeigen.</li>
-</ul>
-<h3 id="wichtige-ui-elemente_4">Wichtige UI-Elemente</h3>
-<table>
-<thead>
-<tr>
-<th>Element</th>
-<th>Typ</th>
-<th>Funktion</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Name / Kategorie / Typ / Maximalbetrag / Alter</td>
-<td>Eingabe- und Dropdown-Felder</td>
-<td>Regelkriterien</td>
-</tr>
-<tr>
-<td>Aktiv</td>
-<td>Checkbox</td>
-<td>Regel ein-/ausschalten</td>
-</tr>
-<tr>
-<td>Regel erstellen</td>
-<td>Button</td>
-<td>Speichert neue Regel</td>
-</tr>
-<tr>
-<td>Aktiv-Toggle</td>
-<td>Schalter</td>
-<td>Regel (de-)aktivieren</td>
-</tr>
-<tr>
-<td>Vorschau / Anwenden / Löschen</td>
-<td>Buttons</td>
-<td>Regel testen, anwenden oder entfernen</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h2 id="9-ignorieren-und-sperren">9. Ignorieren und Sperren</h2>
-<p>Siehe auch: <a href="feature-ignore-lock.md"><code>feature-ignore-lock.md</code></a></p>
-<h3 id="ignorieren">Ignorieren</h3>
-<ul>
-<li>In der Dokumenten-Detailansicht auf <strong>Ignorieren</strong> klicken.</li>
-<li>Das Dokument verschwindet aus der Standardliste.</li>
-<li>Der Inhaltshash wird gespeichert, damit das Dokument nicht erneut importiert wird.</li>
-<li>Ignorierte Dokumente werden in den <code>ignored/</code>-Ordner verschoben.</li>
-</ul>
-<h3 id="ignorieren-ruckgangig-machen">Ignorieren rückgängig machen</h3>
-<ol>
-<li>In der Dokumentenliste den Status-Filter <strong>Irrelevant</strong> wählen.</li>
-<li>Dokument öffnen.</li>
-<li><strong>Wiederherstellen</strong> klicken.</li>
-</ol>
-<h3 id="sperren">Sperren</h3>
-<ul>
-<li>In der Detailansicht auf <strong>Sperren</strong> klicken.</li>
-<li>Gesperrte Dokumente können nicht bearbeitet oder gelöscht werden.</li>
-<li>Duplikate eines gesperrten Hashes werden abgewiesen.</li>
-</ul>
-<h3 id="entsperren">Entsperren</h3>
-<ul>
-<li>In der Detailansicht auf <strong>Entsperren</strong> klicken.</li>
-<li>Das Schloss-Icon in der Liste verschwindet.</li>
-</ul>
-<hr />
 <h2 id="10-sammlungen">10. Sammlungen</h2>
-<p>Unter <strong>Sammlungen</strong> können Dokumente thematisch gruppiert werden (z. B. „Umbau 2024“, „Versicherungen“).</p>
-<h3 id="sammlung-erstellen">Sammlung erstellen</h3>
-<ol>
-<li>Auf <strong>Sammlungen</strong> klicken.</li>
-<li><strong>Neue Sammlung</strong> mit Name, Beschreibung und Farbe anlegen.</li>
-</ol>
-<h3 id="dokumente-hinzufugen">Dokumente hinzufügen</h3>
-<ul>
-<li>In der Dokumentenliste über Bulk-Edit „Zur Sammlung hinzufügen“ wählen.</li>
-<li>Oder in der Sammlungs-Detailansicht einzelne Dokumente hinzufügen.</li>
-</ul>
-<h3 id="export">Export</h3>
-<ul>
-<li>Sammlungen können als ZIP heruntergeladen werden.</li>
-</ul>
-<h3 id="wichtige-ui-elemente_5">Wichtige UI-Elemente</h3>
-<table>
-<thead>
-<tr>
-<th>Element</th>
-<th>Typ</th>
-<th>Funktion</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Neue Sammlung</td>
-<td>Button</td>
-<td>Formular öffnen</td>
-</tr>
-<tr>
-<td>Name / Beschreibung / Farbe</td>
-<td>Eingabe- und Auswahlfelder</td>
-<td>Sammlung anlegen</td>
-</tr>
-<tr>
-<td>Sammlungskachel</td>
-<td>Card</td>
-<td>Link zur Detailansicht</td>
-</tr>
-<tr>
-<td>Zurück / Bearbeiten / Löschen</td>
-<td>Buttons</td>
-<td>Sammlung verwalten</td>
-</tr>
-<tr>
-<td>ZIP-Download</td>
-<td>Link</td>
-<td>Alle Dokumente als ZIP</td>
-</tr>
-<tr>
-<td>Dokumentenliste in Sammlung</td>
-<td>Tabelle</td>
-<td>Zugeordnete Dokumente</td>
-</tr>
-</tbody>
-</table>
+<p><em>(Diese Funktionen funktionieren wie gehabt, siehe UI)</em></p>
 <hr />
 <h2 id="11-steuer-modul">11. Steuer-Modul</h2>
-<p>Detaillierte Architektur und Planung: <a href="blueprint_tax_module.md"><code>blueprint_tax_module.md</code></a></p>
-<h3 id="steuerjahr-anlegen">Steuerjahr anlegen</h3>
-<ol>
-<li>Menü <strong>Steuer</strong> → <strong>Steuerjahre</strong> öffnen.</li>
-<li>Jahr eingeben und anlegen.</li>
-</ol>
-<h3 id="dokumente-verknupfen">Dokumente verknüpfen</h3>
-<ul>
-<li>In der Steuerjahres-Detailansicht Dokumente hinzufügen.</li>
-<li>Mögliche Quellen:</li>
-<li><code>tax_program_export</code> (Export aus Steuersoftware)</li>
-<li><code>assessment_notice</code> (Finanzamtsbescheid)</li>
-</ul>
-<h3 id="positionen-extrahieren">Positionen extrahieren</h3>
-<ul>
-<li>Klick auf <strong>Extrahieren</strong> startet das lokale LLM.</li>
-<li>Das LLM liest <code>full_text</code> und erzeugt strukturierte Positionen (Kategorie, Unterkategorie, Betrag, Seite).</li>
-<li>Positionen müssen vom Benutzer verifiziert werden.</li>
-</ul>
-<h3 id="positionen-korrigieren">Positionen korrigieren</h3>
-<ul>
-<li>Betrag, Kategorie, Unterkategorie, Bezeichnung bearbeiten.</li>
-<li><strong>Verifiziert</strong>-Checkbox setzen.</li>
-<li>Positionen löschen, falls falsch erkannt.</li>
-</ul>
-<h3 id="vergleich-export-vs-bescheid">Vergleich Export vs. Bescheid</h3>
-<ul>
-<li>Wenn sowohl Steuerprogramm-Export als auch Bescheid vorliegen, zeigt das Modul Abweichungen (<code>amount</code> vs. <code>amount_assessed</code>).</li>
-</ul>
-<h3 id="weitere-ansichten">Weitere Ansichten</h3>
-<ul>
-<li><strong>Entwicklung</strong>: Zeitreihe der Beträge pro Kategorie über mehrere Jahre.</li>
-<li><strong>Vergleich</strong>: Jahr gegen Jahr vergleichen.</li>
-<li><strong>Steuer-Assistent</strong>: KI-Chat für Steuerfragen.</li>
-</ul>
-<h3 id="wichtige-ui-elemente_6">Wichtige UI-Elemente</h3>
-<table>
-<thead>
-<tr>
-<th>Element</th>
-<th>Typ</th>
-<th>Funktion</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Jahr anlegen</td>
-<td>Formular</td>
-<td>Neues Steuerjahr erstellen</td>
-</tr>
-<tr>
-<td>Jahreskachel / Liste</td>
-<td>Card / Tabelle</td>
-<td>Zeigt Jahr, Status, Anzahl Positionen</td>
-</tr>
-<tr>
-<td>Dokument verknüpfen</td>
-<td>Button</td>
-<td>Steuerprogramm-Export oder Bescheid hinzufügen</td>
-</tr>
-<tr>
-<td>Extrahieren</td>
-<td>Button</td>
-<td>Startet LLM-Extraktion der Positionen</td>
-</tr>
-<tr>
-<td>Positionen-Tabelle</td>
-<td>Tabelle</td>
-<td>Zeigt extrahierte Positionen</td>
-</tr>
-<tr>
-<td>Betrag / Kategorie / Unterkategorie / Bezeichnung</td>
-<td>Eingabefelder</td>
-<td>Position korrigieren</td>
-</tr>
-<tr>
-<td>Verifiziert</td>
-<td>Checkbox</td>
-<td>Position als geprüft markieren</td>
-</tr>
-<tr>
-<td>Position löschen</td>
-<td>Button</td>
-<td>Falsche Position entfernen</td>
-</tr>
-<tr>
-<td>Vergleich / Entwicklung / Steuer-Assistent</td>
-<td>Tabs / Links</td>
-<td>Weitere Steuer-Ansichten</td>
-</tr>
-</tbody>
-</table>
+<h3 id="proactive-tax-linking-phase-8c">Proactive Tax Linking (Phase 8c)</h3>
+<p>Dokumente der Kategorien <code>Haus_Gemeinkosten</code>, <code>OG_Miete</code> oder <code>DG_Miete</code> werden vom System beim Archivieren vollautomatisch als Entwurf ("draft") im passenden Steuerjahr angelegt. Sie müssen diese nur noch prüfen.</p>
 <hr />
-<h2 id="12-inventar-vertrage-ausgaben">12. Inventar, Verträge, Ausgaben</h2>
-<p>Diese Module erfassen spezifische Informationen aus Dokumenten.</p>
-<h3 id="inventar">Inventar</h3>
-<ul>
-<li>Erfassung von Gegenständen/Geräten.</li>
-<li>Verknüpfung mit Quelldokumenten.</li>
-</ul>
-<h3 id="vertrage">Verträge</h3>
-<ul>
-<li>Übersicht eingehender und laufender Verträge.</li>
-<li>Ablaufdaten und Kündigungsfristen verwalten.</li>
-</ul>
-<h3 id="ausgaben-services">Ausgaben (Services)</h3>
-<ul>
-<li>Erfassung wiederkehrender oder einmaliger Ausgaben.</li>
-<li>Verknüpfung mit Dokumenten.</li>
-</ul>
-<blockquote>
-<p>Hinweis: Diese Module sind primär Datenerfassungs- und Übersichtsmodule. Details finden sich in der jeweiligen Seite im Frontend.</p>
-</blockquote>
+<h2 id="12-haus-vermietung-mfh-vertrage-ausgaben">12. Haus &amp; Vermietung (MFH), Verträge, Ausgaben</h2>
+<h3 id="haus-vermietung-mfh">Haus &amp; Vermietung (MFH)</h3>
+<p>Die MFH-Architektur erlaubt die Zuordnung von Dokumenten, Verträgen und Inventar zu spezifischen Wohneinheiten (EG, OG, DG, UG, Gesamthaus). Dies spiegelt sich in den Tabellen und Formularen wider.</p>
+<h3 id="contract-risk-auditor-vertrage">Contract Risk Auditor (Verträge)</h3>
+<p>Die KI prüft beim Import von Verträgen automatisch auf Klauseln wie "Indexmiete", "Staffelmiete" oder "Selbstbeteiligung" und hinterlegt eine Warnung im Notizfeld des Dokuments, damit Sie diese nicht übersehen.</p>
+<h3 id="asset-family-tracking-inventar-tags">Asset &amp; Family Tracking (Inventar &amp; Tags)</h3>
+<p>Dokumente können mit <code>vehicle_id</code> (z.B. Kennzeichen oder Modell) oder <code>child_name</code> getaggt werden. Das System sortiert diese automatisch in entsprechende Unterordner im Dateisystem.</p>
 <hr />
-<h2 id="13-ki-suche">13. KI-Suche</h2>
-<p>Unter <strong>KI-Suche</strong> kann ein lokales LLM befragt werden.</p>
-<h3 id="dokumentenbasierte-fragen">Dokumentenbasierte Fragen</h3>
+<h2 id="13-ki-suche-hybrid-rag">13. KI-Suche &amp; Hybrid RAG</h2>
+<p>Unter <strong>KI-Suche</strong> befragen Sie das lokale LLM über Ihr gesamtes Archiv.</p>
 <ul>
-<li>Fragen über das Archiv stellen.</li>
-<li>Das LLM greift auf indexierte Dokumenteninhalte zu.</li>
+<li><strong>Hybrid RAG Chat:</strong> Die Suche nutzt nun "Hybrid Retrieval". Das bedeutet, es wird nicht nur nach exakten Stichworten (FTS5) gesucht, sondern auch nach semantischer Bedeutung (Vektor-Embeddings via GPU). Wenn Sie "Wo ist der Vertrag für das Internet?" fragen, findet das System auch Dokumente, die nur "Breitbandanschluss" oder "Router" erwähnen.</li>
 </ul>
-<h3 id="steuer-assistent">Steuer-Assistent</h3>
-<ul>
-<li>Spezieller Chat für Steuerfragen.</li>
-<li>Berücksichtigt verknüpfte Steuerjahre und Positionen.</li>
-</ul>
-<blockquote>
-<p>Wichtig: Die KI ersetzt keine Steuerberatung.</p>
-</blockquote>
 <hr />
-<h2 id="14-monitor">14. Monitor</h2>
-<p>Der <strong>Monitor</strong> zeigt den Live-Status der Inbox-Verarbeitung.</p>
-<h3 id="anzeigen">Anzeigen</h3>
-<ul>
-<li>Aktuell im Inbox-Ordner befindliche Dateien.</li>
-<li>Verarbeitungsstatus in Echtzeit per SSE-Stream.</li>
-<li>Duplikat-Anzahl.</li>
-</ul>
-<h3 id="aktionen_2">Aktionen</h3>
-<ul>
-<li>Archiver manuell starten.</li>
-<li>Status der Verarbeitung beobachten.</li>
-</ul>
+<h2 id="14-monitor-forecasting">14. Monitor &amp; Forecasting</h2>
+<p>Der <strong>Monitor</strong> zeigt den Live-Status der Verarbeitung an.</p>
+<h3 id="predictive-utility-forecasting">Predictive Utility Forecasting</h3>
+<p>Neu auf der Monitor/Analytics Seite ist das <strong>Forecasting</strong>. Das System nutzt lineare Regression (Numpy Polyfit) über Ihre historischen Rechnungen für Wasser, Strom und Heizung, um die Kosten für das nächste Jahr vorherzusagen. Es generiert Empfehlungen, ob die Nebenkostenvorauszahlungen der Mieter (MFH) angepasst werden sollten.</p>
 <hr />
 <h2 id="15-feedback">15. Feedback</h2>
-<p>Unter <strong>Feedback</strong> können Feedback-Einträge zu Dokumenten oder der Anwendung erfasst werden.</p>
-<ul>
-<li>Kategorien wie Fehler, Wünsche, Bewertungen.</li>
-<li>Hilft bei der Weiterentwicklung des Systems.</li>
-</ul>
-<hr />
 <h2 id="16-einstellungen">16. Einstellungen</h2>
-<p>Unter <strong>Einstellungen</strong> werden globale Optionen konfiguriert.</p>
-<h3 id="typische-einstellungen">Typische Einstellungen</h3>
-<ul>
-<li>Pfade für Inbox, Archiv, Ignored, Duplikate.</li>
-<li>LLM-Modellpfad.</li>
-<li>OCR-Optionen.</li>
-<li>Dark-Mode-Standard.</li>
-<li>Weitere Konfigurationen je nach Version.</li>
-</ul>
+<p>Unter <strong>Einstellungen</strong> werden globale Optionen konfiguriert, unter anderem auch die Aktivierung der MFH-Einheiten und die LLM-Pfade.</p>
 <hr />
 <h2 id="17-fehlerbehebung">17. Fehlerbehebung</h2>
-<h3 id="seite-bleibt-leer-oder-schwarz">Seite bleibt leer oder schwarz</h3>
-<ol>
-<li>Browser-Konsole mit <strong>F12</strong> öffnen.</li>
-<li>Roten Fehlertext lesen.</li>
-<li>Häufige Ursachen:</li>
-<li>Vite-Dev-Server hat die API-Route nicht gelernt → Frontend-Server neu starten.</li>
-<li>Backend läuft nicht → <code>start_all.ps1</code> prüfen.</li>
-<li>API liefert unerwartetes Format → Backend-Logs prüfen.</li>
-</ol>
-<h3 id="dokumente-werden-nicht-verarbeitet">Dokumente werden nicht verarbeitet</h3>
 <ul>
-<li>Prüfen, ob Archiver läuft (Monitor-Seite).</li>
-<li>Prüfen, ob PDF lesbar ist (nicht verschlüsselt/korrupt).</li>
-<li>Prüfen, ob LLM geladen ist.</li>
-</ul>
-<h3 id="ocr-funktioniert-nicht">OCR funktioniert nicht</h3>
-<ul>
-<li><code>tesseract --version</code> und <code>pdftoppm -v</code> im Terminal prüfen.</li>
-<li>Pfade in den Umgebungsvariablen/PATH hinterlegen.</li>
-</ul>
-<h3 id="api-fehler-500">API-Fehler 500</h3>
-<ul>
-<li>Backend-Log im Terminal lesen.</li>
-<li>Datenbank auf Fehler prüfen: <code>.venv\Scripts\python backend/db/connection.py</code> oder Tests laufen lassen.</li>
-</ul>
-<h3 id="tests-ausfuhren">Tests ausführen</h3>
-<pre><code class="language-powershell">.venv\Scripts\python -m pytest tests/ -q
-</code></pre>
-<hr />
-<h2 id="siehe-auch">Siehe auch</h2>
-<ul>
-<li><a href="FEATURES.md"><code>FEATURES.md</code></a> – Übersicht aller Features</li>
-<li><a href="feature-ignore-lock.md"><code>feature-ignore-lock.md</code></a> – Ignore / Lock</li>
-<li><a href="feature-low-value-rules.md"><code>feature-low-value-rules.md</code></a> – Low-Value-Rules</li>
-<li><a href="blueprint_tax_module.md"><code>blueprint_tax_module.md</code></a> – Steuer-Modul (detailliert)</li>
-<li>Backend läuft → OpenAPI-Doku unter <code>http://localhost:8000/docs</code></li>
+<li><strong>VLM OCR Fallback:</strong> Wenn ein Dokument sehr schlecht gescannt ist, übernimmt im Hintergrund das Moondream2 Vision-Language Model. Dies kann etwas länger dauern als klassisches OCR, liefert aber deutlich bessere Ergebnisse bei Handy-Fotos.</li>
+<li><strong>Word/Excel:</strong> <code>docx</code> und <code>xlsx</code> Dateien werden nun nativ unterstützt und müssen nicht mehr als PDF gedruckt werden.</li>
 </ul>
     <footer>
       PaperVault Dokumentation · Generiert aus Markdown

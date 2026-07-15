@@ -174,21 +174,33 @@
   </aside>
   <main>
 <h1 id="papervault-feature-ubersicht">PaperVault – Feature-Übersicht</h1>
-<p>Stand: 2026-07-12 (aus Code abgeleitet)</p>
+<p>Stand: 2026-07-14 (RTX 3060 Power-Features &amp; MFH Update)</p>
 <h2 id="kern-features">Kern-Features</h2>
-<h3 id="pdf-archivierungspipeline">PDF-Archivierungspipeline</h3>
+<h3 id="pdf-office-archivierungspipeline">PDF &amp; Office Archivierungspipeline</h3>
 <ul>
-<li>Überwacht den Inbox-Ordner auf neue PDFs.</li>
+<li>Überwacht den Inbox-Ordner auf neue PDFs, <code>.docx</code> und <code>.xlsx</code> Dateien (Zero-Dependency Word/Excel Support). Originaldateinamen von Office-Dokumenten bleiben erhalten.</li>
 <li>Extrahiert Text aus nativen und gescannten PDFs (OCR via Tesseract/Poppler).</li>
+<li><strong>Lokales VLM OCR Fallback:</strong> Nutzt Moondream2 (GPU) für perfektioniertes OCR, wenn PyTesseract bei Fotos oder schiefen Scans &lt; 50 Zeichen liefert.</li>
 <li>Klassifiziert Dokumente lokal mit einem GGUF-LLM (llama-cpp-python, keine Cloud).</li>
 <li>Ordnet Dokumente automatisch in eine hierarchische Ordnerstruktur ein (<code>Kategorie/Sender/Jahr/Monat/</code>).</li>
-<li>Speichert Metadaten in SQLite.</li>
+</ul>
+<h3 id="haus-vermietung-mfh">Haus &amp; Vermietung (MFH)</h3>
+<ul>
+<li><strong>Mehrfamilienhaus-Architektur (MFH):</strong> Zuordnung von Dokumenten, Verträgen und Inventar zu Wohneinheiten (EG, OG, DG, UG, Gesamthaus).</li>
+<li><strong>Vermieter-Rolleninversion:</strong> Ausgehende Dokumente (z.B. an Mieter) werden in <code>00_Ausgehend_Vermieter</code> archiviert, wenn der Archivbesitzer der Sender ist.</li>
+<li><strong>Predictive Utility Forecasting:</strong> <code>/monitor/forecast</code> berechnet mit Numpy Polyfit (lineare Regression) historische Nebenkosten (Strom, Wasser) und gibt natürliche Sprach-Empfehlungen für Mieter-Vorauszahlungen.</li>
+<li><strong>Contract Risk Auditor:</strong> Die KI scannt Verträge auf Risiken ("Indexmiete", "Staffelmiete", "Selbstbeteiligung") und hinterlegt automatisch Warnungen in den Notizen.</li>
+</ul>
+<h3 id="asset-family-tracking">Asset &amp; Family Tracking</h3>
+<ul>
+<li>Automatische Erkennung und Tagging von <code>vehicle_id</code> (z.B. Golf, Tesla, Motorrad) und <code>child_name</code> (z.B. Lena, Felix).</li>
+<li>Ablage im Dateisystem in dedizierten Unterordnern für Fahrzeuge und Kinder.</li>
 </ul>
 <h3 id="dokumentenverwaltung">Dokumentenverwaltung</h3>
 <ul>
 <li>Listenansicht mit Suche, Filtern und Sortierung.</li>
 <li>Grid-Ansicht mit Thumbnails.</li>
-<li>Detailansicht zum Bearbeiten von Metadaten (Sender, Datum, Kategorie, Dokumententyp, Tags, Steuerjahr, Notizen, Ablaufdatum, …).</li>
+<li>Detailansicht zum Bearbeiten von Metadaten (Sender, Datum, Kategorie, Dokumententyp, Tags, Steuerjahr, Wohneinheit, Notizen, Ablaufdatum, …).</li>
 <li>Status-Workflow: <code>ok</code>, <code>review</code>, <code>pending</code>, <code>duplicate</code>, <code>missing</code>, <code>encrypted</code>, <code>corrupt</code>, <code>no_text</code>, <code>classification_failed</code>, <code>ignored</code>, <code>locked</code>.</li>
 <li>Bulk-Edit für mehrere Dokumente.</li>
 <li>Download und Wiederherstellung (Undo) für Bulk-Edits.</li>
@@ -217,40 +229,28 @@
 <li>Filter nach Kategorie, Dokumententyp, Betrag (≤ max. Betrag aus items/services/contracts), Alter (Älter als X Tage).</li>
 <li>Vorschau-Funktion, bevor Regeln angewendet werden.</li>
 </ul>
-<h3 id="steuer-modul-tax">Steuer-Modul (Tax)</h3>
+<h3 id="steuer-modul-tax-proactive-linking">Steuer-Modul (Tax) &amp; Proactive Linking</h3>
 <ul>
 <li>Steuerjahre anlegen und verwalten.</li>
-<li>Automatische/ manuelle Zuordnung von Dokumenten zu Steuerjahren.</li>
+<li><strong>Proactive Tax Linking (Phase 8c):</strong> Dokumente der Kategorien <code>Haus_Gemeinkosten</code>, <code>OG_Miete</code> oder <code>DG_Miete</code> werden vollautomatisch als Entwurf mit dem passenden Steuerjahr verknüpft.</li>
+<li>Automatische/manuelle Zuordnung von Dokumenten zu Steuerjahren.</li>
 <li>Steuerpositionen (Einnahmen / Ausgaben).</li>
-<li>Jahresvergleich, Entwicklungsübersicht, KI-Chat für Steuerfragen.</li>
+<li>Jahresvergleich, Entwicklungsübersicht.</li>
 </ul>
 <h3 id="sammlungen-collections">Sammlungen (Collections)</h3>
 <ul>
 <li>Dokumente in thematischen Sammlungen gruppieren.</li>
 <li>Detailansicht pro Sammlung.</li>
 </ul>
-<h3 id="inventar">Inventar</h3>
+<h3 id="inventar-vertrage-ausgaben">Inventar, Verträge &amp; Ausgaben</h3>
 <ul>
-<li>Verwaltung von Gegenständen/Geräten aus Dokumenten.</li>
+<li><strong>Inventar:</strong> Verwaltung von Gegenständen/Geräten aus Dokumenten, inkl. Wohneinheiten.</li>
+<li><strong>Verträge:</strong> Erfassung und Übersicht von Verträgen, Risiko-Auditing (Staffelmiete etc.).</li>
+<li><strong>Ausgaben (Services):</strong> Erfassung wiederkehrender / einmaliger Ausgaben.</li>
 </ul>
-<h3 id="vertrage">Verträge</h3>
+<h3 id="ki-suche-chat-hybrid-rag">KI-Suche (Chat) &amp; Hybrid RAG</h3>
 <ul>
-<li>Erfassung und Übersicht von Verträgen.</li>
-</ul>
-<h3 id="ausgaben-services">Ausgaben (Services)</h3>
-<ul>
-<li>Erfassung wiederkehrender / einmaliger Ausgaben.</li>
-</ul>
-<h3 id="validierung">Validierung</h3>
-<ul>
-<li>Validierungs-Workflow für Dokumente.</li>
-</ul>
-<h3 id="feedback">Feedback</h3>
-<ul>
-<li>Feedback-Mechanismus für einzelne Dokumente.</li>
-</ul>
-<h3 id="ki-suche-chat">KI-Suche (Chat)</h3>
-<ul>
+<li><strong>Hybrid RAG:</strong> Kombiniert semantische Vektorsuche (Embeddings in SQLite BLOBs, Cosine Similarity via Numpy im RAM) mit FTS5 Keywords.</li>
 <li>Chat-Interface mit lokalem LLM.</li>
 <li>Steuer-spezifischer Chat.</li>
 </ul>
@@ -261,13 +261,15 @@
 </ul>
 <h3 id="uiux">UI/UX</h3>
 <ul>
+<li>Sidebar in 4 Bereiche gegliedert: "Eingang &amp; Suche", "Haus &amp; Vermietung", "Steuern &amp; Qualität", "System".</li>
+<li>Die klassische "Inbox" Seite heißt jetzt "Prüfung".</li>
 <li>React + Vite + Tailwind CSS.</li>
 <li>Dark Mode.</li>
 <li>Sidebar mit Schnellfiltern und Badges.</li>
 </ul>
 <h2 id="backend">Backend</h2>
 <ul>
-<li>FastAPI mit SQLite.</li>
+<li>FastAPI mit SQLite (FTS5 + BLOB).</li>
 <li>Repository-Pattern für DB-Zugriff.</li>
 <li>Automatische OpenAPI-Doku unter <code>/docs</code> (wenn Server läuft).</li>
 <li>CORS konfiguriert für den Vite-Dev-Server.</li>
