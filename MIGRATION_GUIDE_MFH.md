@@ -42,6 +42,7 @@ import os
 import shutil
 import sqlite3
 import re
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -70,7 +71,7 @@ NEW_FOLDER_MAP = {
     "Gesundheit":             "03_Gesundheit_und_Vorsorge",
     "EG_Kosten":              "04_EG_Kosten",
     "Fahrzeug":               "05_Fahrzeug",
-    "Einkauf & Konsum":       "06_Consum_und_Einkauf",
+    "Einkauf & Konsum":       "06_Konsum_und_Einkauf",
     "Haus_Gemeinkosten":      "07_Gesamthaus_Gemeinkosten",
     "OG_Miete":               "08_Vermietung_OG",
     "DG_Miete":               "09_Vermietung_DG",
@@ -103,7 +104,7 @@ def migrate():
     cursor = conn.cursor()
 
     # Query all active documents
-    docs = cursor.execute("SELECT id, file_path, category, sender, date, document_type, filename, keywords, summary FROM documents").fetchall()
+    docs = cursor.execute("SELECT id, file_path, category, sender, date, document_type, filename, keywords, summary, low_value, status, archived_at, confidence FROM documents").fetchall()
     print(f"Retrieved {len(docs)} documents from database.")
 
     migrated_count = 0
@@ -164,9 +165,29 @@ def migrate():
                     new_cat = "Kinder_und_Ausbildung"
                 break
 
-        # C. Compute final directory structure
-        folder_name = NEW_FOLDER_MAP.get(new_cat, "12_Sonstiges")
-        root_dir = ROOT_MAP.get(new_cat, "1_Privat_und_Alltag")
+        # C. Auto-Verification & Low Value Triage
+        low_value = doc["low_value"]
+        status = doc["status"]
+        archived_at = doc["archived_at"]
+        confidence = doc["confidence"]
+
+        # Spam & Low Value Triage: Move low_value items to Temp-Archive
+        if low_value == 1 or "parkschein" in summary_lower or "brötchen" in summary_lower:
+            low_value = 1
+            root_dir = "low_value_dump"
+            # Reset retention timer to today so the 90-day shredder works correctly
+            archived_at = datetime.now().isoformat(timespec="seconds")
+            folder_name = ""
+        else:
+            # Auto-Verification Matrix (Pareto 80/20 Rule)
+            if status != "locked" and new_cat != "Sonstiges" and doc["sender"]:
+                # If LLM confidence was high or sender is known, auto-lock it!
+                if confidence == "high" or any(k in sender_lower for k in ("allianz", "stadtwerke", "telekom", "amazon", "paypal")):
+                    status = "locked"
+
+            folder_name = NEW_FOLDER_MAP.get(new_cat, "12_Sonstiges")
+            root_dir = ROOT_MAP.get(new_cat, "1_Privat_und_Alltag")
+
         use_year = new_cat != "Privatversicherungen" # Policies are timeless
 
         # Extract year
@@ -177,15 +198,18 @@ def migrate():
         safe_sender = re.sub(r'[\\/:*?"<>|\r\n\t]', '_', doc["sender"])[:50].strip() if doc["sender"] else "Unbekannt"
 
         # Form final folder path based on sub-tags
-        if new_cat == "Fahrzeug" and vehicle_id:
-            folder_name = os.path.join(folder_name, vehicle_id)
-        elif (new_cat == "Kinder_und_Ausbildung" or new_cat == "Gesundheit") and child_name:
-            folder_name = os.path.join(folder_name, child_name)
-
-        if use_year:
-            new_dir = os.path.join(TARGET_BASE_NORM, root_dir, folder_name, safe_sender, year)
+        if root_dir == "low_value_dump":
+            new_dir = os.path.join(TARGET_BASE_NORM, root_dir, year)
         else:
-            new_dir = os.path.join(TARGET_BASE_NORM, root_dir, folder_name, safe_sender)
+            if new_cat == "Fahrzeug" and vehicle_id:
+                folder_name = os.path.join(folder_name, vehicle_id)
+            elif (new_cat == "Kinder_und_Ausbildung" or new_cat == "Gesundheit") and child_name:
+                folder_name = os.path.join(folder_name, child_name)
+
+            if use_year:
+                new_dir = os.path.join(TARGET_BASE_NORM, root_dir, folder_name, safe_sender, year)
+            else:
+                new_dir = os.path.join(TARGET_BASE_NORM, root_dir, folder_name, safe_sender)
 
         os.makedirs(new_dir, exist_ok=True)
         new_path = os.path.normpath(os.path.join(new_dir, doc["filename"]))
@@ -208,8 +232,8 @@ def migrate():
 
         # E. Update SQLite Record
         cursor.execute(
-            "UPDATE documents SET file_path = ?, category = ?, property_unit = ?, vehicle_id = ?, child_name = ? WHERE id = ?",
-            (new_path, new_cat, property_unit, vehicle_id, child_name, doc["id"])
+            "UPDATE documents SET file_path = ?, category = ?, property_unit = ?, vehicle_id = ?, child_name = ?, low_value = ?, status = ?, archived_at = ? WHERE id = ?",
+            (new_path, new_cat, property_unit, vehicle_id, child_name, low_value, status, archived_at, doc["id"])
         )
         migrated_count += 1
 
