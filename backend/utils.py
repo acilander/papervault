@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 import logging
@@ -6,7 +7,8 @@ from logging.handlers import RotatingFileHandler
 from typing import Optional
 
 _file_loggers: dict[str, logging.Logger] = {}
-_FORCED_LOG_FILE: Optional[str] = None
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+_FORCED_LOG_FILE: Optional[str] = os.path.normpath(os.path.join(_BACKEND_DIR, "archiver_stdout.log"))
 
 def _get_file_logger(log_file: str) -> logging.Logger:
     if log_file not in _file_loggers:

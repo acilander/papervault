@@ -181,25 +181,45 @@ def ocr_pdf(file_path):
     log("Kein eingebetteter Text – starte OCR (kann einige Sekunden dauern)...")
     try:
         t0 = time.time()
-        all_pages = convert_from_path(file_path, dpi=300)
-        num_pages = len(all_pages)
+        import io
+        from PIL import Image
+
+        doc = fitz.open(file_path)
+        num_pages = len(doc)
+
         # Consistent with extract_text: only first + last page for long docs
         if num_pages <= 2:
-            pages_to_ocr = list(enumerate(all_pages, 1))
+            pages_to_ocr = list(range(num_pages))
         else:
-            pages_to_ocr = [(1, all_pages[0]), (num_pages, all_pages[-1])]
-        log(f"PDF in {num_pages} Seite(n) gerendert. Starte Texterkennung ({len(pages_to_ocr)} Seite(n))...")
-        parts = []
-        for i, page in pages_to_ocr:
-            log(f"  OCR Seite {i}/{num_pages}...")
-            t_text = pytesseract.image_to_string(page, lang="deu+eng")
+            pages_to_ocr = [0, num_pages - 1]
 
-            # Local VLM OCR Fallback if PyTesseract is unsuccessful
+        log(f"PDF hat {num_pages} Seite(n). Starte zero-dependency Rendering ({len(pages_to_ocr)} Seite(n))...")
+        parts = []
+        for idx in pages_to_ocr:
+            log(f"  Rendere und verarbeite Seite {idx+1}/{num_pages}...")
+            page = doc[idx]
+            
+            # Use PyMuPDF's built-in, zero-dependency high-resolution (300 DPI) pixmap rendering!
+            # DPI 300 is achieved by setting matrix zoom factor (matrix = fitz.Matrix(300/72, 300/72) -> ~4.16)
+            zoom = 300 / 72
+            matrix = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=matrix)
+            img_data = pix.tobytes("png")
+            img = Image.open(io.BytesIO(img_data))
+
+            # 1. Try PyTesseract OCR
+            t_text = ""
+            try:
+                t_text = pytesseract.image_to_string(img, lang="deu+eng")
+            except Exception as pe:
+                log(f"    PyTesseract-Fehler (Weiche zu VLM): {pe}")
+
+            # 2. Local VLM OCR Fallback if PyTesseract is unsuccessful or returned empty
             if len(t_text.strip()) < 50:
                 log(f"    PyTesseract unbefriedigend ({len(t_text)} Zeichen). Starte lokales VLM (Moondream2) OCR...")
                 try:
                     from vision import ocr_image
-                    vlm_text = ocr_image(page)
+                    vlm_text = ocr_image(img)
                     if len(vlm_text.strip()) > len(t_text.strip()):
                         log(f"    VLM OCR erfolgreich! ({len(vlm_text)} Zeichen extrahiert)")
                         t_text = vlm_text
@@ -207,6 +227,9 @@ def ocr_pdf(file_path):
                     log(f"    VLM OCR fehlgeschlagen (ignoriert): {ve}")
 
             parts.append(t_text)
+
+        doc.close()
+
         if num_pages > 2:
             parts.insert(1, "[... WEITERE SEITEN ÜBERSPRUNGEN ...]")
         text = "\n".join(parts)

@@ -93,12 +93,21 @@ def _extract_text(file_path: str, doc_id: int):
     german_word_count = sum(1 for w in words if w in _COMMON_GERMAN_WORDS)
     density = (german_word_count / len(words)) if words else 0.0
 
-    log(f"Wörterbuch-Prüfung: {len(words)} Wörter, davon {german_word_count} deutsche Begriffe ({density * 100:.1f}% Dichte)")
+    # Calculate alphanumeric ratio (to protect structured tables, timesheets, and numeric reports)
+    stripped_text = text.strip()
+    alnum_count = sum(1 for c in stripped_text if c.isalnum() or c.isspace())
+    alnum_ratio = (alnum_count / len(stripped_text)) if stripped_text else 0.0
 
-    # If character count is too low, OR if the text density is under 15% (strong garbage scan artifact), force OCR!
-    if len(text.strip()) < 50 or (len(text.strip()) >= 50 and density < 0.15):
-        if len(text.strip()) >= 50 and density < 0.15:
-            log(f"WARNUNG: Text-Zeichensalat erkannt (Dichte {density*100:.1f}% < 15%). Erzwinge echtes OCR...")
+    log(f"Wörterbuch-Prüfung: {len(words)} Wörter, davon {german_word_count} deutsche Begriffe ({density * 100:.1f}% Dichte) | Alnum-Verhältnis: {alnum_ratio * 100:.1f}%")
+
+    # Force OCR only if:
+    # 1. Character count is too low (< 50)
+    # OR 2. Text density is under 15% AND it is NOT a clean alphanumeric structured document (alnum_ratio < 75%)
+    is_garbage_scan = len(text.strip()) >= 50 and density < 0.15 and alnum_ratio < 0.75
+
+    if len(text.strip()) < 50 or is_garbage_scan:
+        if is_garbage_scan:
+            log(f"WARNUNG: Text-Zeichensalat erkannt (Dichte {density*100:.1f}% < 15%, Alnum {alnum_ratio*100:.1f}% < 75%). Erzwinge echtes OCR...")
         text = ocr_pdf(file_path)
 
     if len(text.strip()) < 50:
