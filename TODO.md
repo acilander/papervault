@@ -67,3 +67,7 @@ Jeder Step in `core.py` hat seinen eigenen Fehler-Pfad. Ein zentraler Pipeline-R
 - [x] Es werden dokumente als 100% duplikat erkannt, dabei sind es ähnlich strukturierte dokumente mit anderm datum z.B. Entgeltabrechnung. Wie kann man das verbessern.
 - warum kann ich in den settings nicht den pfad der dokumenten ablage definieren, wie ausgemacht?
 - wurde die KI-Suche mittlerweile verbessert und auf die ganze datenbank erweitert?
+- warum sind nicht alle settings aus dem json in der UI konfigurierbar? Das war doch der plan?
+- in den md datein haben wir eine neue individualle ordenerstruktur definiert. Findest du das?
+- Die promtgröße muss an das genutze modell angepasst werden.
+- ist die intelligente LLM kaskadae eingebaut? Ein grober prompt der dann an spezialisierte prompts weitergegebn wird?
