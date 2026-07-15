@@ -84,3 +84,55 @@ def test_connection_is_thread_local():
 
     assert len(conns) == 2
     assert conns[0] is not conns[1]
+
+
+def test_transaction_nesting_depth_commit():
+    """Verify nested transactions only commit on outermost exit."""
+    with get_conn() as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS test_nesting(x TEXT)")
+
+    with get_conn() as conn1:
+        conn1.execute("INSERT INTO test_nesting VALUES ('outer-start')")
+        with get_conn() as conn2:
+            conn2.execute("INSERT INTO test_nesting VALUES ('inner-val')")
+        # Since outer is not exited, we shouldn't commit if inner had its own commit logic,
+        # but with depth counter both are committed only when outer exits.
+
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM test_nesting").fetchall()
+        assert len(rows) == 2
+
+
+def test_transaction_nesting_depth_rollback():
+    """Verify nested transactions rollback completely on exception in inner block."""
+    with get_conn() as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS test_nesting_rollback(x TEXT)")
+
+    with pytest.raises(RuntimeError):
+        with get_conn() as conn1:
+            conn1.execute("INSERT INTO test_nesting_rollback VALUES ('outer-val')")
+            with get_conn() as conn2:
+                conn2.execute("INSERT INTO test_nesting_rollback VALUES ('inner-val')")
+                raise RuntimeError("inner boom")
+
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM test_nesting_rollback").fetchall()
+        assert len(rows) == 0
+
+
+def test_claim_document_status():
+    """Verify atomic state transitions via claim_document_status."""
+    from db.documents_repo import upsert_document, get_document, claim_document_status
+    doc_id = upsert_document("C:/temp/test.pdf", "test.pdf", "Sender", "2025-01-01", "Rechnung", "Sonstiges", "Summary", status="review")
+
+    # Successful transition
+    success = claim_document_status(doc_id, "review", "processing")
+    assert success is True
+    doc = get_document(doc_id)
+    assert doc["status"] == "processing"
+
+    # Unsuccessful transition (wrong old_status)
+    fail = claim_document_status(doc_id, "review", "ok")
+    assert fail is False
+    doc = get_document(doc_id)
+    assert doc["status"] == "processing"

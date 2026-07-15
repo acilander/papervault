@@ -65,7 +65,7 @@ def get_archiver_status():
 def start_archiver():
     return archiver_start()
 
-@router.post("/archiver/stop")
+@router.post("/router/stop")
 def stop_archiver():
     return archiver_stop()
 
@@ -104,7 +104,7 @@ def process_all_inbox():
         try:
             if os.path.isdir(SOURCE_DIR):
                 for fname in os.listdir(SOURCE_DIR):
-                    if fname.lower().endswith(".pdf"):
+                    if fname.lower().endswith((".pdf", ".docx", ".xlsx")):
                         fpath = os.path.join(SOURCE_DIR, fname)
                         try:
                             process_pdf(fpath)
@@ -127,19 +127,13 @@ _inbox_last_scan = 0
 _inbox_lock = threading.Lock()
 
 def _pre_classify_file(fpath: str) -> dict:
-    """Runs a super fast regex/text-based pre-classification on a PDF file
+    """Runs a super fast regex/text-based pre-classification on a file
     without running any LLM inference."""
-    import fitz
+    from pdf_utils import extract_text
     from llm.driver import detect_known_sender
     try:
-        doc = fitz.open(fpath)
-        text = ""
-        if len(doc) > 0:
-            page = doc[0]
-            text = page.get_text("text")[:1000]
-        doc.close()
-
-        sender, category = detect_known_sender(text)
+        text, _ = extract_text(fpath)
+        sender, category = detect_known_sender(text[:1000])
         return {"pre_sender": sender, "pre_category": category}
     except Exception:
         return {"pre_sender": None, "pre_category": None}
@@ -148,7 +142,7 @@ def _scan_inbox() -> list:
     res = []
     if os.path.isdir(SOURCE_DIR):
         for fname in os.listdir(SOURCE_DIR):
-            if fname.lower().endswith(".pdf"):
+            if fname.lower().endswith((".pdf", ".docx", ".xlsx")):
                 fpath = os.path.join(SOURCE_DIR, fname)
                 try:
                     st = os.stat(fpath)

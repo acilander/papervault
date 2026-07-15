@@ -117,39 +117,42 @@ def upsert(name: str, entry: dict):
 
 def update(name: str, **kwargs):
     """Partially update a sender entry. Only provided keys are changed."""
-    if not exists(name):
-        return
-    entry = get(name)
-    for key, val in kwargs.items():
-        entry[key] = val
-    upsert(name, entry)
+    with get_conn() as conn:
+        if not exists(name):
+            return
+        entry = get(name)
+        for key, val in kwargs.items():
+            entry[key] = val
+        upsert(name, entry)
 
 
 def record_category(name: str, category: str) -> bool:
     """Add category to sender if not already present. Returns True if changed."""
-    entry = get(name)
-    if entry is None:
-        upsert(name, {"categories": [category], "pinned_category": None,
-                      "excluded_categories": [], "aliases": [], "reviewed": False})
-        return True
-    if category not in entry["categories"]:
-        cats = sorted(entry["categories"] + [category])
-        update(name, categories=cats)
-        return True
-    return False
+    with get_conn() as conn:
+        entry = get(name)
+        if entry is None:
+            upsert(name, {"categories": [category], "pinned_category": None,
+                          "excluded_categories": [], "aliases": [], "reviewed": False})
+            return True
+        if category not in entry["categories"]:
+            cats = sorted(entry["categories"] + [category])
+            update(name, categories=cats)
+            return True
+        return False
 
 
 def rename(old_name: str, new_name: str):
     """Rename sender: preserve old name as alias, update key."""
-    entry = get(old_name)
-    if entry is None:
-        return
-    aliases = entry.get("aliases") or []
-    if old_name not in aliases:
-        aliases = aliases + [old_name]
-    entry["aliases"] = aliases
-    upsert(new_name, entry)
-    delete(old_name)
+    with get_conn() as conn:
+        entry = get(old_name)
+        if entry is None:
+            return
+        aliases = entry.get("aliases") or []
+        if old_name not in aliases:
+            aliases = aliases + [old_name]
+        entry["aliases"] = aliases
+        upsert(new_name, entry)
+        delete(old_name)
 
 
 def delete(name: str):

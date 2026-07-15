@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sys
 import time
 import threading
@@ -16,6 +16,8 @@ import db
 from utils import log as _log
 
 _pdf_queue = queue.Queue()
+_queued_files = set()
+_queued_files_lock = threading.Lock()
 
 
 _LOG_FILE = os.path.join(TARGET_BASE, "archiver.log")
@@ -36,16 +38,24 @@ def _worker():
         except Exception as e:
             log(f"Unbehandelter Fehler in Worker: {e}")
         finally:
+            with _queued_files_lock:
+                _queued_files.discard(file_path)
             _pdf_queue.task_done()
 
 
 class Handler(FileSystemEventHandler):
     def on_created(self, event):
         if event.src_path.lower().endswith((".pdf", ".docx", ".xlsx")):
+            with _queued_files_lock:
+                if event.src_path in _queued_files:
+                    return
+                _queued_files.add(event.src_path)
             if wait_for_file(event.src_path):
                 _pdf_queue.put(event.src_path)
             else:
                 log(f"Datei nicht bereit (Timeout): {event.src_path}")
+                with _queued_files_lock:
+                    _queued_files.discard(event.src_path)
 
 
 if __name__ == "__main__":
@@ -94,6 +104,8 @@ if __name__ == "__main__":
     if existing:
         log(f"Startup-Scan: {len(existing)} neue Datei(en) gefunden - verarbeite zuerst...")
         for filepath in existing:
+            with _queued_files_lock:
+                _queued_files.add(filepath)
             _pdf_queue.put(filepath)
         _pdf_queue.join()
         log("Startup-Scan abgeschlossen.")

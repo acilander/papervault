@@ -256,13 +256,13 @@ def serve_pdf(doc_id: int):
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
     path = doc["file_path"]
-    
+
     # [Fix 4: Lazy Auto-Healing] Check if file exists on disk
     if not os.path.exists(path):
         if doc["status"] != "missing":
             db.update_document(doc_id, status="missing")
         raise HTTPException(status_code=404, detail=f"Datei wurde auf dem Datenträger nicht gefunden (Status in DB auf 'missing' gesetzt): {path}")
-        
+
     return FileResponse(
         path,
         media_type="application/pdf",
@@ -300,15 +300,15 @@ def open_in_explorer(doc_id: int):
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
     path = doc["file_path"]
-    
-    # [Fix 5: Secure OS Command] 
+
+    # [Fix 5: Secure OS Command]
     # Check if path is absolute and actually exists to prevent path traversal/command injection
     abs_path = os.path.abspath(path)
     if not os.path.exists(abs_path):
         if doc["status"] != "missing":
             db.update_document(doc_id, status="missing")
         raise HTTPException(status_code=404, detail=f"Datei nicht gefunden: {abs_path}")
-        
+
     try:
         if os.name == "nt":
             # Safely request Windows Explorer to select the file using a list of arguments
@@ -445,10 +445,10 @@ def confirm_document(doc_id: int):
         raise HTTPException(status_code=400, detail=f"Dokument hat Status '{doc['status']}', erwartet 'review'")
 
     # Atomically claim the document to prevent race conditions (double-click / concurrent requests)
-    db.update_document(doc_id, status="processing")
+    from db.documents_repo import claim_document_status
+    if not claim_document_status(doc_id, "review", "processing"):
+        raise HTTPException(status_code=409, detail="Dokument wird bereits verarbeitet oder hat sich geändert")
     doc = db.get_document(doc_id)
-    if doc["status"] != "processing":
-        raise HTTPException(status_code=409, detail="Dokument wird bereits verarbeitet")
 
     path = doc["file_path"]
     if not os.path.exists(path):

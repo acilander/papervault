@@ -16,7 +16,7 @@ def _connect():
                 _local.conn.close()
             except Exception:
                 pass
-        
+
         conn = sqlite3.connect(db.DB_PATH, timeout=30.0, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
@@ -28,15 +28,22 @@ def _connect():
 @contextmanager
 def get_conn():
     conn = _connect()
-    # Check if a transaction is already active. If yes, yield directly without nested transaction logic
-    in_transaction = conn.in_transaction
+    if not hasattr(_local, "nesting_depth"):
+        _local.nesting_depth = 0
+
+    _local.nesting_depth += 1
     try:
         yield conn
-        if not in_transaction:
+        if _local.nesting_depth == 1:
             conn.commit()
     except Exception:
-        if not in_transaction:
-            conn.rollback()
+        if _local.nesting_depth == 1:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
         raise
-    # Note: We do NOT close the connection here. It remains alive in thread-local storage 
+    finally:
+        _local.nesting_depth -= 1
+    # Note: We do NOT close the connection here. It remains alive in thread-local storage
     # to be reused in subsequent queries, fully eliminating connection overhead!

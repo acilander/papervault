@@ -99,6 +99,16 @@ def update_document(doc_id, **fields):
         conn.execute(f"UPDATE documents SET {set_clause} WHERE id = ?", values)
 
 
+def claim_document_status(doc_id: int, old_status: str, new_status: str) -> bool:
+    """Atomically transition document status. Returns True on success, False if already updated."""
+    with get_conn() as conn:
+        cursor = conn.execute(
+            "UPDATE documents SET status = ? WHERE id = ? AND status = ?",
+            (new_status, doc_id, old_status)
+        )
+        return cursor.rowcount > 0
+
+
 _LIST_COLS = """
     d.id, d.file_path, d.filename, d.sender, d.date, d.document_type, d.category,
     SUBSTR(d.summary, 1, 200) AS summary, d.content_hash, d.status, d.archived_at,
