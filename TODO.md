@@ -65,10 +65,10 @@ Jeder Step in `core.py` hat seinen eigenen Fehler-Pfad. Ein zentraler Pipeline-R
 - [x] die menüstruktur an der linken seite ist historisch ewachsen aber nicht wirklich durchdacht. Schlage eine logischere umsetzung vor
 - [x] wie ist deine einschätzung der funktion des Tax moduls, das mir bei der Steuer helfen soll?
 - [x] Es werden dokumente als 100% duplikat erkannt, dabei sind es ähnlich strukturierte dokumente mit anderm datum z.B. Entgeltabrechnung. Wie kann man das verbessern.
-- warum kann ich in den settings nicht den pfad der dokumenten ablage definieren, wie ausgemacht?
-- wurde die KI-Suche mittlerweile verbessert und auf die ganze datenbank erweitert?
-- warum sind nicht alle settings aus dem json in der UI konfigurierbar? Das war doch der plan?
-- in den md datein haben wir eine neue individualle ordenerstruktur definiert. Findest du das?
-- Die promtgröße muss an das genutze modell angepasst werden.
-- ist die intelligente LLM kaskadae eingebaut? Ein grober prompt der dann an spezialisierte prompts weitergegebn wird?
-- brauche ich die schnellfilter noch im Hauptmenü oder können wir die besser in die ansicht verschieben in der sie auch relevant ist?
+- [x] warum kann ich in den settings nicht den pfad der dokumenten ablage definieren, wie ausgemacht?
+- [x] wurde die KI-Suche mittlerweile verbessert und auf die ganze datenbank erweitert?
+- [x] warum sind nicht alle settings aus dem json in der UI konfigurierbar? Das war doch der plan?
+- [x] in den md datein haben wir eine neue individualle ordenerstruktur definiert. Findest du das?
+- [x] Die promtgröße muss an das genutze modell angepasst werden.
+- [x] ist die intelligente LLM kaskadae eingebaut? Ein grober prompt der dann an spezialisierte prompts weitergegebn wird?
+- [x] brauche ich die schnellfilter noch im Hauptmenü oder können wir die besser in die ansicht verschieben in der sie auch relevant ist?

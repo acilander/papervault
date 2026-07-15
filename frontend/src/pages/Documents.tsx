@@ -227,6 +227,15 @@ export default function Documents() {
     Object.entries({ q, category, year, sender, status }).filter(([, v]) => v)
   ) as Record<string, string>)
 
+  const QUICK_FILTERS = [
+    { label: 'Fehlgeschlagen', color: 'text-orange-600 bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800', isActive: status === 'classification_failed', onClick: () => { setStatus('classification_failed'); setPage(1) } },
+    { label: 'Steuerrelevant', color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800', isActive: taxFilter, onClick: () => { setTaxFilter(p => !p); setPage(1) } },
+    { label: 'Läuft ab', color: 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800', isActive: expiresFilter, onClick: () => { setExpiresFilter(p => !p); setPage(1) } },
+    { label: 'Datei fehlt', color: 'text-red-700 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800', isActive: status === 'missing', onClick: () => { setStatus('missing'); setPage(1) } },
+    { label: 'Kein Absender', color: 'text-gray-600 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700', isActive: noSenderFilter, onClick: () => { setNoSenderFilter(p => !p); setPage(1) } },
+    { label: 'Geringer Wert', color: 'text-gray-500 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700', isActive: lowValueFilter, onClick: () => { setLowValueFilter(p => !p); setPage(1) } },
+  ]
+
   return (
     <div className="p-6 space-y-4">
       <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Dokumente</h2>

@@ -221,7 +221,7 @@ function AppContent() {
                       {label === 'Absender' && badges.unreviewed > 0 && (
                         <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">{badges.unreviewed}</span>
                       )}
-                      {label === 'Inbox' && badges.review > 0 && (
+                      {label === 'Prüfung' && badges.review > 0 && (
                         <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400">{badges.review}</span>
                       )}
                       {label === 'Duplikate' && badges.duplicates > 0 && (
@@ -234,10 +234,6 @@ function AppContent() {
                   ))}
                 </div>
               ))}
-
-            <div className="border-t border-gray-100 dark:border-gray-800 mt-2 pt-1">
-              <SidebarQuickLinks badges={badges} />
-            </div>
           </nav>
         </aside>
         <main className="flex-1 overflow-auto">
