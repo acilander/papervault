@@ -86,9 +86,21 @@ def _build_context(docs: list[dict]) -> str:
 
 
 def _generate_answer(question: str, docs: list[dict]) -> str:
-    if not docs:
-        return "Ich habe keine passenden Dokumente in deinem Archiv gefunden."
     llm = get_llm()
+    if not docs:
+        # ── Allgemeines Konversations-Routing (Allgemeines Wissen Fallback) ──────
+        GENERAL_PROMPT = (
+            "Du bist ein hilfsbereiter KI-Assistent. Beantworte die Frage des Nutzers auf Deutsch, "
+            "präzise, freundlich und in maximal 3-4 Sätzen.\n\n"
+            f"Frage: {question}"
+        )
+        try:
+            output = llm(GENERAL_PROMPT, max_tokens=300, temperature=0.5, stop=["\n\n\n"])
+            return output["choices"][0]["text"].strip()
+        except Exception as e:
+            log(f"[Chat] Allgemeines Fallback-Loading fehlgeschlagen: {e}")
+            return "Ich habe keine passenden Dokumente in deinem Archiv gefunden."
+
     context = _build_context(docs)
     prompt = ANSWER_PROMPT.format(question=question, count=len(docs), context=context)
     try:
