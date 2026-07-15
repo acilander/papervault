@@ -25,7 +25,15 @@ async def lifespan(app: FastAPI):
     from llm import load_model, assert_gpu_support
     if not config.MOCK_LLM:
         assert_gpu_support()
-    threading.Thread(target=load_model, daemon=True, name="llm-preload").start()
+
+    def _preload():
+        try:
+            load_model()
+        except Exception as e:
+            from api.routes import config as config_router
+            config_router._load_error = str(e)
+
+    threading.Thread(target=_preload, daemon=True, name="llm-preload").start()
     yield
     # Shutdown actions (none currently required)
 
