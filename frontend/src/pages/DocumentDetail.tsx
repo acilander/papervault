@@ -185,7 +185,7 @@ export default function DocumentDetail() {
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {field('Absender', 'sender', 'text', isReadOnly)}
           {field('Datum', 'date', 'text', isReadOnly)}
-          {field('Dokumenttyp', 'document_type', 'text', isReadOnly)}
+          {field('Dokumenttyp', 'document_type', 'select', isReadOnly)}
           {field('Kategorie', 'category', 'select', isReadOnly)}
           {field('Zusammenfassung', 'summary', 'textarea', isReadOnly)}
 
