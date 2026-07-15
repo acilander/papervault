@@ -56,12 +56,8 @@ def compute_content_hash(file_path: str, text: str) -> tuple[str, str]:
     
     # Check if filename or text indicates a periodic recurring document
     # where text-based duplicate collisions are highly likely (e.g. payslips, bank statements)
-    fname = os.path.basename(file_path or "").lower()
-    text_lower = cleaned_text.lower()
-    
-    is_periodic = any(w in fname or w in text_lower for w in (
-        "lohn", "entgelt", "gehalt", "abrechnung", "kontoauszug", "kreditkarte", "gehaltsnachweis", "nachweis", "steuernachweis"
-    ))
+    from utils import is_periodic_document
+    is_periodic = is_periodic_document("", os.path.basename(file_path or ""), cleaned_text)
 
     if len(cleaned_text) >= 100 and not is_periodic:
         content_hash = hashlib.sha256(cleaned_text.encode("utf-8")).hexdigest()[:16]

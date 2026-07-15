@@ -31,8 +31,8 @@ class QualityService:
         NUM_BANDS, BITS_PER_BAND = 8, 8
         lsh_buckets: dict = {}
         for doc in sim_docs:
-            # Fix: Ignore periodic documents (Payslips, Bank Statements) for text-similarity matching!
-            if doc.get("document_type") in ("Abrechnung", "Kontoauszug"):
+            from utils import is_periodic_document
+            if is_periodic_document(doc.get("document_type"), doc.get("filename")):
                 continue
             h = doc["sim_hash"]
             for band in range(NUM_BANDS):
@@ -62,6 +62,9 @@ class QualityService:
         meta_docs = [d for d in docs if d.get("sender") and d.get("date") and d.get("document_type")]
         meta_groups: dict = {}
         for doc in meta_docs:
+            from utils import is_periodic_document
+            if is_periodic_document(doc.get("document_type"), doc.get("filename")):
+                continue
             mk = (doc["sender"].strip().lower(), doc["date"][:10] if doc["date"] else "", doc["document_type"].strip().lower())
             meta_groups.setdefault(mk, []).append(doc)
         for mk, group in meta_groups.items():
@@ -79,16 +82,19 @@ class QualityService:
         """Lightweight endpoint: returns count of near-duplicate pairs."""
         with get_conn() as conn:
             rows = conn.execute(
-                "SELECT id, sim_hash FROM documents "
+                "SELECT id, sim_hash, document_type, filename FROM documents "
                 "WHERE sim_hash IS NOT NULL AND sim_hash != 0 AND status IN ('ok', 'review')"
             ).fetchall()
-        docs = [(r["id"], r["sim_hash"]) for r in rows]
+        docs = [(r["id"], r["sim_hash"], r["document_type"], r["filename"]) for r in rows]
         if not docs:
             return {"count": 0}
 
         NUM_BANDS, BITS = 8, 8
         buckets: dict = {}
-        for doc_id, h in docs:
+        for doc_id, h, doc_type, filename in docs:
+            from utils import is_periodic_document
+            if is_periodic_document(doc_type, filename):
+                continue
             for band in range(NUM_BANDS):
                 key = (band, (h >> (band * BITS)) & 0xFF)
                 buckets.setdefault(key, []).append((doc_id, h))

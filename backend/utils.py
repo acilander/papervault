@@ -49,6 +49,24 @@ def normalize_umlauts(s: str) -> str:
             .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
             .replace("ß", "ss"))
 
+def is_periodic_document(doc_type: str, filename: str = "", text: str = "") -> bool:
+    """Checks dynamically if a document belongs to a periodic type (where SimHash collisions are expected)
+    using the user's configured keywords."""
+    from config_manager import get_settings
+    
+    # Extract the configured list of keywords
+    keywords = get_settings().get("periodic_keywords", [
+        "abrechnung", "kontoauszug", "nachweis", "lohn", "gehalt", "entgelt", "kreditkarte"
+    ])
+    
+    search_str = f"{doc_type or ''} {filename}".lower()
+    
+    # Only search text if no type or filename gave a hit, and only search the first 500 chars to avoid false positives
+    if not any(k in search_str for k in keywords):
+        search_str += f" {text[:500]}".lower()
+        
+    return any(k in search_str for k in keywords)
+
 def extract_year(text: str) -> Optional[str]:
     if not text:
         return None
