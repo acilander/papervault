@@ -14,7 +14,6 @@ from pdf_utils import (
     unique_path, extract_features, build_feature_prompt,
     detect_receipt, compute_simhash, generate_thumbnail
 )
-from llm import classify_document, filter_keywords_against_text
 from storage import record_sender, apply_sender_overrides, processing_log
 import db
 from utils import log
@@ -49,8 +48,11 @@ def _extract_text(file_path: str, doc_id: int):
         log(f"VERSCHLUESSELT: PDF ist passwortgeschuetzt. Verschoben nach: {dest}")
         log("--- Abgeschlossen (verschluesselt) ---")
         processing_log(os.path.basename(file_path), "encrypted")
-        db.update_document(doc_id, file_path=dest, filename=os.path.basename(dest),
-                           summary="VERSCHLUESSELT: Das PDF-Dokument ist passwortgeschützt.", status="encrypted")
+        try:
+            db.update_document(doc_id, file_path=dest, filename=os.path.basename(dest),
+                               summary="VERSCHLUESSELT: Das PDF-Dokument ist passwortgeschützt.", status="encrypted")
+        except Exception as e:
+            log(f"WARNUNG: Datei nach encrypted/ verschoben, aber DB-Status-Update fehlgeschlagen (DB gesperrt): {e}")
         cleanup_empty_inbox_folders(file_path)
         return None, None
 
@@ -61,8 +63,11 @@ def _extract_text(file_path: str, doc_id: int):
         log(f"FEHLER: PDF nicht lesbar (korrupt). Verschoben nach: {dest}")
         log("--- Abgeschlossen (fehlgeschlagen) ---")
         processing_log(os.path.basename(file_path), "corrupt")
-        db.update_document(doc_id, file_path=dest, filename=os.path.basename(dest),
-                           summary="FEHLER: PDF-Datei ist nicht lesbar (Datei beschädigt oder ungültig).", status="corrupt")
+        try:
+            db.update_document(doc_id, file_path=dest, filename=os.path.basename(dest),
+                               summary="FEHLER: PDF-Datei ist nicht lesbar (Datei beschädigt oder ungültig).", status="corrupt")
+        except Exception as e:
+            log(f"WARNUNG: Datei nach failed/ verschoben, aber DB-Status-Update fehlgeschlagen (DB gesperrt): {e}")
         cleanup_empty_inbox_folders(file_path)
         return None, None
 

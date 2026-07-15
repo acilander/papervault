@@ -565,12 +565,12 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
 
 def generate_embedding(text: str) -> list[float] | None:
     """Generate an embedding vector for the given text using the loaded LLM."""
-    load_model()
     from config import MOCK_LLM
     if MOCK_LLM:
         # Return a mock 1536-dimensional vector filled with zeros
         return [0.0] * 1536
 
+    load_model()
     try:
         with _llm_lock:
             emb = _llm.embed(text)
