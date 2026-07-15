@@ -25,6 +25,29 @@ Stop-ProcessOnPort 5173
 Write-Host "[API]      Beende ggf. alten Prozess auf Port 8000..."
 Stop-ProcessOnPort 8000
 
+# Diagnostic check: Test GGUF LLM CPU compatibility
+Write-Host "[API]      CPU-Kompatibilitätstest läuft..."
+try {
+    $diagnostic = Start-Process -FilePath "$root\.venv\Scripts\python.exe" `
+        -ArgumentList "-c `"from llama_cpp import Llama; Llama('models/qwen2.5-1.5b-instruct-q4_k_m.gguf', n_ctx=16, n_threads=1, verbose=False)`"" `
+        -WorkingDirectory "$root" `
+        -NoNewWindow -PassThru -Wait
+
+    if ($diagnostic.ExitCode -ne 0) {
+        Write-Host "[API]      WARNUNG: Inkompatible CPU-Vektorbefehle (AVX-512-Konflikt) erkannt!" -ForegroundColor Yellow
+        Write-Host "[API]      Führe automatische CPU-Selbstheilung aus (Dauert ca. 10 Sek)..." -ForegroundColor Yellow
+        Start-Process -FilePath "$root\.venv\Scripts\python.exe" `
+            -ArgumentList "-m pip install llama-cpp-python --prefer-binary --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu --force-reinstall --no-cache-dir" `
+            -WorkingDirectory "$root" `
+            -NoNewWindow -Wait
+        Write-Host "[API]      Selbstheilung erfolgreich abgeschlossen." -ForegroundColor Green
+    } else {
+        Write-Host "[API]      CPU-Kompatibilitätstest erfolgreich: LLM-Engine ist einsatzbereit." -ForegroundColor Green
+    }
+} catch {
+    Write-Host "[API]      WARNUNG: CPU-Test konnte nicht ausgeführt werden. Überspringe Diagnose." -ForegroundColor Yellow
+}
+
 # Start frontend
 Write-Host "[Frontend] Starte Frontend auf Port 5173..."
 $frontend = Start-Process -FilePath "node" `
