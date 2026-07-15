@@ -25,23 +25,56 @@ import TaxChat from './pages/tax/TaxChat'
 import axios from 'axios'
 import { ConfigProvider, useConfig } from './ConfigContext'
 
-const nav = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/inbox', label: 'Inbox', icon: InboxIcon },
-  { to: '/documents', label: 'Dokumente', icon: FileText },
-  { to: '/senders', label: 'Absender', icon: Users },
-  { to: '/chat', label: 'KI-Suche', icon: MessageSquare },
-  { to: '/collections', label: 'Sammlungen', icon: FolderOpen },
-  { to: '/duplicates', label: 'Duplikate', icon: ScanSearch },
-  { to: '/inventory', label: 'Inventar', icon: Package },
-  { to: '/contracts', label: 'Verträge', icon: ScrollText },
-  { to: '/services', label: 'Ausgaben', icon: Wrench },
-  { to: '/validation', label: 'Validierung', icon: ShieldCheck },
-  { to: '/monitor', label: 'Monitor', icon: Activity },
-  { to: '/feedback', label: 'Feedback', icon: BookOpen },
-  { to: '/low-value-rules', label: 'Geringer Wert', icon: AlertTriangle },
-  { to: '/tax/years', label: 'Steuer', icon: Calculator },
-  { to: '/settings', label: 'Einstellungen', icon: SettingsIcon },
+interface NavItem {
+  to: string
+  label: string
+  icon: any
+}
+
+interface NavGroup {
+  title: string
+  landlordOnly?: boolean
+  items: NavItem[]
+}
+
+const navGroups: NavGroup[] = [
+  {
+    title: 'Arbeitsplatz',
+    items: [
+      { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/inbox', label: 'Inbox', icon: InboxIcon },
+      { to: '/documents', label: 'Dokumente', icon: FileText },
+      { to: '/chat', label: 'KI-Suche', icon: MessageSquare },
+    ]
+  },
+  {
+    title: 'Verwaltung',
+    landlordOnly: true,
+    items: [
+      { to: '/collections', label: 'Sammlungen', icon: FolderOpen },
+      { to: '/inventory', label: 'Inventar', icon: Package },
+      { to: '/contracts', label: 'Verträge', icon: ScrollText },
+      { to: '/services', label: 'Ausgaben', icon: Wrench },
+      { to: '/tax/years', label: 'Steuer', icon: Calculator },
+    ]
+  },
+  {
+    title: 'Qualität & Training',
+    items: [
+      { to: '/senders', label: 'Absender', icon: Users },
+      { to: '/duplicates', label: 'Duplikate', icon: ScanSearch },
+      { to: '/validation', label: 'Validierung', icon: ShieldCheck },
+      { to: '/feedback', label: 'Feedback', icon: BookOpen },
+      { to: '/low-value-rules', label: 'Geringer Wert', icon: AlertTriangle },
+    ]
+  },
+  {
+    title: 'System',
+    items: [
+      { to: '/monitor', label: 'Monitor', icon: Activity },
+      { to: '/settings', label: 'Einstellungen', icon: SettingsIcon },
+    ]
+  }
 ]
 
 interface SidebarBadges {
@@ -76,7 +109,7 @@ function SidebarQuickLinks({ badges }: { badges: SidebarBadges }) {
           <button key={label}
             onClick={() => (item as any).link ? navigate((item as any).link) : navigate(filter ? `/documents${filter}` : '/dashboard')}
             className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-            <span className={`${bg} ${color} p-1 rounded`}><Icon size={12} /></span>
+            <span className={`${bg} ${color} p-1 rounded Pacman`}><Icon size={12} /></span>
             <span className="flex-1 text-left">{label}</span>
             {count > 0 && (
               <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${bg} ${color}`}>{count}</span>
@@ -91,13 +124,6 @@ function SidebarQuickLinks({ badges }: { badges: SidebarBadges }) {
 function AppContent() {
   const { config } = useConfig()
   const landlordEnabled = config?.landlord?.enabled ?? true
-
-  const activeNav = nav.filter(({ to }) => {
-    if (!landlordEnabled && ['/inventory', '/contracts', '/services', '/tax/years'].includes(to)) {
-      return false
-    }
-    return true
-  })
 
   const [dark, setDark] = useState(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -155,7 +181,7 @@ function AppContent() {
 
   return (
     <BrowserRouter>
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-950 text-gray-800 dark:text-gray-100">
+      <div className="flex h-screen bg-gray-50 dark:bg-gray-950 text-gray-800 dark:text-gray-100 font-sans">
         <aside className="w-56 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col shrink-0">
           <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
             <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight">
@@ -169,36 +195,45 @@ function AppContent() {
               {dark ? <Sun size={15} /> : <Moon size={15} />}
             </button>
           </div>
-          <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
-            {activeNav.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={to === '/'}
-                className={({ isActive }) =>
-                  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  }`
-                }
-              >
-                <Icon size={16} />
-                <span className="flex-1">{label}</span>
-                {label === 'Absender' && badges.unreviewed > 0 && (
-                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">{badges.unreviewed}</span>
-                )}
-                {label === 'Inbox' && badges.review > 0 && (
-                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400">{badges.review}</span>
-                )}
-                {label === 'Duplikate' && badges.duplicates > 0 && (
-                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">{badges.duplicates}</span>
-                )}
-                {label === 'Monitor' && badges.inbox > 0 && (
-                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">{badges.inbox}</span>
-                )}
-              </NavLink>
-            ))}
+          <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto scrollbar-thin">
+            {navGroups
+              .filter(group => !group.landlordOnly || landlordEnabled)
+              .map(group => (
+                <div key={group.title} className="space-y-1">
+                  <p className="px-3 pt-2 pb-1 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest border-b border-gray-100 dark:border-gray-800/30 mb-1.5">
+                    {group.title}
+                  </p>
+                  {group.items.map(({ to, label, icon: Icon }) => (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      end={to === '/'}
+                      className={({ isActive }) =>
+                        `flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        }`
+                      }
+                    >
+                      <Icon size={16} />
+                      <span className="flex-1">{label}</span>
+                      {label === 'Absender' && badges.unreviewed > 0 && (
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">{badges.unreviewed}</span>
+                      )}
+                      {label === 'Inbox' && badges.review > 0 && (
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400">{badges.review}</span>
+                      )}
+                      {label === 'Duplikate' && badges.duplicates > 0 && (
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">{badges.duplicates}</span>
+                      )}
+                      {label === 'Monitor' && badges.inbox > 0 && (
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">{badges.inbox}</span>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
+              ))}
 
             <div className="border-t border-gray-100 dark:border-gray-800 mt-2 pt-1">
               <SidebarQuickLinks badges={badges} />
