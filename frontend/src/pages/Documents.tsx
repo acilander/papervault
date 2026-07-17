@@ -501,6 +501,9 @@ export default function Documents() {
                   <th className="px-4 py-2 font-medium cursor-pointer hover:text-gray-700 dark:hover:text-gray-200" onClick={() => handleSort('status')}>
                     <span className="inline-flex items-center gap-1">Status {sortBy === 'status' && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}</span>
                   </th>
+                  <th className="px-4 py-2 font-medium cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 text-center" onClick={() => handleSort('confidence')}>
+                    <span className="inline-flex items-center gap-1 justify-center">KI {sortBy === 'confidence' && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}</span>
+                  </th>
                   <th className="px-4 py-2 font-medium cursor-pointer hover:text-gray-700 dark:hover:text-gray-200" onClick={() => handleSort('archived_at')}>
                     <span className="inline-flex items-center gap-1">Archiviert {sortBy === 'archived_at' && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}</span>
                   </th>
@@ -545,11 +548,17 @@ export default function Documents() {
                     <td className="px-4 py-2">
                       <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status ?? '–'}</span>
                     </td>
+                    <td className="px-4 py-2 text-center">
+                      {doc.confidence === 'high' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="KI-Vertrauen: Hoch" />}
+                      {doc.confidence === 'medium' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500" title="KI-Vertrauen: Medium" />}
+                      {doc.confidence === 'low' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" title="KI-Vertrauen: Niedrig" />}
+                      {!doc.confidence && <span className="text-gray-300 dark:text-gray-600">–</span>}
+                    </td>
                     <td className="px-4 py-2 text-gray-400 text-xs whitespace-nowrap">{doc.archived_at?.slice(0, 10) ?? '–'}</td>
                   </tr>
                 ))}
                 {docs.length === 0 && !loading && (
-                  <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Keine Dokumente gefunden</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">Keine Dokumente gefunden</td></tr>
                 )}
               </tbody>
             </table>

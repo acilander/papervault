@@ -184,6 +184,28 @@ export default function DocumentDetail() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {/* KI Inferenz-Ampel Banner */}
+          {doc.confidence && (
+            <div className={`p-3 rounded-lg text-xs border flex flex-col gap-1 ${
+              doc.confidence === 'high'
+                ? 'bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800/60'
+                : doc.confidence === 'medium'
+                ? 'bg-yellow-50 dark:bg-yellow-950/20 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800/60'
+                : 'bg-red-50 dark:bg-red-950/20 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/60'
+            }`}>
+              <div className="flex items-center gap-1.5 font-bold">
+                {doc.confidence === 'high' && <span>🟢 KI-Vertrauen: HOCH</span>}
+                {doc.confidence === 'medium' && <span>🟡 KI-Vertrauen: MITTEL</span>}
+                {doc.confidence === 'low' && <span>🔴 KI-Vertrauen: NIEDRIG (Prüfung empfohlen)</span>}
+              </div>
+              {doc.notes && doc.notes.includes('[Vertrauen:') && (
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
+                  {doc.notes.replace(/^\[Vertrauen:\s*(HIGH|MEDIUM|LOW)\]\s*/i, '')}
+                </p>
+              )}
+            </div>
+          )}
+
           {field('Absender', 'sender', 'text', isReadOnly)}
           {field('Datum', 'date', 'text', isReadOnly)}
           {field('Dokumenttyp', 'document_type', 'select', isReadOnly)}
