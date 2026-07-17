@@ -337,6 +337,14 @@ export interface FeedbackEntry {
 
 export const getFeedback = () => api.get<FeedbackEntry[]>('/feedback/').then(r => r.data)
 
+export const getFeedbackCoverage = () =>
+  api.get<{
+    counts_by_category: Record<string, number>
+    counts_by_document_type: Record<string, number>
+    under_represented_categories: string[]
+    under_represented_document_types: string[]
+  }>('/feedback/coverage').then(r => r.data)
+
 export const deleteFeedback = (id: number) => api.delete(`/feedback/${id}`)
 
 export interface LowValueRule {

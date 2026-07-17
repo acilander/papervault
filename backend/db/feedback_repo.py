@@ -83,6 +83,30 @@ def delete(feedback_id: int):
         conn.execute("DELETE FROM feedback WHERE id = ?", (feedback_id,))
 
 
+def get_coverage_stats() -> dict:
+    from config import CATEGORIES, DOCUMENT_TYPES
+    with get_conn() as conn:
+        rows_cat = conn.execute(
+            "SELECT category, COUNT(*) as count FROM feedback WHERE category IS NOT NULL GROUP BY category"
+        ).fetchall()
+        rows_type = conn.execute(
+            "SELECT document_type, COUNT(*) as count FROM feedback WHERE document_type IS NOT NULL GROUP BY document_type"
+        ).fetchall()
+        
+    counts_cat = {r["category"]: r["count"] for r in rows_cat}
+    counts_type = {r["document_type"]: r["count"] for r in rows_type}
+    
+    under_represented_categories = [c for c in CATEGORIES if counts_cat.get(c, 0) < 2]
+    under_represented_types = [t for t in DOCUMENT_TYPES if counts_type.get(t, 0) < 1]
+    
+    return {
+        "counts_by_category": counts_cat,
+        "counts_by_document_type": counts_type,
+        "under_represented_categories": under_represented_categories,
+        "under_represented_document_types": under_represented_types,
+    }
+
+
 def _clear_all_for_tests():
     init_feedback_table()
     with get_conn() as conn:

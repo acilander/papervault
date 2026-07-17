@@ -1,17 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Trash2, MessageSquare, Tag, Calendar, User } from 'lucide-react'
-import { getFeedback, deleteFeedback, type FeedbackEntry } from '../api'
+import { Trash2, MessageSquare, Tag, Calendar, User, ShieldAlert, CheckCircle, Activity } from 'lucide-react'
+import { getFeedback, deleteFeedback, getFeedbackCoverage, type FeedbackEntry } from '../api'
 
 export default function Feedback() {
   const [entries, setEntries] = useState<FeedbackEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<number | null>(null)
+  
+  // Coverage Stats State
+  const [coverage, setCoverage] = useState<{
+    counts_by_category: Record<string, number>
+    counts_by_document_type: Record<string, number>
+    under_represented_categories: string[]
+    under_represented_document_types: string[]
+  } | null>(null)
 
   const load = async () => {
     setLoading(true)
     try {
       const data = await getFeedback()
       setEntries(data)
+      const cov = await getFeedbackCoverage()
+      setCoverage(cov)
     } finally {
       setLoading(false)
     }
@@ -25,6 +35,7 @@ export default function Feedback() {
     try {
       await deleteFeedback(id)
       setEntries(prev => prev.filter(e => e.id !== id))
+      getFeedbackCoverage().then(setCoverage).catch(() => {})
     } finally {
       setDeleting(null)
     }
@@ -41,6 +52,59 @@ export default function Feedback() {
           {loading ? 'Lade…' : `${entries.length} Few-Shot-Beispiele`}
         </p>
       </div>
+
+      {/* Training Radar Section */}
+      {coverage && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Under-Represented Categories Alert */}
+          <div className="bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/40 rounded-xl p-4 flex flex-col justify-between space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-400">
+              <ShieldAlert size={16} />
+              <span>KI-Trainingsbedarf: Kategorien</span>
+            </div>
+            {coverage.under_represented_categories.length === 0 ? (
+              <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
+                <CheckCircle size={12} /> Exzellent! Alle Kategorien haben ausreichend Trainingsbeispiele (mindestens 2).
+              </p>
+            ) : (
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500">Kategorien mit unzureichend Beispielen (weniger als 2 Belege):</p>
+                <div className="flex flex-wrap gap-1">
+                  {coverage.under_represented_categories.map(c => (
+                    <span key={c} className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 rounded-full text-[10px] font-medium">
+                      {c} ({coverage.counts_by_category[c] || 0})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Under-Represented Document Types Alert */}
+          <div className="bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-200 dark:border-indigo-900/40 rounded-xl p-4 flex flex-col justify-between space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-indigo-800 dark:text-indigo-400">
+              <Activity size={16} />
+              <span>KI-Trainingsbedarf: Dokumententypen</span>
+            </div>
+            {coverage.under_represented_document_types.length === 0 ? (
+              <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
+                <CheckCircle size={12} /> Exzellent! Alle Dokumententypen haben mindestens ein Trainingsbeispiel.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500">Dokumententypen ohne jegliche Beispiele im Few-Shot-Pool:</p>
+                <div className="flex flex-wrap gap-1">
+                  {coverage.under_represented_document_types.map(t => (
+                    <span key={t} className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-400 rounded-full text-[10px] font-medium">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">Lade Feedback-Einträge…</div>
