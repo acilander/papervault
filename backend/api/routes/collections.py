@@ -19,12 +19,14 @@ class CollectionCreate(BaseModel):
     name: str
     description: Optional[str] = ""
     color: Optional[str] = "#6366f1"
+    query_criteria: Optional[str] = None
 
 
 class CollectionUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     color: Optional[str] = None
+    query_criteria: Optional[str] = None
 
 
 @router.get("/")
@@ -34,7 +36,7 @@ def list_collections():
 
 @router.post("/", status_code=201)
 def create(body: CollectionCreate):
-    cid = create_collection(body.name, body.description or "", body.color or "#6366f1")
+    cid = create_collection(body.name, body.description or "", body.color or "#6366f1", body.query_criteria)
     return get_collection(cid)
 
 

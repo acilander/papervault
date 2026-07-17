@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS collections (
     description TEXT DEFAULT '',
     color       TEXT DEFAULT '#6366f1',
     created_at  TEXT NOT NULL,
-    updated_at  TEXT NOT NULL
+    updated_at  TEXT NOT NULL,
+    query_criteria TEXT DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS collection_documents (
@@ -38,6 +39,8 @@ def get_all_collections():
     return [dict(r) for r in rows]
 
 
+import json
+
 _VALID_COLLECTION_DOC_SORT_COLS = {"filename", "sender", "category", "document_type", "date", "added_at"}
 
 
@@ -58,22 +61,57 @@ def get_collection(collection_id: int, sort_by: str = "added_at", sort_dir: str 
                ORDER BY {order_col} {direction} NULLS LAST""",
             (collection_id,)
         ).fetchall()
-        col["documents"] = [dict(r) for r in doc_rows]
+        documents = [dict(r) for r in doc_rows]
+
+        # Smart Collection: merge matching documents if query_criteria is set
+        if col.get("query_criteria"):
+            try:
+                criteria = json.loads(col["query_criteria"])
+                if criteria:
+                    # Construct dynamic query
+                    conditions = ["status = 'ok'"]
+                    params = []
+                    if criteria.get("sender"):
+                        conditions.append("sender = ?")
+                        params.append(criteria["sender"])
+                    if criteria.get("category"):
+                        conditions.append("category = ?")
+                        params.append(criteria["category"])
+                    if criteria.get("document_type"):
+                        conditions.append("document_type = ?")
+                        params.append(criteria["document_type"])
+
+                    if len(conditions) > 1: # Beyond status='ok'
+                        where_clause = " AND ".join(conditions)
+                        smart_rows = conn.execute(
+                            f"""SELECT id, filename, sender, date, document_type, category, summary, file_path, status, archived_at as added_at
+                               FROM documents WHERE {where_clause}""",
+                            params
+                        ).fetchall()
+                        # Deduplicate by id
+                        existing_ids = {d["id"] for d in documents}
+                        for r in smart_rows:
+                            if r["id"] not in existing_ids:
+                                documents.append(dict(r))
+            except Exception:
+                pass
+
+        col["documents"] = documents
     return col
 
 
-def create_collection(name: str, description: str = "", color: str = "#6366f1"):
+def create_collection(name: str, description: str = "", color: str = "#6366f1", query_criteria: str = None):
     now = datetime.now(timezone.utc).isoformat()
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO collections (name, description, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-            (name, description, color, now, now)
+            "INSERT INTO collections (name, description, color, created_at, updated_at, query_criteria) VALUES (?, ?, ?, ?, ?, ?)",
+            (name, description, color, now, now, query_criteria)
         )
         return cur.lastrowid
 
 
 def update_collection(collection_id: int, **fields):
-    allowed = {"name", "description", "color"}
+    allowed = {"name", "description", "color", "query_criteria"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return

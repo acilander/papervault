@@ -187,6 +187,7 @@ MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_documents_verified ON documents(verified)",
     "CREATE INDEX IF NOT EXISTS idx_documents_confidence ON documents(confidence)",
     "ALTER TABLE documents ADD COLUMN file_size_bytes INTEGER DEFAULT 0",
+    "ALTER TABLE collections ADD COLUMN query_criteria TEXT DEFAULT NULL",
 ]
 
 def init_db():
