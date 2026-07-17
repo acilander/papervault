@@ -104,6 +104,8 @@ CREATE TABLE IF NOT EXISTS document_embeddings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_embeddings_document ON document_embeddings(document_id);
+CREATE INDEX IF NOT EXISTS idx_documents_verified ON documents(verified);
+CREATE INDEX IF NOT EXISTS idx_documents_confidence ON documents(confidence);
 """
 
 MIGRATIONS = [
@@ -155,6 +157,8 @@ MIGRATIONS = [
     "ALTER TABLE services ADD COLUMN source_text TEXT DEFAULT NULL",
     "ALTER TABLE services ADD COLUMN source_page INTEGER DEFAULT NULL",
     "ALTER TABLE documents ADD COLUMN verified INTEGER DEFAULT 0",
+    "CREATE INDEX IF NOT EXISTS idx_documents_verified ON documents(verified)",
+    "CREATE INDEX IF NOT EXISTS idx_documents_confidence ON documents(confidence)",
 ]
 
 def init_db():
