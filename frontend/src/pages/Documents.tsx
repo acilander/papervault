@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search, Filter, LayoutList, LayoutGrid, Download, X, Undo2, FolderPlus, ArrowUpDown, Lock, CheckCircle } from 'lucide-react'
+import { Search, LayoutList, LayoutGrid, Download, X, Undo2, FolderPlus, ArrowUpDown, Lock, CheckCircle } from 'lucide-react'
 import { getDocumentsPage, getExpiring, thumbnailUrl, bulkUpdate, csvExportUrl, getCollections, addDocumentToCollection, type Document, type Collection } from '../api'
 import { useConfig } from '../ConfigContext'
 import Pagination from '../components/Pagination'
@@ -232,81 +232,131 @@ export default function Documents() {
       <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Dokumente</h2>
 
       {/* Filter bar */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-3 flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-2.5 top-2.5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Volltext suchen…"
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && load()}
-            className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
-          />
-        </div>
-        <Filter size={14} className="text-gray-400" />
-        <select value={category} onChange={e => setCategory(e.target.value)}
-          className="text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400">
-          <option value="">Alle Kategorien</option>
-          {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-        </select>
-        <select value={year} onChange={e => setYear(e.target.value)}
-          className="text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400">
-          <option value="">Alle Jahre</option>
-          {years.map(y => <option key={y}>{y}</option>)}
-        </select>
-        <input type="text" placeholder="Absender…" value={sender} onChange={e => setSender(e.target.value)}
-          className="text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 w-36" />
-        <select value={status} onChange={e => setStatus(e.target.value)}
-          className="text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400">
-          <option value="">Alle Status</option>
-          <option value="ok">OK</option>
-          <option value="review">Review</option>
-          <option value="locked">🔒 Gesperrt</option>
-          <option value="ignored">🚫 Irrelevant</option>
-          <option value="classification_failed">Fehlgeschlagen</option>
-          <option value="encrypted">Verschlüsselt</option>
-          <option value="corrupt">Korrupt</option>
-          <option value="duplicate">Duplikat</option>
-          <option value="missing">Datei fehlt</option>
-        </select>
-        <button onClick={() => setTaxFilter(v => !v)}
-          className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${taxFilter ? 'bg-yellow-500 text-white border-yellow-500' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-          🧾 Steuer
-        </button>
-        <button onClick={() => setExpiresFilter(v => !v)}
-          className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${expiresFilter ? 'bg-red-500 text-white border-red-500' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-          ⏰ Läuft ab
-        </button>
-        <button onClick={() => setStatus(status === 'review' ? '' : 'review')}
-          className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${status === 'review' ? 'bg-orange-500 text-white border-orange-500' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-          📥 Ausstehend
-        </button>
-        <button onClick={() => setNoSenderFilter(v => !v)}
-          className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${noSenderFilter ? 'bg-gray-600 text-white border-gray-600' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-          👤 Kein Absender
-        </button>
-        <button onClick={() => setLowValueFilter(v => !v)}
-          className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${lowValueFilter ? 'bg-gray-500 text-white border-gray-500' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-          ⚠️ Geringer Wert
-        </button>
-        <select value={confidenceFilter} onChange={e => setConfidenceFilter(e.target.value)}
-          className="text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400">
-          <option value="">Alle Confidence</option>
-          <option value="low">🔴 Low</option>
-          <option value="medium">🟡 Medium</option>
-          <option value="high">🟢 High</option>
-        </select>
-        <button onClick={() => goToPage(1)}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
-          Suchen
-        </button>
-        {(status || taxFilter || expiresFilter || noSenderFilter || lowValueFilter || confidenceFilter || q || category || year || sender || tagFilter) && (
-          <button onClick={resetAll}
-            className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-            ✕ Zurücksetzen
+      {/* 3-Level Filter Board */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 space-y-4 shadow-sm">
+        {/* Ebene 1: Primäre Suche & Reset */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-[280px]">
+            <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Volltext suchen (z.B. Rechnungsnummer, Keywords, Inhalt)..."
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && load()}
+              className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+          </div>
+          <button onClick={() => goToPage(1)}
+            className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+            Suchen
           </button>
-        )}
+          {(status || taxFilter || expiresFilter || noSenderFilter || lowValueFilter || confidenceFilter || q || category || year || sender || tagFilter) && (
+            <button onClick={resetAll}
+              className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              ✕ Zurücksetzen
+            </button>
+          )}
+        </div>
+
+        <hr className="border-gray-100 dark:border-gray-800/60" />
+
+        {/* Ebene 2: Strukturierte Relationale Filter (Dropdowns) */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Kategorie</span>
+            <select value={category} onChange={e => setCategory(e.target.value)}
+              className="text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-[160px]">
+              <option value="">Alle Kategorien</option>
+              {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Steuerjahr</span>
+            <select value={year} onChange={e => setYear(e.target.value)}
+              className="text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-[120px]">
+              <option value="">Alle Jahre</option>
+              {years.map(y => <option key={y}>{y}</option>)}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Absender</span>
+            <input type="text" placeholder="Absender suchen…" value={sender} onChange={e => setSender(e.target.value)}
+              className="text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 w-44" />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Bearbeitungsstatus</span>
+            <select value={status} onChange={e => setStatus(e.target.value)}
+              className="text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-[140px]">
+              <option value="">Alle Status</option>
+              <option value="ok">OK</option>
+              <option value="review">Review</option>
+              <option value="locked">🔒 Gesperrt</option>
+              <option value="ignored">🚫 Irrelevant</option>
+              <option value="classification_failed">Fehlgeschlagen</option>
+              <option value="encrypted">Verschlüsselt</option>
+              <option value="corrupt">Korrupt</option>
+              <option value="duplicate">Duplikat</option>
+              <option value="missing">Datei fehlt</option>
+            </select>
+          </div>
+        </div>
+
+        <hr className="border-gray-100 dark:border-gray-800/60" />
+
+        {/* Ebene 3: Schnellweichen & Segmente */}
+        <div className="flex flex-wrap gap-4 items-center justify-between">
+          {/* Schnell-Filter Toggles */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-semibold text-gray-400 mr-1">Schnellweichen:</span>
+            <button onClick={() => setStatus(status === 'review' ? '' : 'review')}
+              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${status === 'review' ? 'bg-orange-500 text-white border-orange-500 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              📥 Ausstehend
+            </button>
+            <button onClick={() => setTaxFilter(v => !v)}
+              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${taxFilter ? 'bg-yellow-500 text-white border-yellow-500 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              🧾 Steuerrelevant
+            </button>
+            <button onClick={() => setExpiresFilter(v => !v)}
+              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${expiresFilter ? 'bg-red-500 text-white border-red-500 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              ⏰ Läuft ab
+            </button>
+            <button onClick={() => setNoSenderFilter(v => !v)}
+              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${noSenderFilter ? 'bg-gray-600 text-white border-gray-600 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              👤 Kein Absender
+            </button>
+            <button onClick={() => setLowValueFilter(v => !v)}
+              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${lowValueFilter ? 'bg-gray-500 text-white border-gray-500 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              ⚠️ Geringer Wert
+            </button>
+          </div>
+
+          {/* KI-Confidence Segment-Group */}
+          <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 rounded-lg p-1.5">
+            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-2 select-none">KI-Vertrauen</span>
+            <button
+              onClick={() => setConfidenceFilter(confidenceFilter === 'low' ? '' : 'low')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded transition-all ${confidenceFilter === 'low' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            >
+              🔴 Low
+            </button>
+            <button
+              onClick={() => setConfidenceFilter(confidenceFilter === 'medium' ? '' : 'medium')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded transition-all ${confidenceFilter === 'medium' ? 'bg-yellow-500 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            >
+              🟡 Med
+            </button>
+            <button
+              onClick={() => setConfidenceFilter(confidenceFilter === 'high' ? '' : 'high')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded transition-all ${confidenceFilter === 'high' ? 'bg-green-500 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            >
+              🟢 High
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Fix 16: Tag filter chips */}
