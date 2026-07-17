@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search, Filter, LayoutList, LayoutGrid, Download, X, Undo2, FolderPlus, ArrowUpDown, Lock } from 'lucide-react'
+import { Search, Filter, LayoutList, LayoutGrid, Download, X, Undo2, FolderPlus, ArrowUpDown, Lock, CheckCircle } from 'lucide-react'
 import { getDocumentsPage, getExpiring, thumbnailUrl, bulkUpdate, csvExportUrl, getCollections, addDocumentToCollection, type Document, type Collection } from '../api'
 import { useConfig } from '../ConfigContext'
 import Pagination from '../components/Pagination'
@@ -278,6 +278,10 @@ export default function Documents() {
           className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${expiresFilter ? 'bg-red-500 text-white border-red-500' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
           ⏰ Läuft ab
         </button>
+        <button onClick={() => setStatus(status === 'review' ? '' : 'review')}
+          className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${status === 'review' ? 'bg-orange-500 text-white border-orange-500' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+          📥 Ausstehend
+        </button>
         <button onClick={() => setNoSenderFilter(v => !v)}
           className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${noSenderFilter ? 'bg-gray-600 text-white border-gray-600' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
           👤 Kein Absender
@@ -518,7 +522,15 @@ export default function Documents() {
                         state={{ docIds: docs.map(d => d.id), currentIndex: index, search: searchParams.toString() }}
                         className="text-blue-600 hover:underline truncate block flex items-center gap-1.5"
                       >
-                        {doc.status === 'locked' && <Lock size={12} className="text-amber-600 shrink-0" />}
+                        {doc.verified === 1 ? (
+                          <CheckCircle size={12} className="text-green-600 shrink-0" title="Bestätigt / Verifiziert" />
+                        ) : (
+                          doc.status === 'locked' ? (
+                            <Lock size={12} className="text-amber-600 shrink-0" title="Gesperrt" />
+                          ) : (
+                            <span className="text-gray-400 shrink-0" title="KI-Vorschlag">🤖</span>
+                          )
+                        )}
                         {doc.filename}
                       </Link>
                     </td>

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import axios from 'axios'
-import { HardDrive, CheckCircle, AlertCircle, Loader, RefreshCw, FolderX, User, Download, Trash, Plus } from 'lucide-react'
+import { HardDrive, CheckCircle, AlertCircle, Loader, RefreshCw, FolderX, User, Download, Trash, Plus, Pencil, Check, X } from 'lucide-react'
 import { cleanupEmptyFolders, getConfig, saveUserSettings, startModelDownload, startModelRepair, type AppConfig } from '../api'
 
 interface ModelInfo {
@@ -63,6 +63,13 @@ export default function Settings() {
   const [newCatRoot, setNewCatRoot] = useState('1_Privat_und_Alltag')
   const [newCatUseYear, setNewCatUseYear] = useState(true)
   const [newCatUnit, setNewCatUnit] = useState('')
+
+  // Category Inline Editing State
+  const [editingCat, setEditingCat] = useState<string | null>(null)
+  const [editCatFolder, setEditCatFolder] = useState('')
+  const [editCatRoot, setEditCatRoot] = useState('1_Privat_und_Alltag')
+  const [editCatUseYear, setEditCatUseYear] = useState(true)
+  const [editCatUnit, setEditCatUnit] = useState('')
 
   // Downloader State
   const [selectedDl, setSelectedDl] = useState(0)
@@ -381,6 +388,36 @@ export default function Settings() {
       category_folder_map: updatedFolderMap,
       categories_config: updatedConfig
     })
+  }
+
+  const startEditCategory = (cat: string) => {
+    if (!settings) return
+    const fName = settings.category_folder_map[cat] || ''
+    const config = settings.categories_config[cat] || {}
+    setEditingCat(cat)
+    setEditCatFolder(fName)
+    setEditCatRoot(config.root || '1_Privat_und_Alltag')
+    setEditCatUseYear(config.use_year_folder ?? true)
+    setEditCatUnit(config.property_unit || '')
+  }
+
+  const saveCategoryEdit = (cat: string) => {
+    if (!settings) return
+    const updatedFolderMap = { ...settings.category_folder_map, [cat]: editCatFolder.trim() }
+    const updatedConfig = {
+      ...settings.categories_config,
+      [cat]: {
+        use_year_folder: editCatUseYear,
+        root: editCatRoot,
+        property_unit: editCatUnit || null
+      }
+    }
+    setSettings({
+      ...settings,
+      category_folder_map: updatedFolderMap,
+      categories_config: updatedConfig
+    })
+    setEditingCat(null)
   }
 
   return (
@@ -781,15 +818,88 @@ export default function Settings() {
                 {settings.categories.map((cat) => {
                   const fName = settings.category_folder_map[cat] || "–"
                   const config = settings.categories_config[cat] || {}
+                  const isEditing = editingCat === cat
+
+                  if (isEditing) {
+                    return (
+                      <div key={cat} className="p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/50 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">{cat} (Bearbeiten)</span>
+                          <div className="flex gap-1.5">
+                            <button type="button" onClick={() => saveCategoryEdit(cat)} className="p-1 rounded bg-green-600 text-white hover:bg-green-700 transition-colors" title="Speichern">
+                              <Check size={12} />
+                            </button>
+                            <button type="button" onClick={() => setEditingCat(null)} className="p-1 rounded bg-gray-500 text-white hover:bg-gray-600 transition-colors" title="Abbrechen">
+                              <X size={12} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-gray-400">Ablageordner</span>
+                            <input
+                              type="text"
+                              value={editCatFolder}
+                              onChange={(e) => setEditCatFolder(e.target.value)}
+                              className="w-full text-xs p-1 rounded border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-gray-400">Root-Ordner</span>
+                            <select
+                              value={editCatRoot}
+                              onChange={(e) => setEditCatRoot(e.target.value)}
+                              className="w-full text-xs p-1 rounded border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800"
+                            >
+                              <option value="1_Privat_und_Alltag">Privat & Alltag</option>
+                              <option value="2_Mehrfamilienhaus_Verwaltung">Haus-Verwaltung</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-gray-400">Wohneinheit</span>
+                            <select
+                              value={editCatUnit}
+                              onChange={(e) => setEditCatUnit(e.target.value)}
+                              className="w-full text-xs p-1 rounded border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800"
+                            >
+                              <option value="">Keine</option>
+                              <option value="EG">EG</option>
+                              <option value="OG">OG</option>
+                              <option value="DG">DG</option>
+                              <option value="UG">UG</option>
+                              <option value="Gesamthaus">Gesamthaus</option>
+                            </select>
+                          </div>
+                          <div className="flex items-center pt-3 pl-1">
+                            <label className="flex items-center gap-1 text-[10px] text-gray-500 select-none">
+                              <input
+                                type="checkbox"
+                                checked={editCatUseYear}
+                                onChange={(e) => setEditCatUseYear(e.target.checked)}
+                                className="rounded text-indigo-600 focus:ring-indigo-500 scale-75"
+                              />
+                              Jahre nutzen
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
                   return (
                     <div key={cat} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{cat}</p>
                         <p className="text-[10px] text-gray-400 truncate">Ordner: {fName} | Root: {config.root || '–'} | Einheit: {config.property_unit || 'Nein'}</p>
                       </div>
-                      <button type="button" onClick={() => removeCategory(cat)} className="text-gray-400 hover:text-red-500 ml-3">
-                        <Trash size={12} />
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                        <button type="button" onClick={() => startEditCategory(cat)} className="text-gray-400 hover:text-blue-500" title="Bearbeiten">
+                          <Pencil size={12} />
+                        </button>
+                        <button type="button" onClick={() => removeCategory(cat)} className="text-gray-400 hover:text-red-500" title="Löschen">
+                          <Trash size={12} />
+                        </button>
+                      </div>
                     </div>
                   )
                 })}

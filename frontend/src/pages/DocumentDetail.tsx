@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
-import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight, EyeOff, Eye, Lock, Unlock } from 'lucide-react'
-import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, ignoreDocument, unignoreDocument, lockDocument, unlockDocument, type Document, type DocumentUpdate } from '../api'
+import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight, EyeOff, Eye, Unlock } from 'lucide-react'
+import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, ignoreDocument, unignoreDocument, verifyDocument, unverifyDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
 
@@ -50,7 +50,8 @@ export default function DocumentDetail() {
 
   if (!doc) return <div className="p-8 text-gray-500">Lade…</div>
 
-  const isLocked = doc.status === 'locked'
+  const isLocked = doc.status === 'locked' || doc.verified === 1
+  const isVerified = doc.verified === 1
   const isIgnored = doc.status === 'ignored'
   const isReadOnly = isLocked || isIgnored
 
@@ -306,11 +307,17 @@ export default function DocumentDetail() {
           {/* Status badge */}
           {(isLocked || isIgnored) && (
             <div className={`px-3 py-2 rounded-lg text-xs font-medium text-center ${
-              isLocked
+              isVerified
+                ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
+                : isLocked
                 ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
                 : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
             }`}>
-              {isLocked ? '🔒 Gesperrt – nicht editierbar' : '🚫 Irrelevant – ausgeblendet'}
+              {isVerified
+                ? '✅ Verifiziert – nicht editierbar'
+                : isLocked
+                ? '🔒 Gesperrt – nicht editierbar'
+                : '🚫 Irrelevant – ausgeblendet'}
             </div>
           )}
 
@@ -405,11 +412,11 @@ export default function DocumentDetail() {
             </button>
           )}
 
-          {isLocked ? (
+          {isVerified ? (
             <button
               onClick={async () => {
                 try {
-                  const updated = await unlockDocument(doc.id)
+                  const updated = await unverifyDocument(doc.id)
                   setDoc(updated)
                 } catch (e: any) {
                   alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
@@ -417,23 +424,23 @@ export default function DocumentDetail() {
               }}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 transition-colors"
             >
-              <Unlock size={14} /> Entsperren
+              <Unlock size={14} /> Bestätigung aufheben
             </button>
           ) : (
             <button
               onClick={async () => {
-                if (!confirm(`„${doc.filename}" sperren? Es kann dann nicht mehr bearbeitet oder neu klassifiziert werden.`)) return
+                if (!confirm(`„${doc.filename}" verifizieren? Es kann dann nicht mehr bearbeitet oder neu klassifiziert werden.`)) return
                 try {
-                  const updated = await lockDocument(doc.id)
+                  const updated = await verifyDocument(doc.id)
                   setDoc(updated)
                 } catch (e: any) {
                   alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
                 }
               }}
               disabled={isIgnored}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 disabled:opacity-50 transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-sm rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 border border-green-200 dark:border-green-800 disabled:opacity-50 transition-colors"
             >
-              <Lock size={14} /> Sperren
+              <CheckCircle size={14} /> Verifizieren / Bestätigen
             </button>
           )}
 

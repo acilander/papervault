@@ -21,6 +21,7 @@ export interface Document {
   notes: string | null
   low_value: number
   confidence: string | null
+  verified?: number
 }
 
 export interface DocumentUpdate {
@@ -36,6 +37,7 @@ export interface DocumentUpdate {
   expires_at?: string | null
   notes?: string | null
   low_value?: number | null
+  verified?: number | null
 }
 
 export interface SenderEntry {
@@ -136,6 +138,12 @@ export const lockDocument = (id: number) =>
 
 export const unlockDocument = (id: number) =>
   api.post<Document>(`/documents/${id}/unlock`).then(r => r.data)
+
+export const verifyDocument = (id: number) =>
+  api.post<Document>(`/documents/${id}/verify`).then(r => r.data)
+
+export const unverifyDocument = (id: number) =>
+  api.post<Document>(`/documents/${id}/unverify`).then(r => r.data)
 
 export const openInExplorer = (id: number) =>
   api.post(`/documents/${id}/open`)
