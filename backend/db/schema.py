@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS documents (
     keywords      TEXT DEFAULT '',
     low_value     INTEGER DEFAULT 0,
     full_text     TEXT DEFAULT '',
-    confidence    TEXT DEFAULT NULL
+    confidence    TEXT DEFAULT NULL,
+    verified      INTEGER DEFAULT 0
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
@@ -153,6 +154,7 @@ MIGRATIONS = [
     "ALTER TABLE items ADD COLUMN source_page INTEGER DEFAULT NULL",
     "ALTER TABLE services ADD COLUMN source_text TEXT DEFAULT NULL",
     "ALTER TABLE services ADD COLUMN source_page INTEGER DEFAULT NULL",
+    "ALTER TABLE documents ADD COLUMN verified INTEGER DEFAULT 0",
 ]
 
 def init_db():

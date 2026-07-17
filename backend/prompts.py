@@ -120,3 +120,88 @@ Wichtige Regeln:
 - Der extrahierte Text kann OCR-Fehler enthalten. Korrigiere offensichtliche Fehler in Absender, Keywords und anderen Feldern, wenn die korrekte Schreibweise eindeutig ist."""
 
     return prompt
+
+
+def build_stage1_system_prompt(settings: dict) -> str:
+    """Build the Stage 1 system prompt focused on metadata extraction (sender, date, document_type)."""
+    from datetime import datetime
+    doc_types = settings["document_types"]
+    doc_types_str = ", ".join(doc_types)
+    owners_list = ", ".join(o.title() for o in settings["personal"]["owners"])
+
+    prompt = f"""Du bist ein Dokumenten-Klassifizierungsassistent für ein privates deutsches Dokumentenarchiv (Stufe 1).
+Deine Aufgabe ist es, die drei wichtigsten Metadaten eines Dokuments fehlerfrei zu extrahieren.
+Antworte IMMER NUR mit einem einzigen JSON-Objekt, ohne Erklärungen oder Markdown-Formatierung.
+
+JSON-Schema:
+{{
+  "sender": "Name der ausstellenden Firma, Behörde oder Organisation (nicht der Empfänger)",
+  "date": "Dokumentdatum im Format YYYY-MM-DD, oder YYYY wenn nur Jahr bekannt, oder null",
+  "document_type": "einer der erlaubten Typen (s.u.)"
+}}
+
+Erlaubte Werte für document_type:
+{doc_types_str}
+Bevorzuge ZWINGEND einen dieser Typen. Nur wenn das Dokument in absolut keine dieser Kategorien passt, darfst du einen eigenen, neuen Dokumenttyp erfinden (maximal 1 bis 3 Wörter, z.B. "Informationsbroschüre", "Krankmeldung", "Zollbescheid").
+WICHTIG: Entgeltabrechnung/Lohnabrechnung = document_type=Abrechnung.
+
+Wichtige Regeln:
+- Nutze den bereitgestellten "DOKUMENT-BRIEFKOPF" als primäre Quelle für den Absender ("sender").
+- Der Archivinhaber ist {owners_list}. Diese sind EMPFAENGER, niemals Absender.
+- 'sender' muss eine Firma, Behörde oder Organisation sein, nicht eine Privatperson.
+- 'date' muss ein reales Datum sein. Das aktuelle Jahr ist {datetime.now().year}. Zukünftige Jahre sind ungültig.
+"""
+    return prompt
+
+
+def build_stage2_system_prompt(settings: dict, stage1_data: dict) -> str:
+    """Build the Stage 2 system prompt focused on deep extraction (category, property_unit, summary, keywords, low_value, iban)."""
+    landlord_enabled = settings["landlord"]["enabled"]
+    categories = settings["categories"]
+    active_categories = [cat for cat in categories if landlord_enabled or cat not in ("Haus_Gemeinkosten", "OG_Miete", "DG_Miete")]
+    categories_str = ", ".join(active_categories)
+
+    property_unit_schema_line = '\n  "property_unit": "eines der erlaubten Mehrfamilienhaus-Module (s.u.) oder null",' if landlord_enabled else ''
+
+    schema_desc = f"""{{
+  "category": "eine der erlaubten Kategorien (s.u.)",{property_unit_schema_line}
+  "summary": "Ein Satz auf Deutsch worum es in dem Dokument geht",
+  "keywords": "5-15 relevante Suchbegriffe aus dem Dokument, kommagetrennt",
+  "low_value": true oder false,
+  "iban": "DE-IBAN des Kontos (nur Ziffern und Buchstaben, kein Leerzeichen) oder null"
+}}"""
+
+    property_units_desc = ""
+    if landlord_enabled:
+        property_units_desc = """Erlaubte Werte für property_unit (NUR diese, oder null):
+- "Gesamthaus"       – Wenn die Rechnung oder Grundsteuer das gesamte Gebäude betrifft.
+- "EG"               – Wenn der Beleg ausschließlich deine eigene, privat genutzte Erdgeschoss-Wohnung betrifft.
+- "UG"               – Wenn der Beleg ausschließlich deine Kellerräume betrifft.
+- "OG"               – Wenn der Beleg ausschließlich die vermietete Obergeschoss-Wohnung betrifft.
+- "DG"               – Wenn der Beleg ausschließlich die vermietete Dachgeschoss-Wohnung betrifft.
+- null               – Reine Privatbelege ohne jeglichen Gebäudebezug."""
+
+    prompt = f"""Du bist ein Dokumenten-Klassifizierungsassistent für ein privates deutsches Dokumentenarchiv (Stufe 2).
+Wir haben bereits folgende Basis-Metadaten extrahiert:
+- Absender: {stage1_data.get('sender') or 'unbekannt'}
+- Typ: {stage1_data.get('document_type') or 'unbekannt'}
+- Datum: {stage1_data.get('date') or 'unbekannt'}
+
+Deine Aufgabe ist es nun, die restlichen tiefen Daten aus dem Dokumententext zu extrahieren.
+Antworte IMMER NUR mit einem einzigen JSON-Objekt, ohne Erklärungen oder Markdown-Formatierung.
+
+JSON-Schema:
+{schema_desc}
+
+Erlaubte Werte für category (NUR diese, keine anderen erfinden):
+{categories_str}
+
+{property_units_desc}
+
+Wichtige Regeln:
+- 'summary' muss mindestens einen vollständigen Satz enthalten.
+- 'keywords' sollen spezifische, durchsuchbare Begriffe sein.
+- 'iban': Extrahiere die deutsche IBAN (Format DE + 20 Ziffern). Keine Leerzeichen. Wenn keine DE-IBAN vorhanden: null.
+- 'low_value': Setze true wenn das Dokument langfristig kaum Archivwert hat (z.B. kleine Kassenbons unter 10 EUR).
+"""
+    return prompt

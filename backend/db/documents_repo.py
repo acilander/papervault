@@ -89,7 +89,7 @@ def update_document(doc_id, **fields):
                 fields["filename"] = os.path.basename(new_path)
     allowed = {"sender", "date", "document_type", "category", "summary", "status",
                "file_path", "filename", "tags", "tax_relevant", "tax_year", "expires_at", "notes",
-               "keywords", "low_value", "full_text", "sim_hash", "content_hash", "iban", "property_unit", "vehicle_id", "child_name"}
+               "keywords", "low_value", "full_text", "sim_hash", "content_hash", "iban", "property_unit", "vehicle_id", "child_name", "verified"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
@@ -112,7 +112,7 @@ def claim_document_status(doc_id: int, old_status: str, new_status: str) -> bool
 _LIST_COLS = """
     d.id, d.file_path, d.filename, d.sender, d.date, d.document_type, d.category,
     SUBSTR(d.summary, 1, 200) AS summary, d.content_hash, d.status, d.archived_at,
-    d.tags, d.tax_relevant, d.tax_year, d.expires_at, d.notes, d.low_value, d.confidence
+    d.tags, d.tax_relevant, d.tax_year, d.expires_at, d.notes, d.low_value, d.confidence, d.verified
 """
 
 

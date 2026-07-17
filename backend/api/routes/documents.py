@@ -92,8 +92,8 @@ def update_document(doc_id: int, body: DocumentUpdate):
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
-    if doc.get("status") == "locked":
-        raise HTTPException(status_code=409, detail="Dokument ist gesperrt. Entsperren vor dem Bearbeiten.")
+    if (doc.get("status") == "locked" or doc.get("verified") == 1) and "verified" not in body.model_fields_set:
+        raise HTTPException(status_code=409, detail="Dokument ist gesperrt/verifiziert. Entsperren vor dem Bearbeiten.")
     if doc.get("status") == "ignored" and "status" not in body.model_fields_set:
         raise HTTPException(status_code=409, detail="Irrelevantes Dokument muss zuerst wiederhergestellt werden.")
     updates = {k: v for k, v in body.model_dump().items() if k in body.model_fields_set}
@@ -206,6 +206,26 @@ def unignore_document(doc_id: int):
     if content_hash:
         db.unprotect_document_hash(hash_value=content_hash)
     db.update_document(doc_id, status="ok")
+    return db.get_document(doc_id)
+
+
+@router.post("/{doc_id}/verify", status_code=200)
+def verify_document(doc_id: int):
+    """Mark a document as verified (locked)."""
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    db.update_document(doc_id, verified=1)
+    return db.get_document(doc_id)
+
+
+@router.post("/{doc_id}/unverify", status_code=200)
+def unverify_document(doc_id: int):
+    """Unverify a document (unlock)."""
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    db.update_document(doc_id, verified=0)
     return db.get_document(doc_id)
 
 

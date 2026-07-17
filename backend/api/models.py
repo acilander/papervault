@@ -22,6 +22,7 @@ class DocumentListOut(BaseModel):
     notes: Optional[str] = None
     low_value: Optional[int] = 0
     confidence: Optional[str] = None
+    verified: Optional[int] = 0
 
 
 class DocumentOut(BaseModel):
@@ -43,6 +44,7 @@ class DocumentOut(BaseModel):
     notes: Optional[str] = None
     low_value: Optional[int] = 0
     confidence: Optional[str] = None
+    verified: Optional[int] = 0
 
 
 class DocumentUpdate(BaseModel):
@@ -58,6 +60,7 @@ class DocumentUpdate(BaseModel):
     expires_at: Optional[str] = None
     notes: Optional[str] = None
     low_value: Optional[int] = None
+    verified: Optional[int] = None
 
 
 class SenderEntry(BaseModel):

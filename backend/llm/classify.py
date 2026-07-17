@@ -288,8 +288,11 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             user_hint = sender_hint_prefix
 
     load_model()
+    system_prompt = ""
     safe_text = safe_text[:2000]
-    system_prompt = SYSTEM_PROMPT.replace("{current_year}", str(datetime.now().year))
+    from config_manager import get_settings
+    from prompts import build_stage1_system_prompt, build_stage2_system_prompt
+    _settings = get_settings()
 
     if storage.sender_registry:
         header_text = normalize_umlauts(header_zone or safe_text[:400])
@@ -329,46 +332,76 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
 
     header_block = f"\n\n--- DOKUMENT-BRIEFKOPF (Ausschließliche Absender-Quelle) ---\n{header_zone}\n----------------------------------" if header_zone else ""
     hint_instruction = f"\n\n!!! WICHTIGE ANWEISUNG DES BENUTZERS (hat hoechste Prioritaet, ignoriere nichts davon): {user_hint} !!!" if user_hint else ""
-    user_content = f"Klassifiziere dieses Dokument:{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text}{hint_instruction}"
+    user_content = f"Dokumenten-Inhalt:{feature_block}{sender_hint}{filename_hint}{few_shot_hint}{similar_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text}{hint_instruction}"
 
     _CHAR_LIMIT = 12000
-    if len(system_prompt) + len(user_content) > _CHAR_LIMIT:
-        _overhead = len(system_prompt) + len(sender_hint) + len(filename_hint) + len(header_block) + len(hint_instruction) + 200
+    if len(user_content) > _CHAR_LIMIT:
+        _overhead = len(sender_hint) + len(filename_hint) + len(header_block) + len(hint_instruction) + 200
         _text_budget = max(1500, _CHAR_LIMIT - _overhead)
-        user_content = f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:_text_budget]}{hint_instruction}"
+        user_content = f"Dokumenten-Inhalt:{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:_text_budget]}{hint_instruction}"
         log(f"Prompt zu lang – kuerze Text auf {_text_budget} Zeichen.")
 
-    base_messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_content},
-    ]
     feedback = None
 
     for attempt in range(1, MAX_RETRIES + 1):
-        if feedback:
-            current_messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": (
-                    f"Fehler in vorheriger Antwort: {feedback}\n\n"
-                    f"Bitte korrigiere und klassifiziere dieses Dokument erneut:{feature_block}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text}{hint_instruction}"
-                )},
-            ]
-        else:
-            current_messages = base_messages
-
-        log(f"LLM Klassifizierung, Versuch {attempt}/{MAX_RETRIES}...")
+        log(f"LLM Klassifizierung (Zwei-Stufen-Kaskade), Versuch {attempt}/{MAX_RETRIES}...")
         t0 = time.time()
+        raw = ""
         try:
+            # Stage 1: Basis-Metadaten (sender, date, document_type)
+            system_prompt_s1 = build_stage1_system_prompt(_settings)
+            messages_s1 = [
+                {"role": "system", "content": system_prompt_s1},
+                {"role": "user", "content": f"Extrahiere Absender, Datum und Typ für dieses Dokument:\n\n{user_content}"}
+            ]
+            if feedback:
+                messages_s1.append({"role": "user", "content": f"Fehler im vorherigen Versuch: {feedback}. Bitte korrigiere die Metadaten."})
+
             from llm.driver import _llm
             with _llm_lock:
-                result = _llm.create_chat_completion(
-                    messages=current_messages,
-                    max_tokens=384,
+                result_s1 = _llm.create_chat_completion(
+                    messages=messages_s1,
+                    max_tokens=128,
                     temperature=0.0
                 )
-            raw = result["choices"][0]["message"]["content"]
-            cleaned = raw.replace("```json", "").replace("```", "").strip()
-            data = json.loads(cleaned)
+            raw_s1 = result_s1["choices"][0]["message"]["content"]
+            raw = raw_s1
+            cleaned_s1 = raw_s1.replace("```json", "").replace("```", "").strip()
+            # Handle possible leading/trailing junk
+            start_idx = cleaned_s1.find("{")
+            if start_idx >= 0:
+                cleaned_s1 = cleaned_s1[start_idx:]
+            end_idx = cleaned_s1.rfind("}")
+            if end_idx >= 0:
+                cleaned_s1 = cleaned_s1[:end_idx+1]
+            data_s1 = json.loads(cleaned_s1)
+
+            # Stage 2: Tiefe Extraktion (category, property_unit, summary, keywords, low_value, iban)
+            system_prompt_s2 = build_stage2_system_prompt(_settings, data_s1)
+            messages_s2 = [
+                {"role": "system", "content": system_prompt_s2},
+                {"role": "user", "content": f"Extrahiere die restlichen tiefen Daten:\n\n{user_content}"}
+            ]
+            with _llm_lock:
+                result_s2 = _llm.create_chat_completion(
+                    messages=messages_s2,
+                    max_tokens=256,
+                    temperature=0.0
+                )
+            raw_s2 = result_s2["choices"][0]["message"]["content"]
+            raw = raw_s2
+            cleaned_s2 = raw_s2.replace("```json", "").replace("```", "").strip()
+            # Handle possible leading/trailing junk
+            start_idx2 = cleaned_s2.find("{")
+            if start_idx2 >= 0:
+                cleaned_s2 = cleaned_s2[start_idx2:]
+            end_idx2 = cleaned_s2.rfind("}")
+            if end_idx2 >= 0:
+                cleaned_s2 = cleaned_s2[:end_idx2+1]
+            data_s2 = json.loads(cleaned_s2)
+
+            # Merge results
+            data = {**data_s1, **data_s2}
             data = sanitize_llm_output(data)
 
             known_fields = {"sender", "date", "document_type", "category", "property_unit", "vehicle_id", "child_name", "summary", "keywords", "low_value", "iban"}

@@ -33,7 +33,7 @@ def main():
         query = f"""
             SELECT id, file_path, filename, sender, category, document_type, date, summary, status 
             FROM documents 
-            WHERE status IN {status_filter}
+            WHERE status IN {status_filter} AND (verified IS NULL OR verified = 0)
         """
         if args.limit > 0:
             query += f" LIMIT {args.limit}"

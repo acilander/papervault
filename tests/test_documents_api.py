@@ -252,6 +252,26 @@ def test_locked_document_cannot_be_edited(tmp_path):
     assert db.get_document(doc_id)["category"] != "Kommunikation"
 
 
+def test_verify_and_unverify_document(tmp_path):
+    doc_id, _ = _insert_pdf(tmp_path, name="verify.pdf")
+    resp = client.post(f"/documents/{doc_id}/verify")
+    assert resp.status_code == 200
+    assert resp.json()["verified"] == 1
+
+    resp = client.post(f"/documents/{doc_id}/unverify")
+    assert resp.status_code == 200
+    assert resp.json()["verified"] == 0
+
+
+def test_verified_document_cannot_be_edited(tmp_path):
+    doc_id, _ = _insert_pdf(tmp_path, name="verified_edit.pdf")
+    client.post(f"/documents/{doc_id}/verify")
+
+    resp = client.patch(f"/documents/{doc_id}", json={"category": "Kommunikation"})
+    assert resp.status_code == 409
+    assert db.get_document(doc_id)["category"] != "Kommunikation"
+
+
 def test_ignored_hidden_from_default_list(tmp_path):
     visible_id, _ = _insert_pdf(tmp_path, name="visible.pdf")
     ignored_id, _ = _insert_pdf(tmp_path, name="ignored.pdf")
