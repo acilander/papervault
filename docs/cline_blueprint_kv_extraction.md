@@ -1,4 +1,4 @@
-# Cline Blueprint: Key-Value Extraction für Rechnungsdaten
+# Cline Blueprint: Key-Value Extraction für Rechnungsdaten [ERLEDIGT / HISTORISCH]
 
 **Zielsetzung:**
 Wir wollen die Vorverarbeitung in `backend/pdf_utils.py` erweitern. Anstatt das LLM das Rechnungsdatum und die Rechnungsnummer selbst aus dem riesigen Textblock heraussuchen zu lassen, sollen diese (falls sie offensichtlich als "Schlüssel: Wert" vorliegen) mit Regex (Regular Expressions) direkt extrahiert und als harter Fakt an das LLM übergeben werden. Das reduziert Halluzinationen weiter.

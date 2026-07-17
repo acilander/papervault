@@ -58,12 +58,19 @@ Hier sind die Meilensteine dokumentiert, die im Rahmen des Architektur-Refactori
 
 ## 🔄 Geplante Optimierungen (Ausblick)
 
-*   **[ ] Feingranulare Settings-UI** (`frontend/src/pages/Settings.tsx`)
-    *   *Zustand:* Hochdynamische Kategorien-Mappings (`categories_config` und `category_folder_map`) sind in der `settings.json` vorhanden, lassen sich aber im UI noch nicht komfortabel konfigurieren.
-    *   *Geplante Lösung:* Ausbau der Settings-UI zu einem vollwertigen Konfigurations-Dashboard.
-*   **[ ] Modell-Kaskade (LLM Cascade scenarios)**
-    *   *Zustand:* Die Klassifizierung läuft über einen allumfassenden JSON-Prompt, was Inferenzzeit kostet und fehleranfällig ist.
-    *   *Geplante Lösung:* 1. Stufe extrahiert nur Metadaten (Typ, Absender) -> 2. Stufe leitet an spezialisierten Prompt weiter (z. B. getrennte Felder für Handwerkerrechnungen nach § 35a EStG).
-*   **[ ] Schnellfilter-Verschiebung im UI**
-    *   *Zustand:* Filter wie "Eilt" oder "Ausstehend" nehmen wertvollen Platz in der globalen linken Menüleiste ein.
-    *   *Geplante Lösung:* Filter direkt in die jeweilige Tabellenansicht überführen, um das Seitenmenü sauber zu strukturieren.
+*   **[ ] Mehrfamilienhaus (MFH) Datenmodell & Ordnerstruktur**
+    *   *Zustand:* Integration von Wohnung-Modulen und Zuweisung von `property_unit` auf der globalen `documents`-Tabelle (geplant laut `three_principles_plan.md`).
+    *   *Geplante Lösung:* Datenbank-Erweiterung und Frontend-Menüstrukturierung in 4 Sektionen zur optimalen Nebenkostenabrechnung.
+
+---
+
+## 🏆 Erledigte Optimierungen (Phase 2)
+
+*   **[x] Feingranulare Settings-UI** (`frontend/src/pages/Settings.tsx`)
+    *   *Umsetzung:* Vollwertiges Konfigurations-Dashboard zur bequemen Konfiguration von Mappings, Root-Verzeichnissen, Wohneinheiten und Jahresunterordnern inline im UI.
+*   **[x] Modell-Kaskade (LLM Cascade scenarios)** (`backend/llm/classify.py`)
+    *   *Umsetzung:* Zweistufige Inferenz-Kaskade. Stufe 1 extrahiert Basis-Metadaten (Sender, Datum, Typ), Stufe 2 nutzt darauf aufbauend spezialisierte tiefe Extraktions-Prompts.
+*   **[x] Schnellfilter-Verschiebung im UI** (`frontend/src/pages/Documents.tsx`)
+    *   *Umsetzung:* Verschiebung der Quick-Filter "Ausstehend" und "Läuft ab" direkt in die Tabellenansicht der Dokumente, um die linke Menüleiste sauber zu strukturieren.
+*   **[x] Human-in-the-Loop Daten-Locking** (`backend/db/schema.py`)
+    *   *Umsetzung:* Einführung der Spalte `verified` in der Haupttabelle `documents` zur dauerhaften Sperrung manuell verifizierter Belege vor KI-Abweichungen ("AI-Drift").

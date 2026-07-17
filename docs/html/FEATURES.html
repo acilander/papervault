@@ -205,11 +205,11 @@
 <li>Bulk-Edit für mehrere Dokumente.</li>
 <li>Download und Wiederherstellung (Undo) für Bulk-Edits.</li>
 </ul>
-<h3 id="dokumentenschutz-ignore-lock">Dokumentenschutz (Ignore / Lock)</h3>
+<h3 id="dokumentenschutz-human-in-the-loop-daten-locking">Dokumentenschutz &amp; Human-in-the-Loop Daten-Locking</h3>
 <ul>
 <li><strong>Ignore</strong>: Dokumente als irrelevant markieren, aus der Standardliste ausblenden, Hash in Registry speichern, Datei in <code>ignored/</code>-Ordner verschieben.</li>
-<li><strong>Lock</strong>: Dokumente gegen Änderungen sperren; Duplikate desselben Hashes werden abgewiesen.</li>
-<li>Geschützt durch <code>protected_document_hashes</code> (SHA256-Hash-Präfix).</li>
+<li><strong>Lock &amp; Verifizieren</strong>: Dokumente mit dem <code>verified</code>-Flag (<code>verified = 1</code>) dauerhaft sperren. Gesperrte/verifizierte Belege sind schreibgeschützt, blockieren Inferenzupdates des LLMs und verhindern schleichende KI-Datenkorruption ("AI-Drift").</li>
+<li>Geschützt durch <code>protected_document_hashes</code> (SHA256-Hash-Präfix) und die <code>verified</code> Spalte der SQLite-Datenbank.</li>
 </ul>
 <h3 id="absender-verwaltung">Absender-Verwaltung</h3>
 <ul>

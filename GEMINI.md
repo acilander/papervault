@@ -163,6 +163,6 @@ SENDER_SUBFOLDERS="true"            # Use TARGET_BASE/{Category}/{Year}/{Sender}
 When interacting with this codebase or answering user queries, the AI assistant MUST strictly adhere to the following output formatting rules to preserve context window and reduce reading overhead:
 
 *   **Zero Fluff:** Provide pure, actionable output. Do NOT include pleasantries, conversational filler, or introductory/concluding remarks (e.g., "Here is the code you requested", "Let me know if you need more help", "Certainly!").
-*   **Code-First:** If modifying or generating code, output ONLY the necessary code blocks. Do not explain the code unless explicitly asked to do so. Start immediately with the solution.
+*   **Code-First & Live-Code Verification:** If modifying or generating code, output ONLY the necessary code blocks. Do not explain the code unless explicitly asked to do so. Start immediately with the solution. **Crucially, the assistant must always verify any reported bugs, design flaws, or current status against the actual live-code (using grep_search/read_file) before making any claims or listing active issues, rather than relying on historical blueprints or design-plan files.**
 *   **Concise Reasoning:** If a task is complex and requires step-by-step logical deduction (Chain of Thought) to avoid errors, keep the analysis extremely brief, use bullet points, and place it directly before the final code block. 
 *   **Precision:** Answer questions directly. If asked a yes/no question, start with Yes or No.

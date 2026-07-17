@@ -1,4 +1,4 @@
-# Cline Blueprint: Vision KI für Logo-Erkennung (Option B)
+# Cline Blueprint: Vision KI für Logo-Erkennung (Option B) [ERLEDIGT / HISTORISCH]
 
 **Zielsetzung:**
 Einbau eines kleinen, lokalen Vision-Modells (z.B. Moondream2), das aktiv wird, wenn der reguläre Text-Extraktor im Briefkopf (obere 30% der Seite) keinen verwertbaren Text findet. Das Modell analysiert dann das Bild des Briefkopfs, liest das Logo und übergibt den gefundenen Firmennamen als Feature an das Haupt-LLM.

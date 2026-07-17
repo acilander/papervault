@@ -144,9 +144,10 @@ Folgende Felder können geändert werden:
 ## 6. Duplikate
 ## 7. Absender verwalten
 ## 8. Geringer-Wert-Regeln
-## 9. Ignorieren und Sperren
+## 9. Ignorieren und Sperren (Verifizieren)
+- **Ignorieren (Irrelevant):** Markiert Dokumente als irrelevant. Diese werden aus der Hauptliste ausgeblendet, in den Ordner `ignored/` verschoben und bei zukünftigen Inbox-Scans ignoriert.
+- **Sperren & Verifizieren:** Durch Klicken auf "Verifizieren / Bestätigen" in der Detailansicht wird das Dokument mit dem `verified`-Flag markiert. Dadurch ist es absolut schreibgeschützt, kann nicht mehr versehentlich bearbeitet werden und wird bei automatischen Re-Klassifizierungen (`reclassify_archive.py`) übersprungen.
 ## 10. Sammlungen
-*(Diese Funktionen funktionieren wie gehabt, siehe UI)*
 
 ---
 

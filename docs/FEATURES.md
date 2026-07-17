@@ -29,10 +29,10 @@ Stand: 2026-07-14 (RTX 3060 Power-Features & MFH Update)
 - Bulk-Edit für mehrere Dokumente.
 - Download und Wiederherstellung (Undo) für Bulk-Edits.
 
-### Dokumentenschutz (Ignore / Lock)
+### Dokumentenschutz & Human-in-the-Loop Daten-Locking
 - **Ignore**: Dokumente als irrelevant markieren, aus der Standardliste ausblenden, Hash in Registry speichern, Datei in `ignored/`-Ordner verschieben.
-- **Lock**: Dokumente gegen Änderungen sperren; Duplikate desselben Hashes werden abgewiesen.
-- Geschützt durch `protected_document_hashes` (SHA256-Hash-Präfix).
+- **Lock & Verifizieren**: Dokumente mit dem `verified`-Flag (`verified = 1`) dauerhaft sperren. Gesperrte/verifizierte Belege sind schreibgeschützt, blockieren Inferenzupdates des LLMs und verhindern schleichende KI-Datenkorruption ("AI-Drift").
+- Geschützt durch `protected_document_hashes` (SHA256-Hash-Präfix) und die `verified` Spalte der SQLite-Datenbank.
 
 ### Absender-Verwaltung
 - Automatische Erkennung und Speicherung von Absendern.
