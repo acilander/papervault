@@ -50,11 +50,15 @@ export default function Inbox() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    setPage(1)
     try {
       const data = await fetchForTab(activeTab)
       setDocs(data)
       setSelected(new Set())
+      if (data.length > 0) {
+        setActiveId(data[0].id)
+      } else {
+        setActiveId(null)
+      }
     } finally {
       setLoading(false)
     }
