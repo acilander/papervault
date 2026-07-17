@@ -74,3 +74,6 @@ Hier sind die Meilensteine dokumentiert, die im Rahmen des Architektur-Refactori
     *   *Umsetzung:* Verschiebung der Quick-Filter "Ausstehend" und "Läuft ab" direkt in die Tabellenansicht der Dokumente, um die linke Menüleiste sauber zu strukturieren.
 *   **[x] Human-in-the-Loop Daten-Locking** (`backend/db/schema.py`)
     *   *Umsetzung:* Einführung der Spalte `verified` in der Haupttabelle `documents` zur dauerhaften Sperrung manuell verifizierter Belege vor KI-Abweichungen ("AI-Drift").
+
+- warum passt .env nicht zu .env.example?
+- ist nach dem umbau migrate_path.py un dMIGRATION_GUIDE noch aktuell?

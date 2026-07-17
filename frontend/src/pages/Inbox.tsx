@@ -1,12 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { CheckCircle, RefreshCw, Trash2, Eye, ChevronDown, ChevronUp, Square, CheckSquare, Users } from 'lucide-react'
+import { CheckCircle, RefreshCw, Trash2, Square, CheckSquare } from 'lucide-react'
 import { getDocuments, confirmDocument, reprocessDocument, deleteDocumentWithFile, updateDocument, pdfUrl, type Document } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
-import Pagination from '../components/Pagination'
-
-const INBOX_PAGE_SIZE = 25
 
 interface EditState {
   sender: string
@@ -26,11 +22,10 @@ const TAB_LABELS: Record<InboxTab, string> = {
 
 export default function Inbox() {
   const { categories: CATEGORIES, documentTypes: DOCUMENT_TYPES } = useConfig()
-  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<InboxTab>('review')
   const [docs, setDocs] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState<number | null>(null)
+  const [activeId, setActiveId] = useState<number | null>(null)
   const [edits, setEdits] = useState<Record<number, EditState>>({})
   const [busy, setBusy] = useState<Record<number, string>>({})
   const [reprocessHint, setReprocessHint] = useState('')
@@ -40,8 +35,6 @@ export default function Inbox() {
   
   // Selection state
   const [selected, setSelected] = useState<Set<number>>(new Set())
-
-  const [page, setPage] = useState(1)
 
   const fetchForTab = useCallback(async (tab: InboxTab) => {
     if (tab === 'processing') {
@@ -88,15 +81,6 @@ export default function Inbox() {
     document_type: doc.document_type ?? '',
     summary: doc.summary ?? '',
   })
-
-  const toggleExpand = (id: number, doc: Document) => {
-    if (expanded === id) {
-      setExpanded(null)
-    } else {
-      setExpanded(id)
-      if (!edits[id]) setEdits(e => ({ ...e, [id]: initEdit(doc) }))
-    }
-  }
 
   const toggleSelect = (id: number) => {
     const next = new Set(selected)
@@ -181,204 +165,239 @@ export default function Inbox() {
   if (loading) return <div className="p-8 text-gray-500">Lade Inbox…</div>
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-4">
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
-        {(Object.keys(TAB_LABELS) as InboxTab[]).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              activeTab === tab
-                ? 'bg-white dark:bg-gray-900 border border-b-white dark:border-gray-700 dark:border-b-gray-900 text-blue-600 dark:text-blue-400 -mb-px'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-            }`}
-          >
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Inbox – {TAB_LABELS[activeTab]}</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {docs.length === 0
-              ? 'Keine Dokumente in dieser Ansicht.'
-              : `${docs.length} Dokument${docs.length !== 1 ? 'e' : ''} (Seite ${page} von ${Math.ceil(docs.length / INBOX_PAGE_SIZE)})`}
-          </p>
-        </div>
-        
-        {docs.length > 0 && (
-          <div className="flex items-center gap-3">
-            {selected.size > 0 && (
-              <>
-                <button
-                  onClick={() => { setReprocessAllHint(''); setReprocessAllDlg(true) }}
-                  className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors">
-                  <RefreshCw size={16} />
-                  {selected.size} Neu klassifizieren
-                </button>
-                <button
-                  onClick={confirmSelected}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
-                  <CheckCircle size={16} />
-                  {selected.size} Markierte bestätigen
-                </button>
-              </>
-            )}
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Tab bar & Stats Header */}
+      <div className="px-6 py-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-sm">
+        <div className="flex gap-1">
+          {(Object.keys(TAB_LABELS) as InboxTab[]).map(tab => (
             <button
-              onClick={toggleSelectAll}
-              className="flex items-center gap-2 px-3 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium rounded-lg transition-colors">
-              {selected.size === docs.length ? <CheckSquare size={16} className="text-blue-600"/> : <Square size={16} />}
-              Alle
+              key={tab}
+              onClick={() => {
+                setActiveTab(tab)
+                setActiveId(null) // Reset selection on tab switch
+              }}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                activeTab === tab
+                  ? 'bg-blue-600 text-white shadow-sm font-semibold'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              {TAB_LABELS[tab]}
             </button>
-          </div>
-        )}
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+            {TAB_LABELS[activeTab]} ({docs.length})
+          </h1>
+          {docs.length > 0 && selected.size > 0 && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setReprocessAllHint(''); setReprocessAllDlg(true) }}
+                className="flex items-center gap-1.5 px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded transition-colors shadow-sm"
+              >
+                <RefreshCw size={12} /> {selected.size} reklassifizieren
+              </button>
+              <button
+                onClick={confirmSelected}
+                className="flex items-center gap-1.5 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded transition-colors shadow-sm"
+              >
+                <CheckCircle size={12} /> {selected.size} archivieren
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {docs.length === 0 && (
-        <div className="text-center py-16 text-gray-400 dark:text-gray-600">
-          <CheckCircle size={48} className="mx-auto mb-3 opacity-30" />
-          <p className="text-lg">Inbox ist leer</p>
+      {docs.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 bg-white dark:bg-gray-900 p-8">
+          <CheckCircle size={48} className="text-green-500 mb-4 opacity-70" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Inbox ist leer</h3>
+          <p className="text-sm mt-1 text-gray-500">✓ Super! Keine ausstehenden Belege in diesem Bereich.</p>
+        </div>
+      ) : (
+        <div className="flex-1 flex overflow-hidden bg-white dark:bg-gray-900">
+          {/* Linker Bereich: Ausstehende Liste */}
+          <div className="w-80 border-r border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/20 flex flex-col h-full overflow-hidden shrink-0">
+            <div className="px-4 py-2 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Belege</span>
+              <button onClick={toggleSelectAll} className="text-[10px] text-blue-500 hover:underline font-semibold">
+                {selected.size === docs.length ? 'Keinen' : 'Alle wählen'}
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800/60 scrollbar-thin">
+              {docs.map((doc, index) => {
+                const isActive = activeId === doc.id
+                const isSel = selected.has(doc.id)
+                return (
+                  <div
+                    key={doc.id}
+                    onClick={() => {
+                      setActiveId(doc.id)
+                      if (!edits[doc.id]) setEdits(e => ({ ...e, [doc.id]: initEdit(doc) }))
+                    }}
+                    className={`p-3 flex items-start gap-2 cursor-pointer transition-all border-l-2 select-none ${
+                      isActive
+                        ? 'bg-blue-50/60 dark:bg-blue-900/10 border-blue-600'
+                        : 'hover:bg-gray-100/50 dark:hover:bg-gray-850/40 border-transparent'
+                    }`}
+                  >
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleSelect(doc.id) }}
+                      className="mt-0.5 text-gray-400 hover:text-blue-600 shrink-0"
+                    >
+                      {isSel ? <CheckSquare size={16} className="text-blue-600" /> : <Square size={16} />}
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs truncate font-medium ${isActive ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
+                        {doc.filename}
+                      </p>
+                      <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                        {doc.sender || '–'} · {doc.date || '–'}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Mittlerer Bereich: Sichtungs- & Korrektur-Formular */}
+          {(() => {
+            const activeDoc = docs.find(d => d.id === activeId)
+            if (!activeDoc) return <div className="flex-1 p-8 text-center text-gray-400 dark:text-gray-600">Wähle einen Beleg links aus.</div>
+            const edit = edits[activeDoc.id] ?? initEdit(activeDoc)
+            const isBusy = !!busy[activeDoc.id]
+            
+            return (
+              <div className="w-[450px] border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col h-full overflow-hidden shrink-0 shadow-sm">
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20 flex items-center justify-between shrink-0">
+                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Beleg-Sichtung</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => { setReprocessHint(''); setReprocessDlg(activeDoc.id) }}
+                      title="Neu klassifizieren"
+                      className="p-1.5 text-gray-400 hover:text-orange-500 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                    <button
+                      onClick={() => remove(activeDoc)}
+                      disabled={isBusy}
+                      title="Löschen"
+                      className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+                  {/* KI-Confidence (Ampelnotiz) */}
+                  {activeDoc.confidence && (
+                    <div className={`p-3 rounded-lg text-xs border flex flex-col gap-1 ${
+                      activeDoc.confidence === 'high'
+                        ? 'bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800/60'
+                        : activeDoc.confidence === 'medium'
+                        ? 'bg-yellow-50 dark:bg-yellow-950/20 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800/60'
+                        : 'bg-red-50 dark:bg-red-950/20 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/60'
+                    }`}>
+                      <div className="flex items-center gap-1.5 font-bold">
+                        {activeDoc.confidence === 'high' && <span>🟢 KI-Vertrauen: HOCH</span>}
+                        {activeDoc.confidence === 'medium' && <span>🟡 KI-Vertrauen: MITTEL</span>}
+                        {activeDoc.confidence === 'low' && <span>🔴 KI-Vertrauen: NIEDRIG (Sichtung empfohlen)</span>}
+                      </div>
+                      {activeDoc.notes && activeDoc.notes.includes('[Vertrauen:') && (
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
+                          {activeDoc.notes.replace(/^\[Vertrauen:\s*(HIGH|MEDIUM|LOW)\]\s*/i, '')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Form fields */}
+                  <div className="space-y-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Absender</label>
+                      <input type="text" list="sender-list-inbox"
+                        value={edit.sender}
+                        onChange={e => setEdits(prev => ({ ...prev, [activeDoc.id]: { ...edit, sender: e.target.value } }))}
+                        className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                      <SenderDatalist id="sender-list-inbox" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Datum</label>
+                      <input
+                        value={edit.date}
+                        onChange={e => setEdits(prev => ({ ...prev, [activeDoc.id]: { ...edit, date: e.target.value } }))}
+                        placeholder="YYYY-MM-DD"
+                        className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Kategorie</label>
+                      <select
+                        value={edit.category}
+                        onChange={e => setEdits(prev => ({ ...prev, [activeDoc.id]: { ...edit, category: e.target.value } }))}
+                        className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="">– wählen –</option>
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Dokumenttyp</label>
+                      <select
+                        value={edit.document_type}
+                        onChange={e => setEdits(prev => ({ ...prev, [activeDoc.id]: { ...edit, document_type: e.target.value } }))}
+                        className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="">– wählen –</option>
+                        {DOCUMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Zusammenfassung</label>
+                      <textarea
+                        value={edit.summary}
+                        onChange={e => setEdits(prev => ({ ...prev, [activeDoc.id]: { ...edit, summary: e.target.value } }))}
+                        rows={3}
+                        className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/10 flex items-center justify-between shrink-0">
+                  <a href={pdfUrl(activeDoc.id)} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline">
+                    In neuem Tab öffnen
+                  </a>
+                  <button
+                    onClick={() => confirmDoc(activeDoc)}
+                    disabled={isBusy}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-all shadow-sm"
+                  >
+                    <CheckCircle size={14} />
+                    {busy[activeDoc.id] === 'confirm' ? 'Wird archiviert…' : 'Bestätigen & Archivieren'}
+                  </button>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Rechter Bereich: PDF Side-by-Side Vorschau */}
+          {activeId && (
+            <div className="flex-1 bg-gray-100 dark:bg-gray-950 flex flex-col h-full overflow-hidden">
+              <iframe
+                src={pdfUrl(activeId)}
+                className="w-full h-full border-0"
+                title="Sichtungs-PDF-Vorschau"
+              />
+            </div>
+          )}
         </div>
       )}
-
-      {docs.slice((page - 1) * INBOX_PAGE_SIZE, page * INBOX_PAGE_SIZE).map(doc => {
-        const edit = edits[doc.id] ?? initEdit(doc)
-        const isExpanded = expanded === doc.id
-        const isBusy = !!busy[doc.id]
-        const isSelected = selected.has(doc.id)
-
-        return (
-          <div key={doc.id} className={`bg-white dark:bg-gray-900 rounded-xl border shadow-sm overflow-hidden transition-colors ${isSelected ? 'border-blue-400 dark:border-blue-600 ring-1 ring-blue-400 dark:ring-blue-600' : 'border-gray-200 dark:border-gray-700'}`}>
-            {/* Header row */}
-            <div className="flex items-center px-3 py-3">
-              <button 
-                onClick={() => toggleSelect(doc.id)} 
-                className="p-1 mr-2 text-gray-400 hover:text-blue-600 transition-colors"
-              >
-                {isSelected ? <CheckSquare size={18} className="text-blue-600" /> : <Square size={18} />}
-              </button>
-              
-              <button
-                onClick={() => toggleExpand(doc.id, doc)}
-                className="flex-1 flex items-center gap-3 text-left min-w-0">
-                {isExpanded ? <ChevronUp size={16} className="text-gray-400 shrink-0" /> : <ChevronDown size={16} className="text-gray-400 shrink-0" />}
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.filename}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {doc.sender ?? '–'} · {doc.category ?? '–'} · {doc.date ?? '–'}
-                  </p>
-                </div>
-              </button>
-
-              <div className="flex items-center gap-2 shrink-0 ml-3">
-                <button
-                  onClick={() => navigate(`/documents/${doc.id}`)}
-                  title="Details"
-                  className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors">
-                  <Eye size={16} />
-                </button>
-                {doc.sender && (
-                  <button
-                    onClick={() => navigate(`/documents?sender=${encodeURIComponent(doc.sender!)}`)}
-                    title={`Alle Dokumente von "${doc.sender}" anzeigen`}
-                    className="p-1.5 text-gray-400 hover:text-purple-600 transition-colors">
-                    <Users size={16} />
-                  </button>
-                )}
-                <button
-                  onClick={() => { setReprocessHint(''); setReprocessDlg(doc.id) }}
-                  title="Neu klassifizieren"
-                  className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors">
-                  <RefreshCw size={16} />
-                </button>
-                <button
-                  onClick={() => remove(doc)}
-                  disabled={isBusy}
-                  title="Löschen"
-                  className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40">
-                  <Trash2 size={16} />
-                </button>
-                <button
-                  onClick={() => confirmDoc(doc)}
-                  disabled={isBusy}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors">
-                  <CheckCircle size={14} />
-                  {busy[doc.id] === 'confirm' ? 'Archiviert…' : 'Archivieren'}
-                </button>
-              </div>
-            </div>
-
-            {/* Expanded edit area */}
-            {isExpanded && (
-              <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-4 space-y-3 bg-gray-50 dark:bg-gray-800/50">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Absender</label>
-                    <input type="text" list="sender-list-inbox"
-                      value={edit.sender}
-                      onChange={e => setEdits(prev => ({ ...prev, [doc.id]: { ...edit, sender: e.target.value } }))}
-                      className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    />
-                    <SenderDatalist id="sender-list-inbox" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Datum</label>
-                    <input
-                      value={edit.date}
-                      onChange={e => setEdits(prev => ({ ...prev, [doc.id]: { ...edit, date: e.target.value } }))}
-                      placeholder="YYYY-MM-DD"
-                      className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Kategorie</label>
-                    <select
-                      value={edit.category}
-                      onChange={e => setEdits(prev => ({ ...prev, [doc.id]: { ...edit, category: e.target.value } }))}
-                      className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                      <option value="">– wählen –</option>
-                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Dokumenttyp</label>
-                    <select
-                      value={edit.document_type}
-                      onChange={e => setEdits(prev => ({ ...prev, [doc.id]: { ...edit, document_type: e.target.value } }))}
-                      className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                      <option value="">– wählen –</option>
-                      {DOCUMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Zusammenfassung</label>
-                  <textarea
-                    value={edit.summary}
-                    onChange={e => setEdits(prev => ({ ...prev, [doc.id]: { ...edit, summary: e.target.value } }))}
-                    rows={2}
-                    className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
-                  />
-                </div>
-                <div className="flex justify-between items-center pt-1">
-                  <a href={pdfUrl(doc.id)} target="_blank" rel="noreferrer"
-                    className="text-xs text-blue-600 hover:underline">PDF öffnen</a>
-                  <button
-                    onClick={() => confirmDoc(doc)}
-                    disabled={isBusy}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors">
-                    <CheckCircle size={14} />
-                    {busy[doc.id] === 'confirm' ? 'Wird archiviert…' : 'Bestätigen & archivieren'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )
-      })}
 
       {/* Bulk reprocess dialog */}
       {reprocessAllDlg && (
@@ -446,13 +465,6 @@ export default function Inbox() {
           </div>
         </div>
       )}
-
-      <Pagination
-        page={page}
-        totalPages={Math.ceil(docs.length / INBOX_PAGE_SIZE)}
-        onPage={p => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
-        className="py-4"
-      />
     </div>
   )
 }
