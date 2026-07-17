@@ -89,3 +89,12 @@ def apply_rule(rule_id: int):
         raise HTTPException(status_code=404, detail="Regel nicht gefunden")
     result = repo.apply_rule(rule_id)
     return {"rule": rule, "matched": result["matched"], "updated": result["updated"]}
+
+@router.post("/{rule_id}/rollback")
+def rollback_rule(rule_id: int):
+    """Undo the effects of a low value rule."""
+    rule = repo.get(rule_id)
+    if not rule:
+        raise HTTPException(status_code=404, detail="Regel nicht gefunden")
+    restored = repo.rollback_rule(rule_id)
+    return {"rule": rule, "restored": restored}

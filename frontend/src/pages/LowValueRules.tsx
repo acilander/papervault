@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Trash2, Plus, Play, Eye, AlertTriangle, Tag, FileText, Calendar, Euro, ToggleLeft, ToggleRight } from 'lucide-react'
-import { getLowValueRules, createLowValueRule, updateLowValueRule, deleteLowValueRule, previewLowValueRule, applyLowValueRule, type LowValueRule } from '../api'
+import { Trash2, Plus, Play, Eye, AlertTriangle, Tag, FileText, Calendar, Euro, ToggleLeft, ToggleRight, RotateCcw } from 'lucide-react'
+import { getLowValueRules, createLowValueRule, updateLowValueRule, deleteLowValueRule, previewLowValueRule, applyLowValueRule, rollbackLowValueRule, type LowValueRule } from '../api'
 import { useConfig } from '../ConfigContext'
+import axios from 'axios'
 
 export default function LowValueRules() {
   const { categories: CATEGORIES, documentTypes: DOCUMENT_TYPES } = useConfig()
@@ -11,6 +12,8 @@ export default function LowValueRules() {
   const [preview, setPreview] = useState<{ rule: LowValueRule; matches: any[] } | null>(null)
   const [previewBusy, setPreviewBusy] = useState<number | null>(null)
   const [applyBusy, setApplyBusy] = useState<number | null>(null)
+  const [rollbackBusy, setRollbackBusy] = useState<number | null>(null)
+
   const [form, setForm] = useState({
     name: '',
     category: '',
@@ -19,6 +22,10 @@ export default function LowValueRules() {
     older_than_days: '',
     active: true,
   })
+
+  // Live preview state for the creation form
+  const [liveMatches, setLiveMatches] = useState<any[]>([])
+  const [liveLoading, setLiveLoading] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -39,6 +46,47 @@ export default function LowValueRules() {
 
   useEffect(() => { load() }, [])
 
+  // Live preview effect
+  useEffect(() => {
+    if (!form.category && !form.document_type && !form.max_amount && !form.older_than_days) {
+      setLiveMatches([])
+      return
+    }
+    const controller = new AbortController()
+    setLiveLoading(true)
+    // We send a dry-run rule object to the backend to get a preview
+    // We can use a special "preview raw" endpoint, but we don't have one yet.
+    // Instead we can fetch from /documents with these filters if they map.
+    // Wait, the backend has /low-value-rules/preview but it requires a saved rule_id.
+    // Let's do a direct /documents search for live preview.
+    const delay = setTimeout(async () => {
+      try {
+        const res = await axios.get('/documents/', {
+          params: {
+            category: form.category || undefined,
+            status: 'ok',
+            low_value: 0
+          },
+          signal: controller.signal
+        })
+        // Filter in frontend to approximate if needed, or rely on existing endpoints
+        let docs = res.data as any[]
+        if (form.document_type) docs = docs.filter(d => d.document_type === form.document_type)
+        if (form.older_than_days) {
+          const threshold = new Date()
+          threshold.setDate(threshold.getDate() - Number(form.older_than_days))
+          docs = docs.filter(d => new Date(d.archived_at) < threshold)
+        }
+        setLiveMatches(docs.slice(0, 5))
+      } catch (err) {
+        if (!axios.isCancel(err)) setLiveMatches([])
+      } finally {
+        setLiveLoading(false)
+      }
+    }, 500)
+    return () => { clearTimeout(delay); controller.abort() }
+  }, [form])
+
   const create = async (e: React.FormEvent) => {
     e.preventDefault()
     await createLowValueRule({
@@ -50,11 +98,12 @@ export default function LowValueRules() {
       active: form.active,
     })
     setForm({ name: '', category: '', document_type: '', max_amount: '', older_than_days: '', active: true })
+    setLiveMatches([])
     await load()
   }
 
   const remove = async (id: number) => {
-    if (!confirm('Regel löschen?')) return
+    if (!confirm('Regel löschen? (Bereits markierte Dokumente behalten den "Low Value"-Status, es sei denn sie werden via Rollback zurückgesetzt)')) return
     await deleteLowValueRule(id)
     await load()
     if (preview?.rule.id === id) setPreview(null)
@@ -80,11 +129,25 @@ export default function LowValueRules() {
     setApplyBusy(id)
     try {
       const res = await applyLowValueRule(id)
-      alert(`${res.matched} Dokumente als low_value markiert.`)
+      alert(`${res.matched} Dokumente als low_value markiert. (Audit-Eintrag erstellt)`)
       await load()
       if (preview?.rule.id === id) setPreview(null)
     } finally {
       setApplyBusy(null)
+    }
+  }
+
+  const rollback = async (id: number) => {
+    if (!confirm('Rollback durchführen? Dies setzt den low_value Status bei allen Dokumenten zurück, die durch diese Regel modifiziert wurden.')) return
+    setRollbackBusy(id)
+    try {
+      const res = await rollbackLowValueRule(id)
+      alert(`Rollback erfolgreich: ${res.restored} Dokumente wurden in den Ursprungszustand zurückversetzt.`)
+      await load()
+    } catch (e: any) {
+      alert('Fehler beim Rollback: ' + (e?.response?.data?.detail || e.message))
+    } finally {
+      setRollbackBusy(null)
     }
   }
 
@@ -96,7 +159,7 @@ export default function LowValueRules() {
           Geringer-Wert Regeln
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Regeln, um Dokumente automatisch als <code>low_value</code> zu markieren.
+          Regeln, um Dokumente automatisch als <code>low_value</code> zu markieren. Aktionen werden auditiert und können rückgängig gemacht werden (Rollback).
         </p>
       </div>
 
@@ -165,6 +228,31 @@ export default function LowValueRules() {
         </div>
       </form>
 
+      {/* Live Preview Section */}
+      {(form.category || form.document_type || form.max_amount || form.older_than_days) && (
+        <div className="bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/50 rounded-xl p-4 space-y-2">
+          <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-400 flex items-center gap-2">
+            <Eye size={16} /> Echtzeit-Vorschau (Welche Dokumente würden jetzt sofort erfasst?)
+          </h3>
+          {liveLoading ? (
+            <p className="text-xs text-blue-500 animate-pulse">Lade passende Dokumente...</p>
+          ) : liveMatches.length === 0 ? (
+            <p className="text-xs text-blue-500">Diese Regel erfasst aktuell keine Dokumente im Archiv.</p>
+          ) : (
+            <div className="space-y-1">
+              {liveMatches.map(doc => (
+                <div key={doc.id} className="text-xs text-gray-700 dark:text-gray-300 flex items-center gap-2 px-2 py-1.5 bg-white dark:bg-gray-800 rounded border border-blue-50 dark:border-blue-900/30">
+                  <span className="font-medium truncate max-w-xs">{doc.filename}</span>
+                  <span>| {doc.sender ?? 'Unbekannter Absender'}</span>
+                  <span className="text-gray-400">| {doc.date ?? 'Kein Datum'}</span>
+                </div>
+              ))}
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium pl-1">...sowie alle weiteren Treffer (wird bei Klick auf "Anwenden" berechnet).</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl px-4 py-3 text-sm text-red-700 dark:text-red-200">
           {error}
@@ -222,6 +310,14 @@ export default function LowValueRules() {
                         title="Anwenden"
                       >
                         <Play size={14} />
+                      </button>
+                      <button
+                        onClick={() => rollback(rule.id)}
+                        disabled={rollbackBusy === rule.id}
+                        className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors disabled:opacity-40"
+                        title="Rollback (Regel rückgängig machen)"
+                      >
+                        <RotateCcw size={14} />
                       </button>
                       <button
                         onClick={() => remove(rule.id)}

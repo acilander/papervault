@@ -124,10 +124,39 @@ def apply_rule(rule_id: int) -> dict:
     matches = find_matching_docs(rule, limit=10000)
     ids = [d["id"] for d in matches]
     if ids:
+        now = datetime.now(timezone.utc).isoformat()
         placeholders = ",".join("?" * len(ids))
         with get_conn() as conn:
+            # First, update the documents
             conn.execute(
                 f"UPDATE documents SET low_value = 1 WHERE id IN ({placeholders})",
                 ids
             )
+            # Then, log the executions
+            for doc_id in ids:
+                conn.execute(
+                    "INSERT INTO low_value_rule_executions (rule_id, document_id, old_value, new_value, applied_at) VALUES (?, ?, ?, ?, ?)",
+                    (rule_id, doc_id, 0, 1, now)
+                )
     return {"matched": len(ids), "updated": len(ids)}
+
+def rollback_rule(rule_id: int) -> int:
+    """Reverts all document changes made by a specific rule and deletes the audit records."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT document_id FROM low_value_rule_executions WHERE rule_id = ?",
+            (rule_id,)
+        ).fetchall()
+        doc_ids = [r["document_id"] for r in rows]
+        
+        if doc_ids:
+            placeholders = ",".join("?" * len(doc_ids))
+            conn.execute(
+                f"UPDATE documents SET low_value = 0 WHERE id IN ({placeholders})",
+                doc_ids
+            )
+            conn.execute(
+                "DELETE FROM low_value_rule_executions WHERE rule_id = ?",
+                (rule_id,)
+            )
+        return len(doc_ids)

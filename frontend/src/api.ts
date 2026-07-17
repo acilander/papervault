@@ -371,6 +371,9 @@ export const previewLowValueRule = (id: number) =>
 export const applyLowValueRule = (id: number) =>
   api.post<{ rule: LowValueRule; matched: number; updated: number }>(`/low-value-rules/${id}/apply`).then(r => r.data)
 
+export const rollbackLowValueRule = (id: number) =>
+  api.post<{ rule: LowValueRule; restored: number }>(`/low-value-rules/${id}/rollback`).then(r => r.data)
+
 export interface TaxYear {
   id: number
   year: number
