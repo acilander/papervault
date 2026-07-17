@@ -583,7 +583,12 @@ export default function Documents() {
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{doc.sender ?? '–'}</p>
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-xs text-gray-400">{doc.date?.slice(0, 7) ?? '–'}</span>
-                    <span className={`px-1.5 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status ?? '–'}</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`px-1.5 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status ?? '–'}</span>
+                      {doc.confidence === 'high' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 shrink-0" title="KI-Vertrauen: Hoch" />}
+                      {doc.confidence === 'medium' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500 shrink-0" title="KI-Vertrauen: Medium" />}
+                      {doc.confidence === 'low' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" title="KI-Vertrauen: Niedrig" />}
+                    </div>
                   </div>
                 </div>
               </Link>
