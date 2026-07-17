@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Calendar, Edit3, TrendingUp, MessageSquare } from 'lucide-react'
+import { Plus, Trash2, Calendar, Edit3, TrendingUp, MessageSquare, Download } from 'lucide-react'
 import { getTaxYears, createTaxYear, deleteTaxYear, type TaxYear } from '../../api'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -22,6 +22,7 @@ export default function TaxYears() {
   const [years, setYears] = useState<TaxYear[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ year: new Date().getFullYear() - 1, status: 'draft', notes: '' })
+  const [taxYear, setTaxYear] = useState(String(new Date().getFullYear() - 1))
 
   const load = async () => {
     setLoading(true)
@@ -63,7 +64,7 @@ export default function TaxYears() {
             Verwalte deine Steuererklärungen pro Jahr.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             to="/tax/chat"
             className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
@@ -76,6 +77,25 @@ export default function TaxYears() {
           >
             <TrendingUp size={14} /> Entwicklung
           </Link>
+
+          {/* ZIP Steuer-Export */}
+          <div className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800/60 rounded-lg p-1">
+            <input
+              type="text"
+              placeholder="Jahr z.B. 2024"
+              value={taxYear}
+              onChange={e => setTaxYear(e.target.value)}
+              className="text-xs bg-white dark:bg-gray-900 border border-yellow-200 dark:border-yellow-800/60 rounded px-2 py-1 w-24 focus:outline-none"
+            />
+            <a
+              href={`/documents/tax-export${taxYear ? `?year=${taxYear}` : ''}`}
+              download
+              className="flex items-center gap-1 px-2.5 py-1 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-semibold rounded transition-colors"
+              title="Steuerrelevante Belege als ZIP herunterladen"
+            >
+              <Download size={12} /> ZIP
+            </a>
+          </div>
         </div>
       </div>
 
