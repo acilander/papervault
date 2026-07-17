@@ -11,9 +11,12 @@ PDFs, sowie Office-Dokumente (`.docx`, `.xlsx`) aus dem Inbox-Ordner automatisch
 | `backend/pipeline/core.py` | Koordiniert die Verarbeitungsschritte inkl. Phase 8c (Tax Linking) |
 | `backend/pipeline/steps.py` | Einzelne Schritte: Hash, Duplikat, Klassifikation, Archivierung |
 | `backend/pdf_utils.py` | Textextraktion für PDF (PyMuPDF) und Office (`.docx`, `.xlsx`), VLM Fallback |
+| `backend/pdf_thumbnails.py` | Rendering von PDF Thumbnails (JPEG) und Briefkopf-Bildern (PNG) |
+| `backend/pdf_hashing.py` | SimHash-Verfahren zur Erkennung textnaher Duplikate |
 | `backend/vision.py` | Moondream2 VLM Engine für visuelles OCR |
 | `backend/archiver.py` | Höherer Einstiegspunkt (Watchdog) für Batch-Verarbeitung |
-| `backend/llm.py` | LLM-Abstraktion und Prompting |
+| `backend/llm/driver.py` | Lokaler GGUF Modell-Loader, Completion-Treiber und Embeddings-Generierung |
+| `backend/llm/classify.py` | High-Level Dokumentenklassifizierung und Normalisierungshelfer |
 | `backend/storage.py` | Dateisystem-Operationen, Pfadaufbau, Sender-Registry |
 
 ## 3. Ablauf

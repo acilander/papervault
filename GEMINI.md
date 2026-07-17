@@ -22,10 +22,11 @@ papervault/
 ├── backend/                  # Python Core
 │   ├── config.py             # Central configurations, system prompts, paths
 │   ├── archiver.py           # Background Watchdog watcher and thread-safe process queue
-│   ├── llm.py                # Local inference loader via llama-cpp-python and mock engine
 │   ├── feedback.py           # Accumulates manual edits as few-shot JSON templates
 │   ├── storage.py            # Thread-safe file management (hashes, senders)
-│   ├── pdf_utils.py          # Smart Chunking, OCR and text extraction
+│   ├── pdf_utils.py          # Smart Chunking, OCR and text extraction facade
+│   ├── pdf_thumbnails.py     # Render PNG/JPEG PDF thumbnails and header images
+│   ├── pdf_hashing.py        # SimHash fingerprinting and Hamming distance calculations
 │   ├── utils.py              # Shared string normalization, date parsing, logging
 │   ├── api/                  # FastAPI App
 │   │   ├── main.py           # App entry point, CORS settings
@@ -36,6 +37,10 @@ papervault/
 │   │   ├── schema.py         # Table structures & migrations
 │   │   ├── documents_repo.py # CRUD & FTS Search
 │   │   └── stats_repo.py     # Analytics & counts
+│   ├── llm/                  # Local Inference & LLM Workflows
+│   │   ├── driver.py         # Low-level model loading and completion driver
+│   │   ├── classify.py       # High-level document classification logic
+│   │   └── specialized/      # Specialized contracts/items/services extraction
 │   └── pipeline/             # PDF Ingest Pipeline
 │       ├── core.py           # Orchestrator (process_pdf)
 │       └── steps.py          # Standalone processing steps (duplicates, shortcuts)
@@ -95,11 +100,13 @@ SENDER_SUBFOLDERS="true"            # Use TARGET_BASE/{Category}/{Year}/{Sender}
 
 ## 4. Architectural & Development Conventions
 
-### A. Local Inference Mandate (NO Ollama Server Calls)
+### A. Local Inference Mandate & Hardware Modes
 *   **Rule:** Even if the selected GGUF model resides inside the `.ollama` cache directory, **Ollama must NOT be run as a server.**
 *   **Rationale:** Ollama 0.30.x on Windows is known to crash with HTTP 500 / "exit status 1" on AMD Ryzen Zen-2 CPUs (e.g., Ryzen 5 3600) due to incompatible instruction sets.
 *   **Implementation:** Always load GGUF models directly from the filesystem using `llama-cpp-python` via `llm.py`.
 *   **CUDA GPU Acceleration:** To prevent CUDA memory segmentation faults when running on GPUs like the **NVIDIA RTX 3060 12GB**, a global thread synchronization lock (`_llm_lock = threading.Lock()`) must serialize all `_llm.create_chat_completion` calls.
+*   **CPU-only Support & Lifespan Startup:** `assert_gpu_support()` must not block server startup if the user explicitly chooses CPU-only execution (e.g., setting `N_GPU_LAYERS = 0`). Only log a warning in that case.
+*   **Preload Thread-Safety:** During model preloading (background daemon thread `llm-preload`), all checks and instantiations of the global `_llm` instance must reside under double-checked locking inside `_llm_lock` to avoid double-loading or CUDA OOM if API requests arrive concurrently.
 
 ### B. Database Schema & Migration Pattern
 *   All DB connections must go through `db.get_conn()`, a context manager that enforces WAL (`PRAGMA journal_mode=WAL`), foreign keys, and relies on a **Thread-Local Connection Pool** (`threading.local()`) inside `connection.py` to reuse connections and eliminate connection overhead.
@@ -110,22 +117,27 @@ SENDER_SUBFOLDERS="true"            # Use TARGET_BASE/{Category}/{Year}/{Sender}
 ### C. Processing Pipeline & Ingest Sequence
 1.  **Ingestion:** Watchdog spots a new `.pdf` in `SOURCE_DIR`. It polls via `wait_for_file()` until the file lock is released.
     *   **Self-Healing Worker:** An automated monitoring loop in `archiver.py` checks every 2 seconds if the file-processing background worker thread has died (`worker_thread.is_alive() == False`) and automatically restarts it.
+    *   **Multi-Process Path Synchronization:** Updates to `SOURCE_DIR` or `TARGET_BASE` via the settings API write to `.env` but only update the memory of the FastAPI backend. Since `archiver.py` runs as a separate OS process, it does **not** dynamically reload these variables. Changing paths requires a manual service restart to avoid UI/worker path divergence.
 2.  **Duplicate Check:** 
-    *   **Dual-Mode Hashing:** If the extracted text is $\ge$ 100 characters, it uses content-based text hashing. If the text is shorter (e.g. OCR failed or blank PDF), it automatically falls back to binary file-level hashing to prevent false duplicate collisions on generic strings.
-    *   If a duplicate is found, it is moved to `duplicates/` and logged in the DB as `status='duplicate'`.
-3.  **Prompt Builder:**
+    *   **Dual-Mode Hashing:** If the extracted text is $\ge$ 100 characters, it uses content-based text hashing. If the text is shorter (e.g. OCR failed or blank PDF) or identified as a recurring periodic document (e.g. payslips, bank statements), it automatically falls back to binary file-level hashing to prevent false duplicate collisions on generic strings.
+    *   If an exact duplicate is found, it is moved to `duplicates/` and logged in the DB as `status='duplicate'`.
+    *   **Near-Duplicate SimHash Filtering:** Near-duplicate check detects $\ge$ 90% text similarity. To prevent monatliche Gehaltsabrechnungen or other recurring periodic documents from always triggering SimHash duplicate flags (which overrides confidence to `LOW` and forces manual review), the SimHash duplicate check must be bypassed when `is_periodic_document()` is true.
+3.  **OCR Text Extraction & File Lock Safety:**
+    *   If embedded text is missing or garbled (Dictionary-Density score < 15% and Alnum ratio < 75%), OCR is triggered (`ocr_pdf()`).
+    *   **PyMuPDF File Lock Safety:** Every method opening PDF files (`extract_text()`, `ocr_pdf()`, etc.) **must** encapsulate PyMuPDF documents in `try-finally` blocks to guarantee `doc.close()` executes and releases Windows file locks on exceptions.
+4.  **Prompt Builder:**
     *   System Prompt is generated utilizing strict schemas.
     *   **Few-Shot Integration:** Up to 15 manual GUI correction records are extracted from `feedback.json` (preferring category corrections) and formatted as few-shot examples inside the context prompt.
     *   **Similar-Doc Context:** The 3 most recent entries for the matching sender are queried from SQLite and injected to ensure classification consistency.
     *   **Smart Chunking:** For documents with $\ge$ 3 pages, only Page 1 (sender, date metadata) and the Last Page (totals, signature metadata) are extracted and concatenated to stay within the 2000 character limit without losing context.
     *   **Königsweg Briefkopf Isolation:** The top 30% of page 1 is isolated and provided to the LLM as a dedicated `--- DOKUMENT-BRIEFKOPF ---` section. Disambiguation rules instruct the model to resolve `sender` strictly from this section, resolving the "Netto" (net tax value) token confusion.
-4.  **LLM Execution:** JSON schema extraction parses `sender`, `date`, `document_type`, `category`, `summary`, and `keywords`.
+5.  **LLM Execution:** JSON schema extraction parses `sender`, `date`, `document_type`, `category`, `summary`, and `keywords`.
     *   **Confidence Score & Ampel-Notizen:** Calculates a confidence rating (`HIGH`, `MEDIUM`, `LOW`) and a logical reason (e.g. Rule Match vs Semantic Text Verification vs Hallucination Alarm) and records it directly in the `notes` column in SQLite, making it instantly visible in the UI detail panel.
-5.  **Validation & Post-Processing:**
+6.  **Validation & Post-Processing:**
     *   Dates in the future or invalid formats are rejected.
     *   **Hallucinations Filtering:** Keywords are cross-verified against the original extracted PDF text. If a keyword does not appear literally, it is stripped.
     *   **Sender Registry Matching:** Fuzzy matching and canonical alias resolution maps the sender name using definitions inside `senders.json`.
-6.  **Archiving / Auto-Archiving:**
+7.  **Archiving / Auto-Archiving:**
     *   **Auto-Archiving (Weg 3):** If confidence is `HIGH` (Stufe 0 Rule Match and valid date), the document automatically bypasses the review inbox, is moved directly to the final archive folder, and marked `status="ok"`.
     *   Otherwise, the PDF is relocated to the `review/` inbox folder.
     *   **Transactional Safety & Rollback:** File movements and DB writes are wrapped in `try-except` blocks. If database writes fail, the PDF is automatically moved back to its original path (filesystem rollback), fully protecting against dangling untracked files.

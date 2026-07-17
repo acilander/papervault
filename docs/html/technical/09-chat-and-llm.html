@@ -201,8 +201,12 @@
 </thead>
 <tbody>
 <tr>
-<td><code>backend/llm.py</code></td>
-<td>LLM-Initialisierung, Prompting, JSON-Parsing, <strong>Embeddings-Generierung</strong></td>
+<td><code>backend/llm/driver.py</code></td>
+<td>LLM-Initialisierung, Completer, <strong>Embeddings-Generierung</strong> und Thread-Locking</td>
+</tr>
+<tr>
+<td><code>backend/llm/classify.py</code></td>
+<td>High-Level Dokumentenklassifizierung und Prompting-Assembling</td>
 </tr>
 <tr>
 <td><code>backend/db/embeddings_repo.py</code></td>

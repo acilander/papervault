@@ -213,6 +213,14 @@
 <td>Textextraktion für PDF (PyMuPDF) und Office (<code>.docx</code>, <code>.xlsx</code>), VLM Fallback</td>
 </tr>
 <tr>
+<td><code>backend/pdf_thumbnails.py</code></td>
+<td>Rendering von PDF Thumbnails (JPEG) und Briefkopf-Bildern (PNG)</td>
+</tr>
+<tr>
+<td><code>backend/pdf_hashing.py</code></td>
+<td>SimHash-Verfahren zur Erkennung textnaher Duplikate</td>
+</tr>
+<tr>
 <td><code>backend/vision.py</code></td>
 <td>Moondream2 VLM Engine für visuelles OCR</td>
 </tr>
@@ -221,8 +229,12 @@
 <td>Höherer Einstiegspunkt (Watchdog) für Batch-Verarbeitung</td>
 </tr>
 <tr>
-<td><code>backend/llm.py</code></td>
-<td>LLM-Abstraktion und Prompting</td>
+<td><code>backend/llm/driver.py</code></td>
+<td>Lokaler GGUF Modell-Loader, Completion-Treiber und Embeddings-Generierung</td>
+</tr>
+<tr>
+<td><code>backend/llm/classify.py</code></td>
+<td>High-Level Dokumentenklassifizierung und Normalisierungshelfer</td>
 </tr>
 <tr>
 <td><code>backend/storage.py</code></td>

@@ -8,7 +8,8 @@ Nutzer können semantische Fragen an das lokale LLM stellen. Die Antworten basie
 
 | Datei | Rolle |
 |-------|-------|
-| `backend/llm.py` | LLM-Initialisierung, Prompting, JSON-Parsing, **Embeddings-Generierung** |
+| `backend/llm/driver.py` | LLM-Initialisierung, Completer, **Embeddings-Generierung** und Thread-Locking |
+| `backend/llm/classify.py` | High-Level Dokumentenklassifizierung und Prompting-Assembling |
 | `backend/db/embeddings_repo.py` | Speichern und Laden von Vektor-Embeddings als SQLite BLOBs |
 | `backend/api/routes/chat.py` | Chat-Endpunkte mit Numpy Cosine Similarity |
 | `backend/tax/chat.py` | Steuer-spezifischer Chat |
