@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import axios from 'axios'
 import { HardDrive, CheckCircle, AlertCircle, Loader, RefreshCw, FolderX, User, Download, Trash, Plus, Pencil, Check, X } from 'lucide-react'
 import { cleanupEmptyFolders, getConfig, saveUserSettings, startModelDownload, startModelRepair, type AppConfig } from '../api'
+import { useConfig } from '../ConfigContext'
 
 interface ModelInfo {
   name: string
@@ -40,6 +41,7 @@ const RECOMMENDED_MODELS = [
 ]
 
 export default function Settings() {
+  const { reloadConfig } = useConfig()
   const [models, setModels] = useState<ModelInfo[]>([])
   const [active, setActive] = useState<ActiveModel | null>(null)
   const [loading, setLoading] = useState(true)
@@ -185,6 +187,7 @@ export default function Settings() {
         setSuccess('Einstellungen erfolgreich auf Datenträger gespeichert!')
         window.dispatchEvent(new CustomEvent('documents-changed'))
         await load()
+        await reloadConfig()
       }
     } catch {
       setError('Fehler beim Speichern der Einstellungen.')
