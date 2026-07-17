@@ -25,7 +25,34 @@ CREATE TABLE IF NOT EXISTS documents (
     low_value     INTEGER DEFAULT 0,
     full_text     TEXT DEFAULT '',
     confidence    TEXT DEFAULT NULL,
-    verified      INTEGER DEFAULT 0
+    verified      INTEGER DEFAULT 0,
+    file_size_bytes INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS cleanup_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    action_type TEXT NOT NULL,
+    filename    TEXT NOT NULL,
+    bytes_saved INTEGER NOT NULL,
+    executed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS low_value_rule_executions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule_id     INTEGER NOT NULL,
+    document_id INTEGER NOT NULL,
+    old_value   INTEGER NOT NULL,
+    new_value   INTEGER NOT NULL,
+    applied_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS system_incidents (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_type TEXT NOT NULL,
+    file_path   TEXT,
+    message     TEXT NOT NULL,
+    resolved    INTEGER DEFAULT 0,
+    logged_at   TEXT NOT NULL
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
@@ -159,6 +186,7 @@ MIGRATIONS = [
     "ALTER TABLE documents ADD COLUMN verified INTEGER DEFAULT 0",
     "CREATE INDEX IF NOT EXISTS idx_documents_verified ON documents(verified)",
     "CREATE INDEX IF NOT EXISTS idx_documents_confidence ON documents(confidence)",
+    "ALTER TABLE documents ADD COLUMN file_size_bytes INTEGER DEFAULT 0",
 ]
 
 def init_db():

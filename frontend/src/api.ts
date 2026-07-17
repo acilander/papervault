@@ -66,6 +66,8 @@ export interface Stats {
 
 export const getStats = () => api.get<Stats>('/stats/').then(r => r.data)
 
+export const getCleanupStats = () => api.get<{total_bytes_saved: number}>('/stats/cleanup').then(r => r.data)
+
 export const getCategories = () => api.get<string[]>('/stats/categories').then(r => r.data)
 
 export const getDocumentTypes = () => api.get<string[]>('/stats/document-types').then(r => r.data)

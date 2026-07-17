@@ -35,6 +35,10 @@ _COMMON_GERMAN_WORDS = {
 
 def _register_doc(file_path: str, doc_id) -> int:
     """Ensure document has a DB identity. Returns doc_id."""
+    size_bytes = 0
+    if os.path.exists(file_path):
+        size_bytes = os.path.getsize(file_path)
+
     if doc_id is None:
         existing = db.get_document_by_path(file_path)
         if existing:
@@ -46,7 +50,7 @@ def _register_doc(file_path: str, doc_id) -> int:
                 sender=None, date=None, document_type=None,
                 category=None, summary=None, status="processing"
             )
-    db.update_document(doc_id, status="processing")
+    db.update_document(doc_id, status="processing", file_size_bytes=size_bytes)
     return doc_id
 
 

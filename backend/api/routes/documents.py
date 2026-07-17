@@ -610,15 +610,32 @@ def migrate_bank_folders():
 
 @router.delete("/{doc_id}/delete-file", status_code=204)
 def delete_document_with_file(doc_id: int):
-    """Delete the PDF from disk AND remove the DB entry."""
+    """Delete the PDF from disk AND remove the DB entry, tracking saved bytes."""
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
     path = doc["file_path"]
     sender_name = doc.get("sender")
+    filename = doc["filename"]
+
+    # Calculate file size before deletion
+    size_bytes = doc.get("file_size_bytes") or 0
+    if size_bytes == 0 and path and os.path.exists(path):
+        size_bytes = os.path.getsize(path)
+
     db.delete_document(doc_id)
     if path and os.path.exists(path):
         os.remove(path)
+
+    # Log space saved if applicable
+    if size_bytes > 0:
+        from datetime import datetime
+        with db.connection.get_conn() as conn:
+            conn.execute(
+                "INSERT INTO cleanup_history (action_type, filename, bytes_saved, executed_at) VALUES (?, ?, ?, ?)",
+                ("deleted_duplicate", filename, size_bytes, datetime.now().isoformat(timespec="seconds"))
+            )
+
     if sender_name:
         import db.sender_repo as _sr
         if _sr.cleanup_if_orphaned(sender_name):

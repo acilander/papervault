@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Copy, RefreshCw, Trash2, CheckCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
-import { deleteDocumentWithFile, pdfUrl } from '../api'
+import { Copy, RefreshCw, Trash2, CheckCircle, ChevronDown, ChevronUp, ExternalLink, HardDrive } from 'lucide-react'
+import { deleteDocumentWithFile, pdfUrl, getCleanupStats } from '../api'
 import axios from 'axios'
 import Pagination from '../components/Pagination'
 
@@ -15,6 +15,7 @@ interface DocInfo {
   document_type?: string
   content_hash?: string
   sim_hash?: number
+  file_size_bytes?: number
 }
 
 interface DupPair {
@@ -36,7 +37,7 @@ function ScoreBadge({ score }: { score: number }) {
   )
 }
 
-function DocCard({ doc, onDelete }: { doc: DocInfo; onDelete: (id: number) => void }) {
+function DocCard({ doc, otherDoc, onDelete }: { doc: DocInfo; otherDoc?: DocInfo; onDelete: (id: number) => void }) {
   const [deleting, setDeleting] = useState(false)
   const handleDelete = async () => {
     if (!window.confirm(`"${doc.filename}" unwiderruflich löschen?`)) return
@@ -48,6 +49,10 @@ function DocCard({ doc, onDelete }: { doc: DocInfo; onDelete: (id: number) => vo
       setDeleting(false)
     }
   }
+
+  // Diff highlighting
+  const isDiff = (field: keyof DocInfo) => otherDoc && doc[field] !== otherDoc[field]
+
   return (
     <div className="flex-1 min-w-0 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
       <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between gap-2">
@@ -64,9 +69,9 @@ function DocCard({ doc, onDelete }: { doc: DocInfo; onDelete: (id: number) => vo
         </div>
       </div>
       <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
-        <p><span className="font-medium text-gray-700 dark:text-gray-300">Absender:</span> {doc.sender ?? '–'}</p>
-        <p><span className="font-medium text-gray-700 dark:text-gray-300">Datum:</span> {doc.date ?? '–'}</p>
-        <p><span className="font-medium text-gray-700 dark:text-gray-300">Typ:</span> {doc.document_type ?? '–'}</p>
+        <p><span className="font-medium text-gray-700 dark:text-gray-300">Absender:</span> <span className={isDiff('sender') ? 'font-bold text-orange-600 dark:text-orange-400' : ''}>{doc.sender ?? '–'}</span></p>
+        <p><span className="font-medium text-gray-700 dark:text-gray-300">Datum:</span> <span className={isDiff('date') ? 'font-bold text-orange-600 dark:text-orange-400' : ''}>{doc.date ?? '–'}</span></p>
+        <p><span className="font-medium text-gray-700 dark:text-gray-300">Typ:</span> <span className={isDiff('document_type') ? 'font-bold text-orange-600 dark:text-orange-400' : ''}>{doc.document_type ?? '–'}</span></p>
         <p className="truncate" title={doc.file_path}><span className="font-medium text-gray-700 dark:text-gray-300">Pfad:</span> {doc.file_path}</p>
       </div>
       <iframe
@@ -85,6 +90,7 @@ export default function Duplicates() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [minScore, setMinScore] = useState(70)
   const [page, setPage] = useState(1)
+  const [cleanupBytes, setCleanupBytes] = useState(0)
   const [dismissed, setDismissed] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem('dismissed-duplicate-pairs')
@@ -98,8 +104,10 @@ export default function Duplicates() {
     setLoading(true)
     setPage(1)
     try {
-      const res = await axios.get(`/monitor/duplicates?min_score=${minScore}`)
-      setPairs(res.data.pairs ?? [])
+      const res = await axios.get(`/duplicates/?min_score=${minScore}`)
+      setPairs(res.data)
+      const cleanup = await getCleanupStats()
+      setCleanupBytes(cleanup.total_bytes_saved)
     } finally {
       setLoading(false)
     }
@@ -107,130 +115,123 @@ export default function Duplicates() {
 
   useEffect(() => { load() }, [load])
 
-  const pairKey = (p: DupPair) => `${p.doc_a.id}-${p.doc_b.id}`
-
-  const toggleExpand = (key: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
-      return next
-    })
-  }
-
-  const dismiss = (key: string) => {
+  const dismiss = (hashA: string, hashB: string) => {
+    const key = [hashA, hashB].sort().join('|')
     setDismissed(prev => {
-      const next = new Set(prev).add(key)
-      try { localStorage.setItem('dismissed-duplicate-pairs', JSON.stringify([...next])) } catch {}
+      const next = new Set(prev)
+      next.add(key)
+      localStorage.setItem('dismissed-duplicate-pairs', JSON.stringify([...next]))
       return next
     })
-  }
-
-  const clearDismissed = () => {
-    setDismissed(new Set())
-    try { localStorage.removeItem('dismissed-duplicate-pairs') } catch {}
   }
 
   const handleDelete = (deletedId: number) => {
     setPairs(prev => prev.filter(p => p.doc_a.id !== deletedId && p.doc_b.id !== deletedId))
+    getCleanupStats().then(cleanup => setCleanupBytes(cleanup.total_bytes_saved))
   }
 
-  const visible = pairs.filter(p => !dismissed.has(pairKey(p)))
-  const totalPages = Math.ceil(visible.length / DUP_PAGE_SIZE)
-  const pagedVisible = visible.slice((page - 1) * DUP_PAGE_SIZE, page * DUP_PAGE_SIZE)
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 MB'
+    const mb = bytes / (1024 * 1024)
+    if (mb < 1000) return `${mb.toFixed(1)} MB`
+    return `${(mb / 1024).toFixed(2)} GB`
+  }
+
+  // Filter out dismissed pairs
+  const activePairs = pairs.filter(p => {
+    const key = [p.doc_a.content_hash || String(p.doc_a.sim_hash), p.doc_b.content_hash || String(p.doc_b.sim_hash)].sort().join('|')
+    return !dismissed.has(key)
+  })
+
+  const totalPages = Math.ceil(activePairs.length / DUP_PAGE_SIZE)
+  const pagePairs = activePairs.slice((page - 1) * DUP_PAGE_SIZE, page * DUP_PAGE_SIZE)
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="p-6 max-w-7xl mx-auto space-y-4">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-            <Copy size={22} className="text-purple-600" />
-            Duplikat-Prüfung
+            <Copy size={22} className="text-blue-500" />
+            Duplikate
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {loading ? 'Suche läuft…' : `${visible.length} mögliche Duplikat-Paare gefunden`}
+            Findet exakte Kopien (MD5-Hash) und visuelle Nah-Duplikate (SimHash).
           </p>
-          {!loading && totalPages > 1 && (
-            <p className="text-xs text-gray-400">Seite {page} von {totalPages}</p>
-          )}
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <label>Min. Score:</label>
-            <select
-              value={minScore}
-              onChange={e => setMinScore(Number(e.target.value))}
-              className="border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            >
-              <option value={60}>60% – Metadaten</option>
-              <option value={70}>70% – Sicher Metadaten</option>
-              <option value={80}>80% – SimHash</option>
-              <option value={100}>100% – Exakter Hash</option>
-            </select>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/60 px-3 py-1.5 rounded-lg shadow-sm">
+            <HardDrive size={16} />
+            <span className="text-sm font-semibold">Gespart: {formatBytes(cleanupBytes)}</span>
           </div>
-          {dismissed.size > 0 && (
-            <button onClick={clearDismissed}
-              className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors">
-              {dismissed.size} ignorierte zurücksetzen
-            </button>
-          )}
-          <button onClick={load}
-            className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors">
-            <RefreshCw size={14} />
-            Neu laden
+          <div className="flex items-center gap-2 text-sm bg-white dark:bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800">
+            <span className="text-gray-500">Sensibilität:</span>
+            <input type="range" min="50" max="100" value={minScore} onChange={e => setMinScore(Number(e.target.value))} className="w-24" />
+            <span className="font-mono w-9 text-right">{minScore}%</span>
+          </div>
+          <button onClick={load} className="p-2 text-gray-500 hover:text-blue-600 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg transition-colors">
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
 
-      {!loading && visible.length === 0 && (
-        <div className="text-center py-16 text-gray-400 dark:text-gray-600">
-          <CheckCircle size={48} className="mx-auto mb-3 opacity-30" />
-          <p className="text-lg">Keine Duplikate gefunden</p>
+      {loading ? (
+        <div className="text-center py-12 text-gray-400">Scanne Archiv nach Duplikaten…</div>
+      ) : activePairs.length === 0 ? (
+        <div className="text-center py-16 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl">
+          <CheckCircle size={48} className="mx-auto text-green-500 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Archiv ist sauber</h3>
+          <p className="text-gray-500 mt-1">Keine Duplikate gefunden (ab {minScore}% Ähnlichkeit).</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {pagePairs.map((p, i) => {
+            const key = `${p.doc_a.id}-${p.doc_b.id}`
+            const isExpanded = expanded.has(key)
+            return (
+              <div key={key} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm">
+                <div
+                  className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  onClick={() => {
+                    setExpanded(prev => {
+                      const next = new Set(prev)
+                      next.has(key) ? next.delete(key) : next.add(key)
+                      return next
+                    })
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                    <ScoreBadge score={p.score} />
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {p.doc_a.filename} <span className="text-gray-400 font-normal mx-2">vs</span> {p.doc_b.filename}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{p.reason}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); dismiss(p.doc_a.content_hash || String(p.doc_a.sim_hash), p.doc_b.content_hash || String(p.doc_b.sim_hash)) }}
+                      className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      Ausblenden
+                    </button>
+                  </div>
+                </div>
+                {isExpanded && (
+                  <div className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800 flex gap-4">
+                    <DocCard doc={p.doc_a} otherDoc={p.doc_b} onDelete={handleDelete} />
+                    <DocCard doc={p.doc_b} otherDoc={p.doc_a} onDelete={handleDelete} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          
+          <Pagination page={page} totalPages={totalPages} onPage={setPage} />
         </div>
       )}
-
-      {pagedVisible.map(pair => {
-        const key = pairKey(pair)
-        const isExpanded = expanded.has(key)
-        return (
-          <div key={key} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-              onClick={() => toggleExpand(key)}>
-              {isExpanded ? <ChevronUp size={15} className="text-gray-400 shrink-0" /> : <ChevronDown size={15} className="text-gray-400 shrink-0" />}
-              <ScoreBadge score={pair.score} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                  {pair.doc_a.filename} <span className="text-gray-400 font-normal mx-1">vs.</span> {pair.doc_b.filename}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{pair.reason}</p>
-              </div>
-              <button
-                onClick={e => { e.stopPropagation(); dismiss(key) }}
-                title="Als kein Duplikat markieren"
-                className="shrink-0 px-3 py-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                Ignorieren
-              </button>
-            </div>
-
-            {/* Side-by-side preview */}
-            {isExpanded && (
-              <div className="border-t border-gray-100 dark:border-gray-800 p-4">
-                <div className="flex gap-4">
-                  <DocCard doc={pair.doc_a} onDelete={handleDelete} />
-                  <DocCard doc={pair.doc_b} onDelete={handleDelete} />
-                </div>
-              </div>
-            )}
-          </div>
-        )
-      })}
-
-      <Pagination
-        page={page}
-        totalPages={totalPages}
-        onPage={p => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
-        className="py-4"
-      />
     </div>
   )
 }
+
+

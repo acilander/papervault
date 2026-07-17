@@ -35,6 +35,12 @@ def get_config():
     return settings
 
 
+@router.get("/cleanup")
+def get_cleanup_stats():
+    """Returns the total bytes saved from deleting duplicates."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT SUM(bytes_saved) FROM cleanup_history").fetchone()
+        return {"total_bytes_saved": row[0] or 0}
 @router.get("/quality")
 def get_quality():
     """Archive quality / completeness report for the dashboard."""
