@@ -11,7 +11,6 @@ import config
 
 def _reset():
     storage.sender_registry = {}
-    storage.content_hashes = {}
     sender_repo._clear_all_for_tests()
 
 

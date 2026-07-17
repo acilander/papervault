@@ -16,7 +16,7 @@ from pdf_utils import (
 )
 from storage import record_sender, apply_sender_overrides, processing_log
 import db
-from utils import log
+from utils import log, is_periodic_document
 from pipeline.steps import check_duplicate, check_fuzzy_duplicate, cleanup_empty_inbox_folders
 
 _COMMON_GERMAN_WORDS = {
@@ -209,13 +209,16 @@ def process_pdf(file_path, doc_id=None):
 
     # Phase 3b: SimHash near-duplicate check (rescanned documents)
     doc_sim_hash = compute_simhash(text)
-    sim_matches = db.get_similar_by_simhash(doc_sim_hash, doc_id)
     sim_duplicate_note = None
-    if sim_matches:
-        best = sim_matches[0]
-        similarity = round((1.0 - best['simhash_distance'] / 64) * 100, 1)
-        log(f"SCAN-DUPLIKAT erkannt ({similarity}% Textübereinstimmung) – ähnlich wie: {os.path.basename(best['file_path'])}")
-        sim_duplicate_note = f"Mögliches Scan-Duplikat ({similarity}% Textübereinstimmung) von: {os.path.basename(best['file_path'])}"
+    if not is_periodic_document("", os.path.basename(file_path), text):
+        sim_matches = db.get_similar_by_simhash(doc_sim_hash, doc_id)
+        if sim_matches:
+            best = sim_matches[0]
+            similarity = round((1.0 - best['simhash_distance'] / 64) * 100, 1)
+            log(f"SCAN-DUPLIKAT erkannt ({similarity}% Textübereinstimmung) – ähnlich wie: {os.path.basename(best['file_path'])}")
+            sim_duplicate_note = f"Mögliches Scan-Duplikat ({similarity}% Textübereinstimmung) von: {os.path.basename(best['file_path'])}"
+    else:
+        log("Periodischer Beleg erkannt – überspringe SimHash-Vergleich.")
 
     # Phase 4: Pre-analysis (features, hints, receipt detection)
     safe_text = prepare_text_for_llm(text)

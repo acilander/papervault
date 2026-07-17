@@ -143,10 +143,13 @@ def update_user_settings(req: dict):
     from config_manager import save_settings
     import config
 
+    paths_changed = False
     paths = req.pop("paths", {})
     if paths:
         source_dir = paths.get("source_dir", config.SOURCE_DIR)
         target_base = paths.get("target_base", config.TARGET_BASE)
+        if source_dir != config.SOURCE_DIR or target_base != config.TARGET_BASE:
+            paths_changed = True
         # Update run-time config
         config.SOURCE_DIR = source_dir
         config.TARGET_BASE = target_base
@@ -157,7 +160,10 @@ def update_user_settings(req: dict):
         })
 
     if save_settings(req):
-        return {"ok": True, "message": "Einstellungen gespeichert."}
+        msg = "Einstellungen gespeichert."
+        if paths_changed:
+            msg += " HINWEIS: Da sich System-Pfade geändert haben, ist ein Neustart der App (start_all.bat) zwingend erforderlich, um den Hintergrund-Archiver zu synchronisieren!"
+        return {"ok": True, "message": msg}
     raise HTTPException(status_code=500, detail="Fehler beim Speichern der Einstellungen.")
 
 

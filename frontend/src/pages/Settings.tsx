@@ -432,6 +432,13 @@ export default function Settings() {
             {settings.paths && (
               <div className="space-y-4 md:col-span-2 border-b border-gray-100 dark:border-gray-800 pb-5">
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">System-Pfade (Ablagestruktur)</h3>
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/40 rounded-lg text-xs text-amber-700 dark:text-amber-400 space-y-1">
+                  <span className="font-bold">⚠️ Wichtiger Hinweis zu Pfadänderungen:</span>
+                  <p>
+                    Da der Hintergrund-Archiver als eigenständiger Prozess läuft, werden Pfadänderungen dort erst nach einem vollständigen Neustart aktiv. 
+                    Wenn Sie diese Pfade ändern, müssen Sie die App (<code className="font-mono bg-amber-100 dark:bg-amber-900/30 px-1 py-0.5 rounded text-[10px]">start_all.bat</code>) neu starten, damit der Archiver synchronisiert wird.
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-gray-500">Posteingang (SOURCE_DIR)</label>

@@ -65,7 +65,7 @@ def get_archiver_status():
 def start_archiver():
     return archiver_start()
 
-@router.post("/router/stop")
+@router.post("/archiver/stop")
 def stop_archiver():
     return archiver_stop()
 
