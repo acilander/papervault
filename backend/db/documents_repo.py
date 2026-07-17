@@ -89,7 +89,7 @@ def update_document(doc_id, **fields):
                 fields["filename"] = os.path.basename(new_path)
     allowed = {"sender", "date", "document_type", "category", "summary", "status",
                "file_path", "filename", "tags", "tax_relevant", "tax_year", "expires_at", "notes",
-               "keywords", "low_value", "full_text", "sim_hash", "content_hash", "iban", "property_unit", "vehicle_id", "child_name", "verified"}
+               "keywords", "low_value", "full_text", "sim_hash", "content_hash", "iban", "property_unit", "vehicle_id", "child_name", "verified", "confidence"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return

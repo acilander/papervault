@@ -83,3 +83,22 @@ def test_stats_recent():
     stats = db.get_stats()
     assert len(stats["recent"]) == 1
     assert stats["recent"][0]["filename"] == "test.pdf"
+
+
+def test_stats_new_metrics():
+    # Insert some documents and update their verified and confidence values
+    doc1 = db.upsert_document(**_sample(file_path="/archive/2025/1.pdf", filename="1.pdf"))
+    doc2 = db.upsert_document(**_sample(file_path="/archive/2025/2.pdf", filename="2.pdf"))
+    doc3 = db.upsert_document(**_sample(file_path="/archive/2025/3.pdf", filename="3.pdf"))
+
+    db.update_document(doc1, verified=1, confidence="high")
+    db.update_document(doc2, verified=0, confidence="medium")
+    db.update_document(doc3, verified=0, confidence="low")
+
+    stats = db.get_stats()
+    assert stats["verified_count"] == 1
+    assert stats["confidence_high"] == 1
+    assert stats["confidence_medium"] == 1
+    assert stats["confidence_low"] == 1
+    assert stats["monthly_fix_costs"] == 0.0  # Empty contracts table
+
