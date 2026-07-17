@@ -57,6 +57,11 @@ export interface Stats {
   recent: Document[]
   no_sender: number
   low_value: number
+  verified_count: number
+  confidence_high: number
+  confidence_medium: number
+  confidence_low: number
+  monthly_fix_costs: number
 }
 
 export const getStats = () => api.get<Stats>('/stats/').then(r => r.data)

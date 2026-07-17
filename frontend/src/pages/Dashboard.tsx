@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { FileText, CheckCircle, Lock, Download, Clock, ShieldAlert, AlertTriangle } from 'lucide-react'
+import { FileText, Download, Clock, ShieldAlert, AlertTriangle, ShieldCheck, DollarSign, Activity } from 'lucide-react'
 import { getStats, getExpiring, getQuality, taxExportUrl, type Stats, type Document } from '../api'
 
 const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#14b8a6','#e11d48','#6366f1','#84cc16','#ec4899']
@@ -26,7 +26,6 @@ export default function Dashboard() {
 
   const totalAll = stats.by_status.reduce((a, b) => a + b.count, 0)
   const okCount = stats.by_status.find(s => s.status === 'ok')?.count ?? 0
-  const encCount = stats.by_status.find(s => s.status === 'encrypted')?.count ?? 0
   const reviewCount = stats.by_status.find(s => s.status === 'review')?.count ?? 0
 
   return (
@@ -36,10 +35,10 @@ export default function Dashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Dokumente gesamt', value: totalAll, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Erfolgreich', value: okCount, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
-          { label: 'In Review', value: reviewCount, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Verschlüsselt', value: encCount, icon: Lock, color: 'text-red-600', bg: 'bg-red-50' },
+          { label: 'Dokumente gesamt', value: totalAll, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/20' },
+          { label: 'Verifiziert & locked', value: `${stats.verified_count} / ${okCount}`, icon: ShieldCheck, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-950/20' },
+          { label: 'In Review (Inbox)', value: reviewCount, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/20' },
+          { label: 'Fixkosten / Monat', value: `${stats.monthly_fix_costs.toFixed(2)} €`, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-3">
             <div className={`${bg} ${color} p-2.5 rounded-lg`}>
@@ -51,6 +50,56 @@ export default function Dashboard() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* KI-Integritäts- & Inferenz-Ampel Cockpit */}
+      <div className="grid grid-cols-2 gap-6">
+        {/* Audit & Locking Status */}
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex flex-col justify-between space-y-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={16} className="text-indigo-500" />
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Human-in-the-Loop Audit & Locking</h3>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-500 dark:text-gray-400">Verifiziert & Gesperrt (Daten-Lock)</span>
+              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                {okCount > 0 ? `${Math.round((stats.verified_count / okCount) * 100)}%` : '0%'} ({stats.verified_count} Belege)
+              </span>
+            </div>
+            <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2.5 overflow-hidden flex">
+              <div className="bg-indigo-600 h-full rounded-full transition-all" style={{ width: `${okCount > 0 ? (stats.verified_count / okCount) * 100 : 0}%` }} />
+            </div>
+            <p className="text-[10px] text-gray-400 leading-relaxed">
+              Verifizierte Dokumente sind absolut schreibgeschützt, um KI-Abweichungen (AI-Drift) dauerhaft auszuschließen.
+            </p>
+          </div>
+        </div>
+
+        {/* KI-Confidence (Inferenz-Ampel Verteilung) */}
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Activity size={16} className="text-blue-500" />
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">KI Inferenz-Vertrauen (Ampelverteilung)</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: '🟢 Hoch', value: stats.confidence_high, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50/50 dark:bg-green-950/10' },
+              { label: '🟡 Mittel', value: stats.confidence_medium, color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50/50 dark:bg-yellow-950/10' },
+              { label: '🔴 Niedrig', value: stats.confidence_low, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50/50 dark:bg-red-950/10' },
+            ].map(c => {
+              const total_classified = stats.confidence_high + stats.confidence_medium + stats.confidence_low
+              const pct = total_classified > 0 ? Math.round((c.value / total_classified) * 100) : 0
+              return (
+                <div key={c.label} className={`${c.bg} rounded-lg p-2.5 text-center border border-gray-100 dark:border-gray-800/40`}>
+                  <p className="text-[10px] text-gray-400 font-medium">{c.label}</p>
+                  <p className={`text-lg font-bold ${c.color} mt-0.5`}>{c.value}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">{pct}% aller Belege</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
@@ -94,6 +143,11 @@ export default function Dashboard() {
               <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Archiv-Qualität</h3>
             </div>
             <div className="flex items-center gap-3">
+              {stats.low_value > 0 && (
+                <span className="flex items-center gap-1 text-xs text-gray-500 font-medium bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 rounded-full" title="Unwichtige Kassenbons und temporäre Belege (Papierballast) automatisch gefiltert">
+                  ⚠️ {stats.low_value} Ballast-Belege
+                </span>
+              )}
               {quality.expiring_soon > 0 && (
                 <span className="flex items-center gap-1 text-xs text-orange-600 font-medium">
                   <AlertTriangle size={12} /> {quality.expiring_soon} laufen bald ab

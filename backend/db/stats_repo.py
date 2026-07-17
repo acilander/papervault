@@ -1,7 +1,7 @@
 from db.connection import get_conn
 
 def get_stats():
-    """Returns counts per category, per year, total, and recent."""
+    """Returns counts per category, per year, total, recent, and new dashboard metrics."""
     with get_conn() as conn:
         total = conn.execute("SELECT COUNT(*) FROM documents WHERE status = 'ok'").fetchone()[0]
 
@@ -37,6 +37,37 @@ def get_stats():
             WHERE status = 'ok' AND low_value = 1
         """).fetchone()[0]
 
+        # Inferenz-Ampel & Audit metrics
+        verified_count = conn.execute("""
+            SELECT COUNT(*) FROM documents
+            WHERE status = 'ok' AND verified = 1
+        """).fetchone()[0]
+
+        confidence_high = conn.execute("""
+            SELECT COUNT(*) FROM documents
+            WHERE status = 'ok' AND confidence = 'high'
+        """).fetchone()[0]
+
+        confidence_medium = conn.execute("""
+            SELECT COUNT(*) FROM documents
+            WHERE status = 'ok' AND confidence = 'medium'
+        """).fetchone()[0]
+
+        confidence_low = conn.execute("""
+            SELECT COUNT(*) FROM documents
+            WHERE status = 'ok' AND confidence = 'low'
+        """).fetchone()[0]
+
+        # Financial active contracts fix costs (normalized to monthly)
+        monthly_fix_costs = 0.0
+        try:
+            from db.contracts_repo import get_stats as get_contracts_stats
+            c_stats = get_contracts_stats()
+            # Calculate total monthly equivalent from yearly_equiv
+            monthly_fix_costs = round(c_stats.get("yearly_equiv", 0.0) / 12.0, 2)
+        except Exception:
+            pass
+
         return {
             "total": total,
             "by_category": [dict(r) for r in by_category],
@@ -45,4 +76,9 @@ def get_stats():
             "recent": [dict(r) for r in recent],
             "no_sender": no_sender,
             "low_value": low_value,
+            "verified_count": verified_count,
+            "confidence_high": confidence_high,
+            "confidence_medium": confidence_medium,
+            "confidence_low": confidence_low,
+            "monthly_fix_costs": monthly_fix_costs,
         }
