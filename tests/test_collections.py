@@ -293,3 +293,19 @@ class TestCollectionZipExport:
         assert resp.status_code == 200
         disposition = resp.headers.get("content-disposition", "")
         assert "/" not in disposition.split("filename=")[-1]
+
+    def test_smart_collection_dynamic_view(self):
+        _make_doc(n=1, sender="Allianz", category="Privatversicherungen", document_type="Police")
+        _make_doc(n=2, sender="Allianz", category="Fahrzeug", document_type="Rechnung")
+        _make_doc(n=3, sender="Telekom", category="Bank & Finanzen", document_type="Kontoauszug")
+
+        import json
+        criteria = json.dumps({"sender": "Allianz"})
+        cid = cr.create_collection("Allianz Smart", query_criteria=criteria)
+
+        col = cr.get_collection(cid)
+        assert len(col["documents"]) == 2
+        names = {d["filename"] for d in col["documents"]}
+        assert "test_1.pdf" in names
+        assert "test_2.pdf" in names
+        assert "test_3.pdf" not in names
