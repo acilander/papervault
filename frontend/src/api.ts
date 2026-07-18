@@ -161,6 +161,9 @@ export const renameDocument = (id: number, filename: string) =>
 export const reprocessDocument = (id: number, hint?: string) =>
   api.post(`/documents/${id}/reprocess`, hint ? { hint } : {})
 
+export const reclassifyDocumentLive = (id: number, hint?: string) =>
+  api.post<Document>(`/documents/${id}/reclassify`, hint ? { hint } : {}).then(r => r.data)
+
 export const reprocessDocumentsWithoutSender = (hint?: string) =>
   api.post<{ queued: number; skipped: number; errors: { id: number; file: string; error: string }[] }>(`/documents/reprocess-no-sender`, hint ? { hint } : {})
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { CheckCircle, RefreshCw, Trash2, Square, CheckSquare } from 'lucide-react'
-import { getDocuments, confirmDocument, reprocessDocument, deleteDocumentWithFile, updateDocument, pdfUrl, type Document } from '../api'
+import { getDocuments, confirmDocument, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, updateDocument, pdfUrl, type Document } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
 
@@ -281,13 +281,6 @@ export default function Inbox() {
                   <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Beleg-Sichtung</span>
                   <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => { setReprocessHint(''); setReprocessDlg(activeDoc.id) }}
-                      title="Neu klassifizieren"
-                      className="p-1.5 text-gray-400 hover:text-orange-500 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    >
-                      <RefreshCw size={14} />
-                    </button>
-                    <button
                       onClick={() => remove(activeDoc)}
                       disabled={isBusy}
                       title="Löschen"
@@ -377,14 +370,24 @@ export default function Inbox() {
                   <a href={pdfUrl(activeDoc.id)} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline">
                     In neuem Tab öffnen
                   </a>
-                  <button
-                    onClick={() => confirmDoc(activeDoc)}
-                    disabled={isBusy}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-all shadow-sm"
-                  >
-                    <CheckCircle size={14} />
-                    {busy[activeDoc.id] === 'confirm' ? 'Wird archiviert…' : 'Bestätigen & Archivieren'}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setReprocessHint(''); setReprocessDlg(activeDoc.id) }}
+                      disabled={isBusy}
+                      className="flex items-center gap-1.5 px-3 py-2 border border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/10 disabled:opacity-50 text-xs font-semibold rounded-lg transition-all shadow-sm"
+                    >
+                      <RefreshCw size={12} className={busy[activeDoc.id] === 'reclassify' ? 'animate-spin' : ''} />
+                      Neu analysieren (KI)
+                    </button>
+                    <button
+                      onClick={() => confirmDoc(activeDoc)}
+                      disabled={isBusy}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-all shadow-sm"
+                    >
+                      <CheckCircle size={14} />
+                      {busy[activeDoc.id] === 'confirm' ? 'Wird archiviert…' : 'Bestätigen & Archivieren'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )
@@ -454,13 +457,25 @@ export default function Inbox() {
                 onClick={async () => {
                   const id = reprocessDlg!
                   setReprocessDlg(null)
-                  await reprocessDocument(id, reprocessHint || undefined)
-                  setDocs(d => d.filter(x => x.id !== id))
-                  setSelected(prev => {
-                    const next = new Set(prev)
-                    next.delete(id)
-                    return next
-                  })
+                  setBusy(b => ({ ...b, [id]: 'reclassify' }))
+                  try {
+                    const updated = await reclassifyDocumentLive(id, reprocessHint || undefined)
+                    setDocs(prev => prev.map(d => d.id === id ? updated : d))
+                    setEdits(prev => ({
+                      ...prev,
+                      [id]: {
+                        sender: updated.sender ?? '',
+                        date: updated.date ?? '',
+                        category: updated.category ?? '',
+                        document_type: updated.document_type ?? '',
+                        summary: updated.summary ?? '',
+                      }
+                    }))
+                  } catch (err: any) {
+                    alert('Fehler bei der Live-Analyse: ' + (err?.response?.data?.detail ?? err.message))
+                  } finally {
+                    setBusy(b => ({ ...b, [id]: '' }))
+                  }
                 }}
                 className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
                 Klassifizieren

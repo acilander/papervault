@@ -59,7 +59,7 @@ CATEGORY_TRANSLATION = {
     "Geräte & Garantie":      "Einkauf & Konsum",
     "Kommunikation":          "Sonstiges",
     "Behörde & Urkunden":     "Sonstiges",
-    "Ausbildung & Verein":    "Kinder_und_Ausbildung",
+    "Ausbildung & Verein":    "Sonstiges",
     "Wohnen & Eigentum":      "EG_Kosten", # Default private housing costs to EG
     "Vermieter":              "Haus_Gemeinkosten" # Default legacy Vermieter to Gesamthaus
 }
@@ -78,7 +78,6 @@ NEW_FOLDER_MAP = {
     "Privatversicherungen":   "10_Versicherungen",
     "UG_Kosten":              "11_UG_Kosten",
     "Sonstiges":              "12_Sonstiges",
-    "Kinder_und_Ausbildung":  "13_Kinder_und_Ausbildung",
 }
 
 # 3. Dynamic root directory mappings
@@ -162,7 +161,7 @@ def migrate():
                 child_name = child.capitalize()
                 # Upgrade education/school files to the new specialized category
                 if cat in ("Ausbildung & Verein", "Sonstiges"):
-                    new_cat = "Kinder_und_Ausbildung"
+                    new_cat = "Sonstiges"
                 break
 
         # C. Auto-Verification & Low Value Triage
@@ -203,7 +202,7 @@ def migrate():
         else:
             if new_cat == "Fahrzeug" and vehicle_id:
                 folder_name = os.path.join(folder_name, vehicle_id)
-            elif (new_cat == "Kinder_und_Ausbildung" or new_cat == "Gesundheit") and child_name:
+            elif (new_cat == "Sonstiges" or new_cat == "Gesundheit") and child_name:
                 folder_name = os.path.join(folder_name, child_name)
 
             if use_year:

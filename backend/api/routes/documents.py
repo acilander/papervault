@@ -453,6 +453,32 @@ def reprocess_document(doc_id: int, body: dict = {}):
     return {"detail": "Datei zurück in Inbox verschoben – Archiver klassifiziert neu.", "file_path": inbox_path}
 
 
+@router.post("/{doc_id}/reclassify", status_code=200)
+def reclassify_document_live(doc_id: int, body: dict = {}):
+    """Synchronously re-classify the document text via LLM. Optional body: {hint: str}"""
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if doc.get("status") in ("locked", "ignored") or doc.get("verified") == 1:
+        raise HTTPException(status_code=409, detail="Dokument ist gesperrt/verifiziert und kann nicht neu klassifiziert werden.")
+    
+    text = doc.get("full_text") or ""
+    if not text:
+        from pdf_utils import extract_text
+        text, _ = extract_text(doc["file_path"])
+        if text:
+            db.update_document(doc_id, full_text=text)
+            
+    hint = body.get("hint")
+    from llm.classify import classify_document
+    result = classify_document(safe_text=text, filename=doc["filename"], user_hint=hint)
+    if not result:
+        raise HTTPException(status_code=500, detail="KI-Klassifizierung fehlgeschlagen.")
+        
+    db.update_document(doc_id, **result)
+    return db.get_document(doc_id)
+
+
 @router.post("/{doc_id}/confirm", status_code=200)
 def confirm_document(doc_id: int):
     """Move document from review/ to final archive folder and set status=ok."""
