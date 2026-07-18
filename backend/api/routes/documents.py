@@ -509,8 +509,7 @@ def reclassify_document_live(doc_id: int, body: dict = {}):
     # 3. Rename file on disk for ok-documents when sender, date or document_type changed
     filename_fields = {"sender", "date", "document_type"}
     if updated_doc.get("status") == "ok" and filename_fields & set(result.keys()):
-        from pdf_utils import build_filename
-        from utils import unique_path
+        from pdf_utils import build_filename, unique_path
         current_path = updated_doc.get("file_path")
         if current_path and os.path.exists(current_path):
             current_name = os.path.basename(current_path)

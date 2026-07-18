@@ -9,6 +9,7 @@ import db
 import config
 import storage
 from api.main import app
+from api.routes import documents as doc_module
 
 client = TestClient(app)
 
@@ -158,11 +159,43 @@ def test_reprocess_document(tmp_path, monkeypatch):
     resp = client.post(f"/documents/{doc_id}/reprocess", json={"hint": "Rechnung"})
     assert resp.status_code == 202
     data = resp.json()
-    assert "Inbox" in data["file_path"]
+    assert os.path.dirname(data["file_path"]) == os.path.normpath(doc_module.SOURCE_DIR)
 
     os.remove(data["file_path"])
     resp = client.post(f"/documents/{doc_id}/reprocess")
     assert resp.status_code == 404
+
+
+def test_live_reclassify_prepares_text_and_renames_pdf(tmp_path, monkeypatch):
+    doc_id, old_path = _insert_pdf(tmp_path, name="old.pdf", sender="Alt", status="ok")
+    db.update_document(doc_id, full_text="X" * 5000)
+
+    captured = {}
+
+    def mock_classify(safe_text, **kwargs):
+        captured["safe_text"] = safe_text
+        return {
+            "sender": "Neu",
+            "date": "2025-02-03",
+            "document_type": "Bescheid",
+            "category": "Sonstiges",
+            "summary": "Neu klassifiziert",
+            "confidence": "high",
+        }
+
+    monkeypatch.setattr("llm.classify.classify_document", mock_classify)
+    monkeypatch.setattr("pdf_utils.build_filename", lambda data, current_name: "renamed.pdf")
+    monkeypatch.setattr(storage, "record_sender", lambda category, sender: None)
+
+    resp = client.post(f"/documents/{doc_id}/reclassify", json={"hint": "Prüfen"})
+
+    assert resp.status_code == 200
+    assert len(captured["safe_text"]) < 5000
+    assert "[...]" in captured["safe_text"]
+    assert not os.path.exists(old_path)
+    assert os.path.exists(tmp_path / "renamed.pdf")
+    assert resp.json()["filename"] == "renamed.pdf"
+    assert resp.json()["sender"] == "Neu"
 
 
 def test_confirm_review_document(tmp_path, monkeypatch):

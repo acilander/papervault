@@ -1,3 +1,4 @@
+import importlib
 import os
 import tempfile
 
@@ -35,9 +36,43 @@ def isolate_filesystem_during_tests(tmp_path, monkeypatch):
     # Also update pipeline module if it imported them directly on module loading
     try:
         import pipeline.core as pipeline_core
-        monkeypatch.setattr(pipeline_core, "FAILED_DIR", os.path.join(test_target, "failed"))
-        monkeypatch.setattr(pipeline_core, "REVIEW_DIR", os.path.join(test_target, "review"))
+        monkeypatch.setattr(pipeline_core, "FAILED_DIR", os.path.join(_test_target, "failed"))
+        monkeypatch.setattr(pipeline_core, "REVIEW_DIR", os.path.join(_test_target, "review"))
     except Exception:
         pass
+
+    module_paths = {
+        "storage": {"LOG_FILE": os.path.join(_test_target, "processing_log.jsonl")},
+        "pipeline.steps": {
+            "DUPLICATES_DIR": os.path.join(_test_target, "duplicates"),
+            "IGNORED_DIR": os.path.join(_test_target, "ignored"),
+        },
+        "services.import_service": {"SOURCE_DIR": _test_source},
+        "pdf_utils": {"TARGET_BASE": _test_target},
+        "pdf_thumbnails": {
+            "TARGET_BASE": _test_target,
+            "THUMBNAILS_DIR": os.path.join(_test_target, "thumbnails"),
+        },
+        "api.routes.documents": {
+            "SOURCE_DIR": _test_source,
+            "TARGET_BASE": _test_target,
+        },
+        "api.routes.senders": {
+            "SOURCE_DIR": _test_source,
+            "TARGET_BASE": _test_target,
+        },
+        "api.routes.monitor": {
+            "SOURCE_DIR": _test_source,
+            "TARGET_BASE": _test_target,
+            "LOG_FILE": os.path.join(_test_target, "processing_log.jsonl"),
+        },
+    }
+    for module_name, values in module_paths.items():
+        try:
+            module = importlib.import_module(module_name)
+            for attribute, value in values.items():
+                monkeypatch.setattr(module, attribute, value)
+        except Exception:
+            pass
 
     yield
