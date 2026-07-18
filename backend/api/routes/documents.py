@@ -469,9 +469,12 @@ def reclassify_document_live(doc_id: int, body: dict = {}):
         if text:
             db.update_document(doc_id, full_text=text)
             
+    from pdf_utils import prepare_text_for_llm
+    safe_text = prepare_text_for_llm(text)
+            
     hint = (body or {}).get("hint")
     from llm.classify import classify_document
-    result = classify_document(safe_text=text, filename=doc["filename"], user_hint=hint)
+    result = classify_document(safe_text=safe_text, filename=doc["filename"], user_hint=hint)
     if not result:
         raise HTTPException(status_code=500, detail="KI-Klassifizierung fehlgeschlagen.")
         
