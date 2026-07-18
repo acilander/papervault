@@ -58,6 +58,10 @@ Hier sind die Meilensteine dokumentiert, die im Rahmen des Architektur-Refactori
 
 ## 🔄 Geplante Optimierungen (Ausblick)
 
+*   **[ ] Strukturierte Identifikatoren & Entity-Resolution (IDs, IBANs, Zählernummern)**
+    *   *Zustand:* Neue relationale Tabellen, Pipeline-Vorfilterung (Stufe-0-Bypass) und ein eigener GUI-Tab zur konfliktfreien Zuordnung wiederkehrender Merkmale (geplant laut `blueprint_identifiers.md`).
+    *   *Geplante Lösung:* SQLite-Tabellen für verifizierte & unzugeordnete IDs, Ingestion-Regexes mit IBAN-Filterung und React-ID-Zentrale.
+
 *   **[ ] Mehrfamilienhaus (MFH) Datenmodell & Ordnerstruktur**
     *   *Zustand:* Integration von Wohnung-Modulen und Zuweisung von `property_unit` auf der globalen `documents`-Tabelle (geplant laut `three_principles_plan.md`).
     *   *Geplante Lösung:* Datenbank-Erweiterung und Frontend-Menüstrukturierung in 4 Sektionen zur optimalen Nebenkostenabrechnung.

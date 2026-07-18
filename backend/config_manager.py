@@ -62,7 +62,8 @@ DEFAULT_SETTINGS = {
     ],
     "periodic_keywords": [
         "abrechnung", "kontoauszug", "nachweis", "lohn", "gehalt", "entgelt", "kreditkarte", "steuernachweis"
-    ]
+    ],
+    "own_ibans": []
 }
 
 _cached_settings = None
