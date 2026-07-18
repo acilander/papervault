@@ -13,7 +13,8 @@ import {
 import { useConfig } from '../ConfigContext'
 
 export default function Identifiers() {
-  const { categories: CATEGORIES, landlord } = useConfig()
+  const { categories: CATEGORIES, config } = useConfig()
+  const landlord = config?.landlord
   const [identifiers, setIdentifiers] = useState<Identifier[]>([])
   const [unassigned, setUnassigned] = useState<UnassignedIdentifier[]>([])
   const [loading, setLoading] = useState(true)
