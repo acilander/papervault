@@ -236,3 +236,100 @@ def archive_file_on_disk(file_path, category, sender, date, document_type=None, 
     dest_pdf = unique_path(os.path.join(target_dir, os.path.basename(file_path)))
     shutil.move(file_path, dest_pdf)
     return dest_pdf
+
+
+def extract_first_date(text: str) -> str | None:
+    """Extracts the first valid German date (DD.MM.YYYY or DD.MM.YY) and converts it to YYYY-MM-DD."""
+    if not text:
+        return None
+    import re
+    from datetime import datetime
+    match = re.search(r'\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})\b', text)
+    if match:
+        d, m, y = match.groups()
+        if len(y) == 2:
+            y = "20" + y
+        try:
+            dt = datetime(int(y), int(m), int(d))
+            return dt.strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+    return None
+
+
+def extract_and_match_identifiers(text: str, doc_id: int) -> dict | None:
+    """
+    1. Checks if raw text matches any verified identifier in sender_identifiers.
+       If yes, returns pre-filled classification data (bypassing the LLM).
+    2. Extracts potential novel identifiers (IBANs, Meter IDs, Customer Nos) and
+       saves them to unassigned_identifiers for manual review.
+    """
+    import re
+    from db.identifiers_repo import match_existing_identifiers, save_unassigned_identifier
+    from config_manager import get_settings
+
+    # Phase 1: Match existing verified identifier
+    matched_sender, item = match_existing_identifiers(text)
+    if matched_sender:
+        detected_date = extract_first_date(text)
+        log(f"[IDENTIFIER] Deterministischen Absender '{matched_sender}' über ID '{item['identifier_value']}' erkannt.")
+        return {
+            "sender": matched_sender,
+            "category": item.get("target_category") or "Sonstiges",
+            "document_type": "Sonstiges",
+            "property_unit": item.get("target_unit"),
+            "date": detected_date,
+            "summary": f"Automatisch erfasst über verifizierten Identifikator '{item['identifier_value']}'.",
+            "confidence": "high",
+            "confidence_reason": f"Absender automatisch verifiziert über ID: {item['identifier_value']}",
+            "low_value": 0,
+            "keywords": "",
+            "iban": item["identifier_value"] if item["identifier_type"] == "IBAN" else None
+        }
+
+    # Phase 2: Scan and record new novel unassigned identifiers
+    settings = get_settings()
+    own_ibans = [iban.replace(" ", "").upper() for iban in settings.get("own_ibans", [])]
+
+    # Convert text to uppercase and strip whitespace for precise IBAN detection
+    text_upper = text.upper().replace(" ", "").replace("\n", "").replace("\r", "")
+
+    # 2a. IBAN scanning
+    ibans = re.findall(r'DE\d{20}', text_upper)
+    for iban in ibans:
+        if iban in own_ibans:
+            continue
+
+        # Extract context around the IBAN from the original spaced text
+        raw_text_clean = text.replace(" ", "")
+        pos = raw_text_clean.find(iban)
+        context = ""
+        if pos != -1:
+            start = max(0, pos - 40)
+            end = min(len(raw_text_clean), pos + len(iban) + 40)
+            context = raw_text_clean[start:end]
+
+        save_unassigned_identifier(doc_id, "IBAN", iban, context_text=f"...{context}...")
+
+    # 2b. Meter IDs scanning (Zählernummern)
+    meter_matches = re.finditer(r'(?:zähler-?nr|meter-?no|zählerstand)[^\d]{0,10}(\d{5,12})', text, re.IGNORECASE)
+    for match in meter_matches:
+        meter_val = match.group(1)
+        # Context snippet
+        start = max(0, match.start() - 30)
+        end = min(len(text), match.end() + 30)
+        context = text[start:end].strip().replace("\n", " ").replace("\r", "")
+        save_unassigned_identifier(doc_id, "METER_ID", meter_val, context_text=f"...{context}...")
+
+    # 2c. Customer numbers scanning (Kundennummern)
+    customer_matches = re.finditer(r'(?:kunden-?nummer|kd-?nr)[^\d]{0,10}([A-Z0-9-]{5,15})', text, re.IGNORECASE)
+    for match in customer_matches:
+        cust_val = match.group(1)
+        # Context snippet
+        start = max(0, match.start() - 30)
+        end = min(len(text), match.end() + 30)
+        context = text[start:end].strip().replace("\n", " ").replace("\r", "")
+        save_unassigned_identifier(doc_id, "CUSTOMER_NO", cust_val, context_text=f"...{context}...")
+
+    return None
+

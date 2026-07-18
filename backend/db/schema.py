@@ -188,6 +188,32 @@ MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_documents_confidence ON documents(confidence)",
     "ALTER TABLE documents ADD COLUMN file_size_bytes INTEGER DEFAULT 0",
     "ALTER TABLE collections ADD COLUMN query_criteria TEXT DEFAULT NULL",
+    """
+    CREATE TABLE IF NOT EXISTS sender_identifiers (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender_name         TEXT NOT NULL,
+        identifier_type     TEXT NOT NULL CHECK(identifier_type IN ('IBAN', 'CUSTOMER_NO', 'PERSONAL_NO', 'METER_ID', 'POLICY_NO')),
+        identifier_value    TEXT NOT NULL UNIQUE,
+        label               TEXT,
+        target_category     TEXT,
+        target_unit         TEXT,
+        created_at          TEXT NOT NULL,
+        FOREIGN KEY (sender_name) REFERENCES senders(name) ON DELETE CASCADE
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_identifiers_value ON sender_identifiers(identifier_value)",
+    """
+    CREATE TABLE IF NOT EXISTS unassigned_identifiers (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        document_id         INTEGER NOT NULL,
+        identifier_type     TEXT NOT NULL,
+        identifier_value    TEXT NOT NULL,
+        context_text        TEXT,
+        detected_at         TEXT NOT NULL,
+        FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+        UNIQUE(identifier_type, identifier_value)
+    )
+    """,
 ]
 
 def init_db():

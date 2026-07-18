@@ -235,15 +235,22 @@ def process_pdf(file_path, doc_id=None):
     log(f"Merkmale: {', '.join(features.get('category_candidates', [])) or '–'} | Typ: {features.get('type_candidate') or '–'}")
     user_hint, hint_path = _build_user_hint(file_path, text)
 
-    # Phase 5: LLM classification
-    data = classify_document(
-        safe_text,
-        filename=os.path.basename(file_path),
-        user_hint=user_hint,
-        feature_prompt=feature_prompt,
-        similar_docs=similar_docs,
-        header_zone=features.get("header_zone")
-    )
+    # Phase 4b: Deterministic Identifier check (Stufe 0 Bypass & Scan)
+    from pipeline.steps import extract_and_match_identifiers
+    data = extract_and_match_identifiers(text, doc_id)
+
+    if data:
+        log(f"[IDENTIFIER] Deterministischer Treffer für '{data['sender']}'. Überspringe LLM-Klassifizierung.")
+    else:
+        # Phase 5: LLM classification
+        data = classify_document(
+            safe_text,
+            filename=os.path.basename(file_path),
+            user_hint=user_hint,
+            feature_prompt=feature_prompt,
+            similar_docs=similar_docs,
+            header_zone=features.get("header_zone")
+        )
 
     if data is None:
         os.makedirs(FAILED_DIR, exist_ok=True)
