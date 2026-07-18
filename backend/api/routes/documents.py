@@ -469,7 +469,7 @@ def reclassify_document_live(doc_id: int, body: dict = {}):
         if text:
             db.update_document(doc_id, full_text=text)
             
-    hint = body.get("hint")
+    hint = (body or {}).get("hint")
     from llm.classify import classify_document
     result = classify_document(safe_text=text, filename=doc["filename"], user_hint=hint)
     if not result:

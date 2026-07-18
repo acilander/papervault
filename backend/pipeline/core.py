@@ -235,22 +235,44 @@ def process_pdf(file_path, doc_id=None):
     log(f"Merkmale: {', '.join(features.get('category_candidates', [])) or '–'} | Typ: {features.get('type_candidate') or '–'}")
     user_hint, hint_path = _build_user_hint(file_path, text)
 
-    # Phase 4b: Deterministic Identifier check (Stufe 0 Bypass & Scan)
-    from pipeline.steps import extract_and_match_identifiers
-    data = extract_and_match_identifiers(text, doc_id)
+    # Phase 4b: Deterministic Identifier check (Stufe 0 Input & Override)
+    from db.identifiers_repo import match_existing_identifiers
+    matched_sender, matched_item = match_existing_identifiers(text)
+
+    if matched_sender:
+        log(f"[IDENTIFIER] Deterministischer Absender-Treffer für '{matched_sender}' über ID '{matched_item['identifier_value']}'.")
+        id_hint = f"Absender ist definitiv '{matched_sender}'"
+        if matched_item.get("target_category"):
+            id_hint += f" und die Kategorie ist definitiv '{matched_item['target_category']}'"
+        user_hint = f"[{id_hint}] {user_hint}" if user_hint else f"[{id_hint}]"
+
+    # Phase 5: LLM classification
+    data = classify_document(
+        safe_text,
+        filename=os.path.basename(file_path),
+        user_hint=user_hint,
+        feature_prompt=feature_prompt,
+        similar_docs=similar_docs,
+        header_zone=features.get("header_zone")
+    )
 
     if data:
-        log(f"[IDENTIFIER] Deterministischer Treffer für '{data['sender']}'. Überspringe LLM-Klassifizierung.")
-    else:
-        # Phase 5: LLM classification
-        data = classify_document(
-            safe_text,
-            filename=os.path.basename(file_path),
-            user_hint=user_hint,
-            feature_prompt=feature_prompt,
-            similar_docs=similar_docs,
-            header_zone=features.get("header_zone")
-        )
+        # Overwrite with deterministic match to guarantee 100% correctness and avoid AI-drift
+        if matched_sender:
+            data["sender"] = matched_sender
+            if matched_item.get("target_category"):
+                data["category"] = matched_item["target_category"]
+            if matched_item.get("target_unit"):
+                data["property_unit"] = matched_item["target_unit"]
+            # Override confidence to high since the match is deterministically verified
+            data["confidence"] = "high"
+            data["confidence_reason"] = f"Absender deterministisch verifiziert über ID: {matched_item['identifier_value']}"
+        else:
+            # If no confirmed identifier matched, scan and record potential new unassigned ones for the inbox
+            from pipeline.steps import extract_and_match_identifiers
+            # Call extract_and_match_identifiers only to scan and record novel unassigned IDs
+            # (it won't return anything since we already checked matching above)
+            extract_and_match_identifiers(text, doc_id)
 
     if data is None:
         os.makedirs(FAILED_DIR, exist_ok=True)

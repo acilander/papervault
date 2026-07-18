@@ -63,25 +63,37 @@ def test_pipeline_identifier_bypass(monkeypatch, tmp_path):
     def mock_classify(*args, **kwargs):
         nonlocal llm_called
         llm_called = True
-        return {"sender": "Mock LLM", "category": "Sonstiges", "date": "2026-07-15"}
+        return {
+            "sender": "Mock LLM",
+            "category": "Müll",
+            "document_type": "Dienstleistungsrechnung",
+            "date": "2026-07-15",
+            "summary": "Rich LLM Summary",
+            "keywords": "test, info"
+        }
     monkeypatch.setattr(llm, "classify_document", mock_classify)
 
     # 2. Run Ingestion Pipeline
     process_pdf(pdf_path)
 
     # 3. Assertions
-    assert llm_called is False, "LLM classification should have been BYPASSED!"
+    assert llm_called is True, "LLM classification should HAVE been called to extract document details!"
     
-    # Check if document was successfully auto-archived directly
-    # Check status in database
+    # Check if document was successfully auto-archived directly with overridden values
     docs = db.search_documents(sender="Müller GmbH")
     assert len(docs) == 1
     doc = db.get_document(docs[0]["id"])
+    
+    # Overridden deterministic values
     assert doc["sender"] == "Müller GmbH"
     assert doc["category"] == "Arbeit & Rente"
     assert doc["property_unit"] == "EG"
-    assert doc["date"] == "2026-07-15" # Extracted from text via extract_first_date!
-    assert doc["status"] == "ok" # Auto-archived directly because confidence is high!
+    
+    # Richly extracted LLM metadata (not generic!)
+    assert doc["document_type"] == "Dienstleistungsrechnung"
+    assert doc["date"] == "2026-07-15"
+    assert doc["summary"] == "Rich LLM Summary"
+    assert doc["status"] == "ok" # Auto-archived directly because confidence is overridden to high!
 
 def test_pipeline_identifier_scanning(monkeypatch, tmp_path):
     # Setup standard sender in DB
