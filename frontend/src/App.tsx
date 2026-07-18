@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
-import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package, ScrollText, Wrench, BookOpen, Calculator } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package, ScrollText, Wrench, BookOpen, Calculator, Fingerprint } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import DocumentDetail from './pages/DocumentDetail'
@@ -17,6 +17,7 @@ import Contracts from './pages/Contracts'
 import Services from './pages/Services'
 import Feedback from './pages/Feedback'
 import LowValueRules from './pages/LowValueRules'
+import Identifiers from './pages/Identifiers'
 import TaxYears from './pages/tax/TaxYears'
 import TaxYearDetail from './pages/tax/TaxYearDetail'
 import TaxYearComparison from './pages/tax/TaxYearComparison'
@@ -62,6 +63,7 @@ const navGroups: NavGroup[] = [
     title: 'Qualität & Pflege',
     items: [
       { to: '/senders', label: 'Absender', icon: Users },
+      { to: '/identifiers', label: 'Erkennung (IDs)', icon: Fingerprint },
       { to: '/duplicates', label: 'Duplikate', icon: ScanSearch },
       { to: '/validation', label: 'Validierung', icon: ShieldCheck },
       { to: '/feedback', label: 'Feedback', icon: BookOpen },
@@ -223,6 +225,7 @@ function AppContent() {
             {landlordEnabled && <Route path="/services" element={<Services />} />}
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/low-value-rules" element={<LowValueRules />} />
+            <Route path="/identifiers" element={<Identifiers />} />
             {landlordEnabled && <Route path="/tax/years" element={<TaxYears />} />}
             {landlordEnabled && <Route path="/tax/years/:id" element={<TaxYearDetail />} />}
             {landlordEnabled && <Route path="/tax/years/:id/comparison" element={<TaxYearComparison />} />}

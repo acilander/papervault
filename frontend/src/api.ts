@@ -472,3 +472,45 @@ export const extractTaxDocumentPositions = (taxDocumentId: number) =>
 
 export const askTaxQuestion = (question: string) =>
   api.post<{ answer: string }>('/tax/chat', { question }).then(r => r.data)
+
+// ── Identifiers API ──────────────────────────────────────────────────────────
+
+export interface Identifier {
+  id: number
+  sender_name: string
+  identifier_type: 'IBAN' | 'CUSTOMER_NO' | 'PERSONAL_NO' | 'METER_ID' | 'POLICY_NO'
+  identifier_value: string
+  label: string | null
+  target_category: string | null
+  target_unit: string | null
+  created_at: string
+}
+
+export interface UnassignedIdentifier {
+  id: number
+  document_id: number
+  identifier_type: string
+  identifier_value: string
+  context_text: string | null
+  detected_at: string
+  document_filename: string | null
+}
+
+export const getIdentifiers = () =>
+  api.get<Identifier[]>('/identifiers/').then(r => r.data)
+
+export const createIdentifier = (data: Omit<Identifier, 'id' | 'created_at'>) =>
+  api.post<{ ok: boolean; id: number }>('/identifiers/', data).then(r => r.data)
+
+export const deleteIdentifier = (id: number) =>
+  api.delete<{ ok: boolean }>(`/identifiers/${id}`).then(r => r.data)
+
+export const getUnassignedIdentifiers = () =>
+  api.get<UnassignedIdentifier[]>('/identifiers/unassigned').then(r => r.data)
+
+export const assignUnassignedIdentifier = (unassignedId: number, data: { sender_name: string; label?: string | null; target_category?: string | null; target_unit?: string | null }) =>
+  api.post<{ ok: boolean; id: number }>(`/identifiers/assign/${unassignedId}`, data).then(r => r.data)
+
+export const deleteUnassignedIdentifier = (unassignedId: number) =>
+  api.delete<{ ok: boolean }>(`/identifiers/unassigned/${unassignedId}`).then(r => r.data)
+
