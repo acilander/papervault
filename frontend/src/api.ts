@@ -294,7 +294,7 @@ export const chatSearch = (question: string) =>
 export const bulkUpdate = (ids: number[], fields: Record<string, string>) =>
   api.post<{ updated: number; skipped: number }>('/documents/bulk-update', { ids, fields }).then(r => r.data)
 
-export interface Collection { id: number; name: string; color: string; description?: string; doc_count?: number }
+export interface Collection { id: number; name: string; color: string; description?: string; doc_count?: number; query_criteria?: string | null }
 
 export const getCollections = () => api.get<Collection[]>('/collections/').then(r => r.data)
 

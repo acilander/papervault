@@ -52,6 +52,13 @@ def test_add_and_get_identifiers():
     sender3, item3 = repo.match_existing_identifiers("Kein match hier.")
     assert sender3 is None
 
+    # Boundary checks: should NOT match inside longer numbers or letters
+    sender_boundary, _ = repo.match_existing_identifiers("Mitarbeiter-Nr. 123456")
+    assert sender_boundary is None
+
+    sender_boundary2, _ = repo.match_existing_identifiers("Mitarbeiter-Nr. A12345B")
+    assert sender_boundary2 is None
+
     # Delete
     assert repo.delete_identifier(id1) is True
     assert len(repo.get_all_identifiers()) == 0

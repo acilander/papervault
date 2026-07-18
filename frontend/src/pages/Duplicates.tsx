@@ -185,7 +185,7 @@ export default function Duplicates() {
         </div>
       ) : (
         <div className="space-y-4">
-          {pagePairs.map((p, i) => {
+          {pagePairs.map(p => {
             const key = `${p.doc_a.id}-${p.doc_b.id}`
             const isExpanded = expanded.has(key)
             return (

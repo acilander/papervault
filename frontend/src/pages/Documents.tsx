@@ -576,10 +576,10 @@ export default function Documents() {
                         className="text-blue-600 hover:underline truncate block flex items-center gap-1.5"
                       >
                         {doc.verified === 1 ? (
-                          <CheckCircle size={12} className="text-green-600 shrink-0" title="Bestätigt / Verifiziert" />
+                          <span title="Bestätigt / Verifiziert" className="inline-flex"><CheckCircle size={12} className="text-green-600 shrink-0" /></span>
                         ) : (
                           doc.status === 'locked' ? (
-                            <Lock size={12} className="text-amber-600 shrink-0" title="Gesperrt" />
+                            <span title="Gesperrt" className="inline-flex"><Lock size={12} className="text-amber-600 shrink-0" /></span>
                           ) : (
                             <span className="text-gray-400 shrink-0" title="KI-Vorschlag">🤖</span>
                           )

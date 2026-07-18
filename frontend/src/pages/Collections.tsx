@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { FolderOpen, Plus, Pencil, Trash2, FileText, ChevronLeft, X, Download, ArrowUpDown } from 'lucide-react'
 import { thumbnailUrl, collectionZipUrl } from '../api'
+import { useConfig } from '../ConfigContext'
 import axios from 'axios'
 
 const COLORS = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
@@ -13,6 +14,7 @@ interface Collection {
   color: string
   doc_count: number
   updated_at: string
+  query_criteria?: string | null
 }
 
 interface CollectionDoc {
@@ -128,7 +130,7 @@ function CollectionForm({ initial, onSave, onCancel }: {
                 className="text-xs p-1.5 rounded border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800"
               >
                 <option value="">Keine Filterung</option>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {CATEGORIES.map((c: string) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className="flex flex-col gap-1">
@@ -139,7 +141,7 @@ function CollectionForm({ initial, onSave, onCancel }: {
                 className="text-xs p-1.5 rounded border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800"
               >
                 <option value="">Keine Filterung</option>
-                {DOCUMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                {DOCUMENT_TYPES.map((t: string) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
           </div>

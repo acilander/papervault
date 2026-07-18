@@ -232,7 +232,7 @@ export default function Inbox() {
             </div>
             
             <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800/60 scrollbar-thin">
-              {docs.map((doc, index) => {
+              {docs.map(doc => {
                 const isActive = activeId === doc.id
                 const isSel = selected.has(doc.id)
                 return (

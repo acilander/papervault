@@ -81,19 +81,24 @@ def assign_unassigned_identifier(unassigned_id: int, sender_name: str, label: st
 
 def match_existing_identifiers(text: str) -> tuple[str, dict] | tuple[None, None]:
     """
-    Scans the given raw text to see if any verified identifier_value exists as a substring.
-    Matching is case-insensitive.
+    Scans the given raw text to see if any verified identifier_value exists.
+    Matching is case-insensitive and uses strict alphanumeric boundary checks
+    to prevent false positives on shorter IDs embedded in longer numbers.
     Returns (sender_name, config_dict) of the first match, or (None, None).
     """
     if not text:
         return None, None
+    import re
     text_lower = text.lower()
     
     # Fetch all registered identifiers
     identifiers = get_all_identifiers()
     for item in identifiers:
         val = str(item["identifier_value"]).lower().strip()
-        if val and val in text_lower:
-            return item["sender_name"], item
+        if val:
+            # Bound the value so it cannot be adjacent to any alphanumeric character
+            pattern = r'(?<![a-zA-Z0-9])' + re.escape(val) + r'(?![a-zA-Z0-9])'
+            if re.search(pattern, text_lower):
+                return item["sender_name"], item
             
     return None, None
