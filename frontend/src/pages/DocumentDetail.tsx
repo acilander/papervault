@@ -6,19 +6,7 @@ import { getDocument, updateDocument, updateSender, deleteDocument, openInExplor
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
 import { useConfirm, useToast } from '../components/ui'
-
-const STEP_LABELS: Record<string, string> = {
-  ingest: 'Datei-Import (Ingest)',
-  text_extraction: 'Text-Extraktion / OCR',
-  duplicate_check: 'Duplikat-Prüfung',
-  pre_analysis: 'Merkmals-Analyse',
-  llm_classification: 'LLM-Klassifizierung',
-  archiving: 'Datei-Archivierung',
-  contract_extraction: 'Vertrags-Extraktion',
-  tax_linker: 'Steuer-Verknüpfung',
-  items_extraction: 'Artikel-Extraktion',
-  services_extraction: 'Dienstleistungs-Extraktion'
-}
+import { getTraceStepLabel } from '../lib/traceLabels'
 
 export default function DocumentDetail() {
   const { categories: CATEGORIES, config } = useConfig()
@@ -53,7 +41,7 @@ export default function DocumentDetail() {
   const copyTracesToClipboard = () => {
     const formatted = traces.map(t => ({
       timestamp: t.timestamp,
-      phase: STEP_LABELS[t.step_name] || t.step_name,
+      phase: getTraceStepLabel(t.step_name),
       status: t.status.toUpperCase(),
       message: t.message,
       details: t.details || undefined
@@ -708,7 +696,7 @@ export default function DocumentDetail() {
             ) : (
               <div className="relative border-l border-gray-200 dark:border-gray-800 ml-4 pl-6 space-y-6">
                 {traces.map((trace) => {
-                  const stepLabel = STEP_LABELS[trace.step_name] || trace.step_name
+                  const stepLabel = getTraceStepLabel(trace.step_name)
                   const isExpanded = expandedTraceId === trace.id
                   return (
                     <div key={trace.id} className="relative">

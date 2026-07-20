@@ -4,6 +4,8 @@ import { addDocumentType, getDocuments, confirmDocument, reprocessDocument, recl
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
 import { Button, useConfirm, useToast } from '../components/ui'
+import { getTraceStepLabel } from '../lib/traceLabels'
+
 
 interface EditState {
   sender: string
@@ -486,7 +488,7 @@ export default function Inbox() {
                             <div key={trace.id} className="flex gap-2 text-xs">
                               <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${trace.status === 'success' ? 'bg-green-500' : trace.status === 'warning' ? 'bg-amber-500' : 'bg-red-500'}`} />
                               <div className="min-w-0">
-                                <p className="font-semibold text-gray-700 dark:text-gray-200">{trace.step_name}</p>
+                                <p className="font-semibold text-gray-700 dark:text-gray-200">{getTraceStepLabel(trace.step_name)}</p>
                                 <p className="text-gray-500 dark:text-gray-400">{trace.message}</p>
                                 {trace.details && (
                                   <details className="mt-1">
