@@ -486,7 +486,25 @@ def reclassify_document_live(doc_id: int, body: dict = {}):
     if not result:
         raise HTTPException(status_code=500, detail="KI-Klassifizierung fehlgeschlagen.")
         
-    db.update_document(doc_id, **result)
+    # Only set status to 'review' if the document was not already fully archived ('ok')
+    new_status = "review" if doc.get("status") != "ok" else "ok"
+    db.update_document(doc_id, status=new_status, **result)
+
+    # Clean file move to review/ folder if the file was in the Inbox (to break pending deadlock)
+    current_path = doc.get("file_path")
+    if current_path and os.path.exists(current_path):
+        from config import SOURCE_DIR, REVIEW_DIR
+        # Only move if the file resides inside SOURCE_DIR (meaning it was in the Inbox)
+        if os.path.abspath(current_path).startswith(os.path.abspath(SOURCE_DIR)):
+            os.makedirs(REVIEW_DIR, exist_ok=True)
+            from pdf_utils import unique_path
+            new_review_path = unique_path(os.path.join(REVIEW_DIR, os.path.basename(current_path)))
+            try:
+                shutil.move(current_path, new_review_path)
+                db.update_document(doc_id, file_path=new_review_path, filename=os.path.basename(new_review_path))
+            except OSError:
+                pass
+
     updated_doc = db.get_document(doc_id)
 
     # --- Cascade effects ---
