@@ -19,8 +19,10 @@ DEFAULT_SETTINGS = {
         "enabled": True, # Keep enabled by default to preserve backward compatibility for existing archive
         "property_units": ["EG", "OG", "DG", "UG", "Gesamthaus"],
         "sqm_total": 280.0,
+        "sqm_eg": 80.0,
         "sqm_og": 80.0,
-        "sqm_dg": 80.0
+        "sqm_dg": 80.0,
+        "sqm_ug": 40.0
     },
     "categories": [
         "Arbeit & Rente", "Bank & Finanzen", "Gesundheit", "Privatversicherungen",

@@ -82,6 +82,7 @@ export interface AppConfig {
     enabled: boolean
     property_units: string[]
     sqm_total: number
+    sqm_eg: number
     sqm_og: number
     sqm_dg: number
     sqm_ug: number

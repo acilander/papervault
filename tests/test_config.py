@@ -29,11 +29,15 @@ def test_no_rechnung_in_categories():
     assert "Rechnung" not in CATEGORIES, "Kategorie 'Rechnung' sollte 'Einkauf & Bestellungen' heißen"
 
 
-def test_save_settings_syncs_config_in_place():
+def test_save_settings_syncs_config_in_place(tmp_path, monkeypatch):
+    import config_manager
     import config
-    from config_manager import save_settings
     
-    # Save original values
+    # Mock settings file to a temporary path to avoid test contamination
+    temp_settings_file = str(tmp_path / "settings.json")
+    monkeypatch.setattr(config_manager, "SETTINGS_FILE", temp_settings_file)
+    
+    # Save original config lists
     orig_cats = list(config.CATEGORIES)
     orig_types = list(config.DOCUMENT_TYPES)
     
@@ -49,7 +53,7 @@ def test_save_settings_syncs_config_in_place():
         }
         
         # Test in-place update
-        success = save_settings(new_settings)
+        success = config_manager.save_settings(new_settings)
         assert success
         
         # Verify in-memory lists of config.py are updated in-place (reference-sharing)
@@ -58,7 +62,7 @@ def test_save_settings_syncs_config_in_place():
         assert len(config.CATEGORIES) == 2
         assert len(config.DOCUMENT_TYPES) == 2
     finally:
-        # Restore original lists
+        # Restore original lists in-place
         config.CATEGORIES.clear()
         config.CATEGORIES.extend(orig_cats)
         config.DOCUMENT_TYPES.clear()

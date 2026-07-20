@@ -642,7 +642,7 @@ export default function Settings() {
               </div>
 
               {settings.landlord.enabled && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800 rounded-xl">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800 rounded-xl">
                   <div className="space-y-1">
                     <span className="text-xs font-medium text-gray-500">Gesamt-Fläche (qm)</span>
                     <input
@@ -651,6 +651,18 @@ export default function Settings() {
                       onChange={(e) => setSettings({
                         ...settings,
                         landlord: { ...settings.landlord, sqm_total: parseFloat(e.target.value) || 0 }
+                      })}
+                      className="w-full text-sm p-1.5 rounded-lg border border-gray-200 bg-white dark:bg-gray-800"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium text-gray-500">Fläche EG (qm)</span>
+                    <input
+                      type="number"
+                      value={settings.landlord.sqm_eg || 0}
+                      onChange={(e) => setSettings({
+                        ...settings,
+                        landlord: { ...settings.landlord, sqm_eg: parseFloat(e.target.value) || 0 }
                       })}
                       className="w-full text-sm p-1.5 rounded-lg border border-gray-200 bg-white dark:bg-gray-800"
                     />
