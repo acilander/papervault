@@ -4,17 +4,45 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Stop-ProcessOnPort($port) {
     $conns = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-    foreach ($conn in $conns) {
-        $id = $conn.OwningProcess
-        if ($id) {
-            Stop-Process -Id $id -Force -ErrorAction SilentlyContinue | Out-Null
+    if ($conns) {
+        foreach ($conn in $conns) {
+            $id = $conn.OwningProcess
+            if ($id) {
+                Write-Host "Beende alten Prozess $id auf Port $port..."
+                Stop-Process -Id $id -Force -ErrorAction SilentlyContinue | Out-Null
+            }
+        }
+        # Wait briefly to let port release
+        Start-Sleep -Milliseconds 500
+        # Re-check port status
+        $conns_after = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+        if ($conns_after) {
+            Write-Host "Warnung: Port $port konnte nicht befreit werden!"
+        } else {
+            Write-Host "Port $port wurde erfolgreich freigegeben."
         }
     }
 }
 
 function Stop-ProcessTree($id) {
     if ($id) {
-        taskkill /F /T /PID $id 2>$null | Out-Null
+        $exists = Get-Process -Id $id -ErrorAction SilentlyContinue
+        if (-not $exists) {
+            Write-Host "Prozess mit ID $id ist bereits beendet."
+            return
+        }
+        try {
+            $output = taskkill /F /T /PID $id 2>&1
+            if ($LastExitCode -eq 0) {
+                Write-Host "Prozessbaum von PID $id erfolgreich beendet."
+            } elseif ($LastExitCode -eq 128) {
+                Write-Host "Prozessbaum von PID $id bereits beendet (128)."
+            } else {
+                Write-Host "taskkill meldete Exit Code $LastExitCode fuer PID $id: $output"
+            }
+        } catch {
+            Write-Host "Fehler beim Beenden des Prozessbaums fuer PID $id: $_"
+        }
     }
 }
 
@@ -53,7 +81,7 @@ while ($tries -lt 15) {
 }
 
 if (-not $apiReady) {
-    Write-Host "[API]      Timeout."
+    Write-Host "[API]      Timeout beim Server-Start."
     Stop-ProcessTree $frontend.Id
     Stop-ProcessTree $backend.Id
     exit 1

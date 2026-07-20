@@ -41,3 +41,8 @@ senders.json
 .coverage
 coverage.txt
 pytest_output*.txt
+
+# Runtime state / process files
+*.pid
+backend/archiver.pid
+
