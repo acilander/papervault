@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
 import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight, EyeOff, Eye, Unlock, Copy } from 'lucide-react'
-import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, ignoreDocument, unignoreDocument, verifyDocument, unverifyDocument, type Document, type DocumentUpdate } from '../api'
+import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, ignoreDocument, unignoreDocument, verifyDocument, unverifyDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
 
@@ -631,8 +631,34 @@ export default function DocumentDetail() {
                   alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
                 } finally { setReprocessBusy(false) }
               }}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition-colors">
-              {reprocessBusy ? 'Wird gestartet…' : 'Klassifizieren'}
+              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg disabled:opacity-50 transition-colors"
+              title="Verschiebt die Datei zurück in die Inbox und reiht sie in die Warteschlange ein.">
+              {reprocessBusy ? '…' : 'In Inbox schieben (Asynchron)'}
+            </button>
+            <button
+              disabled={reprocessBusy}
+              onClick={async () => {
+                setReprocessBusy(true)
+                try {
+                  const updated = await reclassifyDocumentLive(doc.id, reprocessHint || undefined)
+                  setDoc(updated)
+                  setEdit({
+                    sender: updated.sender, date: updated.date, document_type: updated.document_type,
+                    category: updated.category, summary: updated.summary,
+                    tags: updated.tags ?? '', tax_relevant: updated.tax_relevant ?? 0,
+                    tax_year: updated.tax_year ?? '', expires_at: updated.expires_at ?? '', notes: updated.notes ?? '',
+                    low_value: updated.low_value ?? 0,
+                  })
+                  loadTraces()
+                  setReprocessDlg(false)
+                  alert('Dokument erfolgreich live klassifiziert!')
+                } catch (e: any) {
+                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                } finally { setReprocessBusy(false) }
+              }}
+              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition-colors"
+              title="Analysiert das Dokument sofort live im aktuellen Browser-Tab ohne Hintergrund-Warteschlange.">
+              {reprocessBusy ? 'Klassifiziere…' : 'Live klassifizieren (Sofort)'}
             </button>
           </div>
         </div>
