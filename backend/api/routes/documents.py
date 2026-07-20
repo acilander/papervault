@@ -14,7 +14,7 @@ import db
 import feedback as fb
 import storage
 from api.models import DocumentOut, DocumentListOut, DocumentUpdate
-from config import SOURCE_DIR, TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS
+from config import SOURCE_DIR, TARGET_BASE, CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, IGNORED_DIR, REVIEW_DIR
 from pdf_utils import unique_path, generate_thumbnail, get_thumbnail_path
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -211,29 +211,111 @@ def _ensure_content_hash(doc: dict) -> str | None:
 
 @router.post("/{doc_id}/ignore", status_code=200)
 def ignore_document(doc_id: int):
-    """Mark a document as irrelevant and block its hash from re-import."""
+    """Mark a document as irrelevant, move it to IGNORED_DIR, and block its hash from re-import."""
+    from config import IGNORED_DIR
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
-    content_hash = _ensure_content_hash(doc)
+    
+    current_path = doc.get("file_path")
+    if not current_path:
+        raise HTTPException(status_code=400, detail="Kein Dateipfad für dieses Dokument vorhanden.")
+
+    # Ensure target directory exists and move file safely
+    os.makedirs(IGNORED_DIR, exist_ok=True)
+    filename = doc.get("filename") or os.path.basename(current_path) or "document.pdf"
+    
+    # If the file physically exists, move it. If not, raise an error (no half-way status)
+    if not os.path.exists(current_path):
+         raise HTTPException(status_code=404, detail=f"Datei '{current_path}' nicht auf dem Datenträger gefunden. Ignore abgebrochen.")
+
+    try:
+        ignored_path = unique_path(os.path.join(IGNORED_DIR, filename))
+        shutil.move(current_path, ignored_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Fehler beim Verschieben der Datei nach ignored: {e}")
+
+    # Update database file path, filename, status
+    new_filename = os.path.basename(ignored_path)
+    db.update_document(doc_id, file_path=ignored_path, filename=new_filename, status="ignored")
+
+    # Protect hash
+    content_hash = doc.get("content_hash") or _ensure_content_hash(db.get_document(doc_id))
     if content_hash:
-        db.protect_document_hash(content_hash, "ignored", document_id=doc_id, filename=doc.get("filename"))
-    db.update_document(doc_id, status="ignored")
+        db.protect_document_hash(content_hash, "ignored", document_id=doc_id, filename=new_filename)
+
+    # Insert trace with source and target paths
+    try:
+        db.insert_trace(
+            doc_id, 
+            "approval", 
+            "success", 
+            f"Dokument als irrelevant markiert. Physisch verschoben von '{current_path}' nach '{ignored_path}'."
+        )
+    except Exception:
+        pass
+
     return db.get_document(doc_id)
 
 
 @router.post("/{doc_id}/unignore", status_code=200)
 def unignore_document(doc_id: int):
-    """Restore an ignored document and remove its hash from the blocklist."""
+    """Restore an ignored document, move it back to REVIEW_DIR, and remove its hash from the blocklist."""
+    from config import REVIEW_DIR
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
     if doc.get("status") != "ignored":
         raise HTTPException(status_code=400, detail="Dokument ist nicht als irrelevant markiert")
+
+    current_path = doc.get("file_path")
+    if not current_path:
+        raise HTTPException(status_code=400, detail="Kein Dateipfad für dieses Dokument vorhanden.")
+
+    # Unprotect hash
     content_hash = doc.get("content_hash") or _ensure_content_hash(doc)
     if content_hash:
         db.unprotect_document_hash(hash_value=content_hash)
-    db.update_document(doc_id, status="ok")
+
+    # Move file back to REVIEW_DIR
+    os.makedirs(REVIEW_DIR, exist_ok=True)
+    filename = doc.get("filename") or os.path.basename(current_path) or "document.pdf"
+
+    if not os.path.exists(current_path):
+        # File is missing! Set status to missing as required by blueprint
+        db.update_document(doc_id, status="missing")
+        try:
+            db.insert_trace(
+                doc_id,
+                "approval",
+                "failed",
+                f"Wiederherstellung fehlgeschlagen: Die Datei '{current_path}' existiert nicht auf dem Datenträger."
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=404, detail=f"Datei '{current_path}' existiert nicht auf dem Datenträger. Status wurde auf 'missing' gesetzt.")
+
+    try:
+        review_path = unique_path(os.path.join(REVIEW_DIR, filename))
+        shutil.move(current_path, review_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Fehler beim Verschieben der Datei nach review: {e}")
+
+    # Update database
+    new_filename = os.path.basename(review_path)
+    db.update_document(doc_id, file_path=review_path, filename=new_filename, status="review")
+
+    # Write recovery trace
+    try:
+        db.insert_trace(
+            doc_id,
+            "approval",
+            "success",
+            f"Dokument wiederhergestellt. Physisch verschoben von '{current_path}' nach '{review_path}'."
+        )
+    except Exception:
+        pass
+
     return db.get_document(doc_id)
 
 

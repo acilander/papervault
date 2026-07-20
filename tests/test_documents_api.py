@@ -277,18 +277,31 @@ def test_expiring_documents(tmp_path):
 
 
 def test_ignore_and_unignore_document(tmp_path):
-    doc_id, _ = _insert_pdf(tmp_path, name="ignore.pdf")
+    doc_id, path = _insert_pdf(tmp_path, name="ignore.pdf")
     db.update_document(doc_id, content_hash="ignoredhash123")
 
     resp = client.post(f"/documents/{doc_id}/ignore")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ignored"
     assert db.get_protected_hash("ignoredhash123")["type"] == "ignored"
+    
+    # Assert physical file exists in IGNORED_DIR
+    ignored_dir_path = config.IGNORED_DIR
+    db_doc = db.get_document(doc_id)
+    assert os.path.dirname(db_doc["file_path"]) == os.path.abspath(ignored_dir_path)
+    assert os.path.exists(db_doc["file_path"])
 
     resp = client.post(f"/documents/{doc_id}/unignore")
     assert resp.status_code == 200
-    assert resp.json()["status"] == "ok"
+    assert resp.json()["status"] == "review"
     assert db.get_protected_hash("ignoredhash123") is None
+    
+    # Assert physical file is moved to REVIEW_DIR
+    review_dir_path = config.REVIEW_DIR
+    db_doc_restored = db.get_document(doc_id)
+    assert os.path.dirname(db_doc_restored["file_path"]) == os.path.abspath(review_dir_path)
+    assert os.path.exists(db_doc_restored["file_path"])
+
 
 
 def test_lock_and_unlock_document(tmp_path):

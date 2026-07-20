@@ -45,10 +45,12 @@ CREATE INDEX IF NOT EXISTS idx_protected_hash_type ON protected_document_hashes(
 ```python
 1. doc = get_document(id)
 2. delete_protected_hash(doc["content_hash"])
-3. update_document(id, status="ok")
+3. Zielpfad = unique_path(REVIEW_DIR / basename(doc.file_path))
+4. shutil.move(doc.file_path, Zielpfad)
+5. update_document(id, file_path=Zielpfad, status="review")
 ```
 
-> Hinweis: Die Datei verbleibt im `ignored/`-Ordner; es erfolgt keine Rückführung in das Archiv.
+> Hinweis: Die Datei wird physisch wieder nach `REVIEW_DIR` zurückbewegt und der Status auf `review` gesetzt, damit der Nutzer sie in der Dokumentprüfung erneut beurteilen kann. Falls die Datei nicht mehr existiert, wird der Status auf `missing` gesetzt und ein Fehler zurückgegeben.
 
 ### 3.3 Sperren
 
@@ -138,7 +140,7 @@ if protected:
 | Aktion | Quellpfad | Zielpfad |
 |--------|-----------|----------|
 | Ignore | Archiv | `IGNORED_DIR/<filename>` |
-| Unignore | `IGNORED_DIR` | bleibt dort |
+| Unignore | `IGNORED_DIR` | `REVIEW_DIR/<filename>` |
 | Lock | Archiv | bleibt im Archiv |
 | Locked-Duplikat importieren | Inbox | `DUPLICATES_DIR/<hash>/<filename>` |
 | Ignored-Duplikat importieren | Inbox | `IGNORED_DIR/<filename>` |
