@@ -1,10 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
-import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight, EyeOff, Eye, Unlock } from 'lucide-react'
+import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight, EyeOff, Eye, Unlock, Copy } from 'lucide-react'
 import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, ignoreDocument, unignoreDocument, verifyDocument, unverifyDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
+
+const STEP_LABELS: Record<string, string> = {
+  ingest: 'Datei-Import (Ingest)',
+  text_extraction: 'Text-Extraktion / OCR',
+  duplicate_check: 'Duplikat-Prüfung',
+  pre_analysis: 'Merkmals-Analyse',
+  llm_classification: 'LLM-Klassifizierung',
+  archiving: 'Datei-Archivierung',
+  contract_extraction: 'Vertrags-Extraktion',
+  tax_linker: 'Steuer-Verknüpfung',
+  items_extraction: 'Artikel-Extraktion',
+  services_extraction: 'Dienstleistungs-Extraktion'
+}
 
 export default function DocumentDetail() {
   const { categories: CATEGORIES, config } = useConfig()
@@ -28,11 +41,36 @@ export default function DocumentDetail() {
   const [pinRulePrompt, setPinRulePrompt] = useState<{ sender: string; category: string; document_type: string } | null>(null)
   const [pinning, setPinning] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [traces, setTraces] = useState<any[]>([])
+  const [traceDlg, setTraceDlg] = useState(false)
+  const [expandedTraceId, setExpandedTraceId] = useState<number | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const copyTracesToClipboard = () => {
+    const formatted = traces.map(t => ({
+      timestamp: t.timestamp,
+      phase: STEP_LABELS[t.step_name] || t.step_name,
+      status: t.status.toUpperCase(),
+      message: t.message,
+      details: t.details || undefined
+    }))
+    const text = JSON.stringify(formatted, null, 2)
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {})
+  }
+
+  const loadTraces = useCallback(() => {
+    if (!id) return
+    axios.get(`/documents/${id}/traces`).then(r => setTraces(r.data)).catch(() => {})
+  }, [id])
 
   useEffect(() => {
     if (!id) return
     axios.get('/collections/').then(r => setAllCollections(r.data)).catch(() => {})
     axios.get(`/collections/by-document/${id}`).then(r => setDocCollections(r.data)).catch(() => {})
+    loadTraces()
     getDocument(Number(id)).then(d => {
       setDoc(d)
       if (d.status === 'duplicate') {
@@ -46,7 +84,7 @@ export default function DocumentDetail() {
         low_value: d.low_value ?? 0,
       })
     })
-  }, [id])
+  }, [id, loadTraces])
 
   if (!doc) return <div className="p-8 text-gray-500">Lade…</div>
 
@@ -285,6 +323,14 @@ export default function DocumentDetail() {
           <div>
             <p className="text-xs font-medium text-gray-500 mb-1">Archiviert am</p>
             <p className="text-xs text-gray-400">{doc.archived_at}</p>
+          </div>
+          <div className="pt-1.5">
+            <button
+              onClick={() => { loadTraces(); setTraceDlg(true) }}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-colors"
+            >
+              🔍 Pipeline-Verlauf anzeigen ({traces.length})
+            </button>
           </div>
 
           {/* Rename */}
@@ -630,6 +676,88 @@ export default function DocumentDetail() {
               }}
               className="flex-1 px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
               {pinning ? '…' : 'Ja, Regel speichern'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Pipeline Trace dialog */}
+    {traceDlg && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh] border border-gray-200 dark:border-gray-800">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">🔍 Pipeline-Audit-Trail & Trace</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Detaillierter Verlauf aller Pipeline-Phasen für dieses Dokument</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {traces.length > 0 && (
+                <button
+                  onClick={copyTracesToClipboard}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-colors"
+                  title="Verlauf in Zwischenablage kopieren"
+                >
+                  <Copy size={13} />
+                  {copied ? 'Kopiert ✓' : 'Kopieren'}
+                </button>
+              )}
+              <button onClick={() => setTraceDlg(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl font-bold leading-none">×</button>
+            </div>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+            {traces.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-8">Keine Traces für dieses Dokument aufgezeichnet.</p>
+            ) : (
+              <div className="relative border-l border-gray-200 dark:border-gray-800 ml-4 pl-6 space-y-6">
+                {traces.map((trace) => {
+                  const stepLabel = STEP_LABELS[trace.step_name] || trace.step_name
+                  const isExpanded = expandedTraceId === trace.id
+                  return (
+                    <div key={trace.id} className="relative">
+                      {/* Timeline dot */}
+                      <span className={`absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full ring-4 ring-white dark:ring-gray-900 ${
+                        trace.status === 'success' ? 'bg-green-500' :
+                        trace.status === 'warning' ? 'bg-amber-500' :
+                        trace.status === 'failed' ? 'bg-red-500' : 'bg-gray-400'
+                      }`} />
+                      
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{stepLabel}</span>
+                          <span className="text-xs text-gray-400 font-mono">{trace.timestamp}</span>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{trace.message}</p>
+                        
+                        {trace.details && (
+                          <div className="pt-1">
+                            <button
+                              onClick={() => setExpandedTraceId(isExpanded ? null : trace.id)}
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                            >
+                              {isExpanded ? 'Details verbergen ▲' : 'Details anzeigen ▼'}
+                            </button>
+                            {isExpanded && (
+                              <pre className="mt-2 text-[11px] font-mono p-3 bg-gray-50 dark:bg-gray-950/60 rounded-lg overflow-x-auto text-gray-700 dark:text-gray-300 max-h-48 border border-gray-200 dark:border-gray-800/80">
+                                {JSON.stringify(trace.details, null, 2)}
+                              </pre>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50 rounded-b-2xl">
+            <span className="text-xs text-gray-400 font-mono">ID: {doc.id} | Status: {doc.status}</span>
+            <button onClick={() => setTraceDlg(false)}
+              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
+              Schließen
             </button>
           </div>
         </div>

@@ -87,6 +87,14 @@ def get_document(doc_id: int):
     return doc
 
 
+@router.get("/{doc_id}/traces")
+def get_document_traces(doc_id: int):
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    return db.get_traces_for_document(doc_id)
+
+
 @router.patch("/{doc_id}", response_model=DocumentOut)
 def update_document(doc_id: int, body: DocumentUpdate):
     doc = db.get_document(doc_id)

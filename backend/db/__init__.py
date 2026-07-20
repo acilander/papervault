@@ -17,3 +17,7 @@ from db.embeddings_repo import (
     insert_embedding, get_embedding, get_all_embeddings, delete_embedding,
     find_similar_documents
 )
+
+from db.traces_repo import (
+    insert_trace, get_traces_for_document, delete_traces_for_document
+)

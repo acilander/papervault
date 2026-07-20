@@ -100,6 +100,10 @@ def check_duplicate(file_path, text, doc_id):
                 status="ignored",
                 content_hash=content_hash,
             )
+            try:
+                _db.insert_trace(doc_id, "duplicate_check", "skipped", "Dokument steht auf der Ignorieren-Liste. Import übersprungen.", {"hash": content_hash, "type": "ignored"})
+            except Exception:
+                pass
             cleanup_empty_inbox_folders(file_path)
             return True
 
@@ -119,6 +123,10 @@ def check_duplicate(file_path, text, doc_id):
                 status="duplicate",
                 content_hash=content_hash,
             )
+            try:
+                _db.insert_trace(doc_id, "duplicate_check", "skipped", f"Identisch mit gesperrtem Original '{original_name}'.", {"hash": content_hash, "original_id": protected.get("document_id")})
+            except Exception:
+                pass
             cleanup_empty_inbox_folders(file_path)
             return True
 
@@ -150,10 +158,18 @@ def check_duplicate(file_path, text, doc_id):
             summary=f"DUPLIKAT: Identisch mit '{os.path.basename(existing_path)}' (Hash: {content_hash})",
             status="duplicate"
         )
+        try:
+            _db.insert_trace(doc_id, "duplicate_check", "skipped", f"Identisch mit bereits archiviertem Beleg '{os.path.basename(existing_path)}'.", {"hash": content_hash, "original_id": existing_doc["id"]})
+        except Exception:
+            pass
 
         cleanup_empty_inbox_folders(file_path)
         return True
 
+    try:
+        _db.insert_trace(doc_id, "duplicate_check", "success", "Inhalts-Prüfung abgeschlossen. Keine exakten Duplikate gefunden.", {"hash": content_hash, "hash_type": hash_type})
+    except Exception:
+        pass
     return False
 
 

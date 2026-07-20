@@ -133,6 +133,18 @@ CREATE TABLE IF NOT EXISTS document_embeddings (
 CREATE INDEX IF NOT EXISTS idx_embeddings_document ON document_embeddings(document_id);
 CREATE INDEX IF NOT EXISTS idx_documents_verified ON documents(verified);
 CREATE INDEX IF NOT EXISTS idx_documents_confidence ON documents(confidence);
+
+CREATE TABLE IF NOT EXISTS document_traces (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id   INTEGER NOT NULL,
+    timestamp     TEXT DEFAULT (datetime('now', 'localtime')),
+    step_name     TEXT NOT NULL,
+    status        TEXT NOT NULL,
+    message       TEXT NOT NULL,
+    details       TEXT,
+    FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_document_traces_doc_id ON document_traces(document_id);
 """
 
 MIGRATIONS = [
@@ -214,6 +226,19 @@ MIGRATIONS = [
         UNIQUE(identifier_type, identifier_value)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS document_traces (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        document_id   INTEGER NOT NULL,
+        timestamp     TEXT DEFAULT (datetime('now', 'localtime')),
+        step_name     TEXT NOT NULL,
+        status        TEXT NOT NULL,
+        message       TEXT NOT NULL,
+        details       TEXT,
+        FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_document_traces_doc_id ON document_traces(document_id)",
 ]
 
 def init_db():

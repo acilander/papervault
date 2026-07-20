@@ -69,8 +69,9 @@ def _extract_text(file_path: str, doc_id: int):
         try:
             db.update_document(doc_id, file_path=dest, filename=os.path.basename(dest),
                                summary="VERSCHLUESSELT: Das PDF-Dokument ist passwortgeschützt.", status="encrypted")
+            db.insert_trace(doc_id, "text_extraction", "failed", "Das PDF-Dokument ist passwortgeschützt.", {"file_path": dest})
         except Exception as e:
-            log(f"WARNUNG: Datei nach encrypted/ verschoben, aber DB-Status-Update fehlgeschlagen (DB gesperrt): {e}")
+            log(f"WARNUNG: Datei nach encrypted/ verschoben, aber DB-Status-Update/Trace fehlgeschlagen: {e}")
         cleanup_empty_inbox_folders(file_path)
         return None, None
 
@@ -84,8 +85,9 @@ def _extract_text(file_path: str, doc_id: int):
         try:
             db.update_document(doc_id, file_path=dest, filename=os.path.basename(dest),
                                summary="FEHLER: PDF-Datei ist nicht lesbar (Datei beschädigt oder ungültig).", status="corrupt")
+            db.insert_trace(doc_id, "text_extraction", "failed", "PDF-Datei ist beschädigt oder ungültig.", {"file_path": dest})
         except Exception as e:
-            log(f"WARNUNG: Datei nach failed/ verschoben, aber DB-Status-Update fehlgeschlagen (DB gesperrt): {e}")
+            log(f"WARNUNG: Datei nach failed/ verschoben, aber DB-Status-Update/Trace fehlgeschlagen: {e}")
         cleanup_empty_inbox_folders(file_path)
         return None, None
 
@@ -112,6 +114,15 @@ def _extract_text(file_path: str, doc_id: int):
     if len(text.strip()) < 50 or is_garbage_scan:
         if is_garbage_scan:
             log(f"WARNUNG: Text-Zeichensalat erkannt (Dichte {density*100:.1f}% < 15%, Alnum {alnum_ratio*100:.1f}% < 75%). Erzwinge echtes OCR...")
+            try:
+                db.insert_trace(doc_id, "text_extraction", "warning", f"Zeichensalat erkannt (deutsche Wörterbuch-Dichte {density*100:.1f}% < 15%). Starte OCR-Texterkennung...", {"char_count_original": len(text.strip()), "density": round(density, 3), "alnum_ratio": round(alnum_ratio, 3)})
+            except Exception:
+                pass
+        else:
+            try:
+                db.insert_trace(doc_id, "text_extraction", "warning", f"Zu wenig Text ({len(text.strip())} Zeichen). Starte OCR-Texterkennung...", {"char_count_original": len(text.strip())})
+            except Exception:
+                pass
         text = ocr_pdf(file_path)
 
     if len(text.strip()) < 50:
@@ -123,8 +134,21 @@ def _extract_text(file_path: str, doc_id: int):
         processing_log(os.path.basename(file_path), "no_text")
         db.update_document(doc_id, file_path=dest, filename=os.path.basename(dest),
                            summary="FEHLER: Kein verwertbarer Text im Dokument gefunden (auch nach OCR-Texterkennung).", status="no_text")
+        try:
+            db.insert_trace(doc_id, "text_extraction", "failed", "Kein verwertbarer Text im Dokument gefunden (auch nach OCR-Texterkennung).", {"file_path": dest})
+        except Exception:
+            pass
         cleanup_empty_inbox_folders(file_path)
         return None, None
+
+    try:
+        db.insert_trace(doc_id, "text_extraction", "success", f"Text erfolgreich extrahiert ({len(text.strip())} Zeichen).", {
+            "character_count": len(text.strip()),
+            "density": round(density, 3),
+            "alnum_ratio": round(alnum_ratio, 3)
+        })
+    except Exception:
+        pass
 
     return text, status
 
@@ -183,10 +207,18 @@ def process_pdf(file_path, doc_id=None):
 
     # Phase 1: DB identity
     doc_id = _register_doc(file_path, doc_id)
+    try:
+        db.insert_trace(doc_id, "ingest", "success", f"Dateisystem-Ingestion gestartet: '{os.path.basename(file_path)}' registriert.")
+    except Exception:
+        pass
 
     if not os.path.exists(file_path):
         log(f"WARNUNG: Datei nicht gefunden beim Start der Verarbeitung (bereits verschoben?): {file_path}")
         db.update_document(doc_id, status="failed", summary="FEHLER: Datei beim Start der Verarbeitung nicht gefunden.")
+        try:
+            db.insert_trace(doc_id, "ingest", "failed", "Datei beim Start der Verarbeitung nicht gefunden.")
+        except Exception:
+            pass
         return
 
     if os.path.getsize(file_path) == 0:
@@ -198,6 +230,10 @@ def process_pdf(file_path, doc_id=None):
         processing_log(os.path.basename(file_path), "empty_file")
         db.update_document(doc_id, file_path=dest, filename=os.path.basename(dest),
                            summary="FEHLER: Datei ist leer (0 Bytes) – keine gültige PDF.", status="empty_file")
+        try:
+            db.insert_trace(doc_id, "ingest", "failed", "Datei ist leer (0 Bytes) – keine gültige PDF.", {"file_path": dest})
+        except Exception:
+            pass
         cleanup_empty_inbox_folders(file_path)
         return
 
@@ -221,8 +257,21 @@ def process_pdf(file_path, doc_id=None):
             similarity = round((1.0 - best['simhash_distance'] / 64) * 100, 1)
             log(f"SCAN-DUPLIKAT erkannt ({similarity}% Textübereinstimmung) – ähnlich wie: {os.path.basename(best['file_path'])}")
             sim_duplicate_note = f"Mögliches Scan-Duplikat ({similarity}% Textübereinstimmung) von: {os.path.basename(best['file_path'])}"
+            try:
+                db.insert_trace(doc_id, "duplicate_check", "warning", f"Scan-Duplikat erkannt ({similarity}% Textübereinstimmung) – ähnlich wie: {os.path.basename(best['file_path'])}", {"similarity": similarity, "original_id": best["id"]})
+            except Exception:
+                pass
+        else:
+            try:
+                db.insert_trace(doc_id, "duplicate_check", "success", "SimHash-Ähnlichkeitsprüfung abgeschlossen. Keine Scan-Duplikate gefunden.")
+            except Exception:
+                pass
     else:
         log("Periodischer Beleg erkannt – überspringe SimHash-Vergleich.")
+        try:
+            db.insert_trace(doc_id, "duplicate_check", "success", "Periodischer Beleg erkannt – SimHash-Vergleich übersprungen.")
+        except Exception:
+            pass
 
     # Phase 4: Pre-analysis (features, hints, receipt detection)
     safe_text = prepare_text_for_llm(text)
@@ -234,6 +283,10 @@ def process_pdf(file_path, doc_id=None):
     )
     log(f"Merkmale: {', '.join(features.get('category_candidates', [])) or '–'} | Typ: {features.get('type_candidate') or '–'}")
     user_hint, hint_path = _build_user_hint(file_path, text)
+    try:
+        db.insert_trace(doc_id, "pre_analysis", "success", f"Dokumenten-Merkmale analysiert: {', '.join(features.get('category_candidates', [])) or 'Keine'} | Typ: {features.get('type_candidate') or 'Keiner'}", {"features": features, "has_user_hint": bool(user_hint)})
+    except Exception:
+        pass
 
     # Phase 4b: Deterministic Identifier check (Stufe 0 Input & Override)
     from db.identifiers_repo import match_existing_identifiers
@@ -245,6 +298,10 @@ def process_pdf(file_path, doc_id=None):
         if matched_item.get("target_category"):
             id_hint += f" und die Kategorie ist definitiv '{matched_item['target_category']}'"
         user_hint = f"[{id_hint}] {user_hint}" if user_hint else f"[{id_hint}]"
+        try:
+            db.insert_trace(doc_id, "pre_analysis", "success", f"Absender '{matched_sender}' deterministisch über ID '{matched_item['identifier_value']}' verifiziert.", {"matched_sender": matched_sender, "identifier_value": matched_item['identifier_value']})
+        except Exception:
+            pass
 
     # Phase 5: LLM classification
     data = classify_document(
@@ -284,8 +341,17 @@ def process_pdf(file_path, doc_id=None):
         db.update_document(doc_id, file_path=dest_pdf, filename=os.path.basename(dest_pdf),
                            summary="FEHLER: LLM-Klassifizierung nach allen Versuchen fehlgeschlagen.",
                            status="classification_failed")
+        try:
+            db.insert_trace(doc_id, "llm_classification", "failed", "LLM-Klassifizierung nach allen Versuchen fehlgeschlagen. Datei zur manuellen Erfassung verschoben.", {"file_path": dest_pdf})
+        except Exception:
+            pass
         cleanup_empty_inbox_folders(file_path)
         return
+
+    try:
+        db.insert_trace(doc_id, "llm_classification", "success", f"Erfolgreich klassifiziert: {data.get('sender')} | {data.get('document_type')} | {data.get('category')} (Vertrauen: {data.get('confidence', 'low').upper()})", {"confidence": data.get("confidence"), "confidence_reason": data.get("confidence_reason"), "metadata": data})
+    except Exception:
+        pass
 
     data = apply_sender_overrides(data)
     category = data.get("category") or "Sonstiges"
@@ -300,6 +366,10 @@ def process_pdf(file_path, doc_id=None):
         confidence = "low"
         data["confidence"] = "low"
         data["notes"] = f"Wahrscheinliches Duplikat von: {os.path.basename(fuzzy_match['file_path'])} (gleicher Absender/Datum/Typ)"
+        try:
+            db.insert_trace(doc_id, "duplicate_check", "warning", f"Fuzzy-Duplikat erkannt (gleicher Absender/Datum/Typ wie '{os.path.basename(fuzzy_match['file_path'])}'). Vertrauen auf LOW gesetzt.", {"original_id": fuzzy_match["id"]})
+        except Exception:
+            pass
     elif sim_duplicate_note:
         confidence = "low"
         data["confidence"] = "low"
@@ -323,6 +393,10 @@ def process_pdf(file_path, doc_id=None):
         if dest_pdf is None:
             log(f"WARNUNG: Quelldatei nicht mehr vorhanden (wurde während der Verarbeitung verschoben/gelöscht?): {file_path}")
             db.update_document(doc_id, status="failed", summary="FEHLER: Quelldatei verschwunden während der LLM-Verarbeitung.")
+            try:
+                db.insert_trace(doc_id, "archiving", "failed", "Quelldatei verschwunden während der LLM-Verarbeitung.")
+            except Exception:
+                pass
             return
 
         processing_log(os.path.basename(dest_pdf), log_status, data=data, features=features, user_hint=user_hint)
@@ -344,10 +418,18 @@ def process_pdf(file_path, doc_id=None):
             full_text=safe_text,
             iban=data.get("iban"),
         )
+        try:
+            db.insert_trace(doc_id, "archiving", "success", f"Dokument erfolgreich abgelegt (Status: '{final_status}'). Ziel-Pfad: {dest_pdf}", {"file_path": dest_pdf, "status": final_status})
+        except Exception:
+            pass
         log(log_msg)
         log(log_fin)
     except Exception as db_err:
         log(f"FEHLER: Dateisystem-DB Transaktionsfehler. Starte Rollback... (Fehler: {db_err})")
+        try:
+            db.insert_trace(doc_id, "archiving", "failed", f"DB-Transaktionsfehler beim Archivieren: {db_err}. Rollback gestartet...", {"error": str(db_err)})
+        except Exception:
+            pass
         if dest_pdf and os.path.exists(dest_pdf):
             try:
                 os.makedirs(FAILED_DIR, exist_ok=True)
@@ -359,6 +441,7 @@ def process_pdf(file_path, doc_id=None):
                                        filename=os.path.basename(rollback_dest),
                                        status="failed",
                                        summary=f"FEHLER: DB-Transaktionsfehler beim Archivieren ({db_err})")
+                    db.insert_trace(doc_id, "archiving", "failed", f"Rollback abgeschlossen. Datei gesichert unter failed/", {"rollback_path": rollback_dest})
                 except Exception as db_write_err:
                     log(f"WARNUNG: Rollback-Datei in failed/ verschoben, aber DB-Status-Update fehlgeschlagen (DB gesperrt/offline): {db_write_err}")
             except Exception as rollback_err:
@@ -397,8 +480,16 @@ def process_pdf(file_path, doc_id=None):
                 if contract:
                     insert_contract(doc_id, contract, extracted_at=_dt2.now().isoformat(timespec="seconds"))
                     log(f"[CONTRACTS] Vertragsdaten gespeichert: '{contract.get('partner')}'")
+                    try:
+                        db.insert_trace(doc_id, "contract_extraction", "success", f"Vertragsdaten erfolgreich extrahiert für '{contract.get('partner')}'.", {"contract": contract})
+                    except Exception:
+                        pass
         except Exception as e:
             log(f"[CONTRACTS] Fehler bei Vertrags-Extraktion (ignoriert): {e}")
+            try:
+                db.insert_trace(doc_id, "contract_extraction", "failed", f"Fehler bei Vertrags-Extraktion (ignoriert): {e}")
+            except Exception:
+                pass
 
     # Phase 8c: Auto-Link deductible landlord documents to Tax Module (Proaktive Steuer-Verknüpfung)
     if final_status == "ok" and category in ("Haus_Gemeinkosten", "OG_Miete", "DG_Miete"):
@@ -424,8 +515,16 @@ def process_pdf(file_path, doc_id=None):
                         verified=False
                     )
                     log(f"[TAX_LINKER] Beleg {doc_id} vollautomatisch mit Steuerjahr {year_num} verknüpft.")
+                    try:
+                        db.insert_trace(doc_id, "tax_linker", "success", f"Beleg automatisch mit Steuerjahr {year_num} verknüpft.")
+                    except Exception:
+                        pass
         except Exception as te:
             log(f"[TAX_LINKER] Fehler bei automatischer Steuer-Verknüpfung (ignoriert): {te}")
+            try:
+                db.insert_trace(doc_id, "tax_linker", "failed", f"Fehler bei automatischer Steuer-Verknüpfung: {te}")
+            except Exception:
+                pass
 
     # Phase 8: Extraction pipeline – routed by document_type
     doc_type = data.get("document_type")
@@ -448,6 +547,10 @@ def process_pdf(file_path, doc_id=None):
                 if items:
                     n = insert_items(doc_id, items, extracted_at=_dt.now().isoformat(timespec="seconds"))
                     log(f"[ITEMS] {n} Artikel in Inventar eingetragen.")
+                    try:
+                        db.insert_trace(doc_id, "items_extraction", "success", f"{n} Artikel extrahiert und im Inventar gespeichert.", {"items_count": n, "items": items})
+                    except Exception:
+                        pass
 
             # Route: Dienstleistungsrechnung → try Services
             if doc_type == "Dienstleistungsrechnung" and not has_services_for_document(doc_id):
@@ -458,6 +561,10 @@ def process_pdf(file_path, doc_id=None):
                 if services:
                     n = insert_services(doc_id, services, extracted_at=_dt.now().isoformat(timespec="seconds"))
                     log(f"[SERVICES] {n} Dienstleistungen in Ausgaben eingetragen.")
+                    try:
+                        db.insert_trace(doc_id, "services_extraction", "success", f"{n} Dienstleistungen extrahiert und in Ausgaben gespeichert.", {"services_count": n, "services": services})
+                    except Exception:
+                        pass
 
                     # Mathematischer Summen-Validator (Datenintegrität)
                     try:
@@ -470,10 +577,18 @@ def process_pdf(file_path, doc_id=None):
                                 warn_msg = f"Achtung: Mathematische Summen-Inkonsistenz! Die Summe der extrahierten Dienstleistungen ({total_services_sum:.2f} EUR) weicht vom erkannten Rechnungsbetrag ({invoice_total:.2f} EUR) ab."
                                 db.update_document(doc_id, notes=warn_msg)
                                 log(f"[SERVICES_VALIDATOR] {warn_msg}")
+                                try:
+                                    db.insert_trace(doc_id, "services_extraction", "warning", f"Mathematische Summen-Inkonsistenz! Summe extrahierter Leistungen ({total_services_sum:.2f} EUR) weicht von Rechnungsbetrag ({invoice_total:.2f} EUR) ab.", {"services_sum": total_services_sum, "invoice_total": invoice_total})
+                                except Exception:
+                                    pass
                     except Exception as ve:
                         log(f"[SERVICES_VALIDATOR] Mathematische Validierung fehlgeschlagen: {ve}")
         except Exception as e:
             log(f"[PIPELINE] Fehler bei Extraktion (ignoriert): {e}")
+            try:
+                db.insert_trace(doc_id, "items_extraction" if doc_type == "Warenrechnung" else "services_extraction", "failed", f"Fehler bei Extraktion (ignoriert): {e}")
+            except Exception:
+                pass
 
 
 def reindex_from_archive():
