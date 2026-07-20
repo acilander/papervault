@@ -277,7 +277,7 @@ def extract_first_date(text: str) -> str | None:
     return None
 
 
-def extract_and_match_identifiers(text: str, doc_id: int) -> dict | None:
+def extract_and_match_identifiers(text: str, doc_id: int, document_type: str | None = None) -> dict | None:
     """
     1. Checks if raw text matches any verified identifier in sender_identifiers.
        If yes, returns pre-filled classification data (bypassing the LLM).
@@ -286,10 +286,9 @@ def extract_and_match_identifiers(text: str, doc_id: int) -> dict | None:
     """
     import re
     from db.identifiers_repo import match_existing_identifiers, save_unassigned_identifier
-    from config_manager import get_settings
 
     # Phase 1: Match existing verified identifier
-    matched_sender, item = match_existing_identifiers(text)
+    matched_sender, item = match_existing_identifiers(text, excluded_types={"IBAN"})
     if matched_sender:
         detected_date = extract_first_date(text)
         log(f"[IDENTIFIER] Deterministischen Absender '{matched_sender}' über ID '{item['identifier_value']}' erkannt.")
@@ -308,29 +307,6 @@ def extract_and_match_identifiers(text: str, doc_id: int) -> dict | None:
         }
 
     # Phase 2: Scan and record new novel unassigned identifiers
-    settings = get_settings()
-    own_ibans = [iban.replace(" ", "").upper() for iban in settings.get("own_ibans", [])]
-
-    # Convert text to uppercase and strip whitespace for precise IBAN detection
-    text_upper = text.upper().replace(" ", "").replace("\n", "").replace("\r", "")
-
-    # 2a. IBAN scanning
-    ibans = re.findall(r'DE\d{20}', text_upper)
-    for iban in ibans:
-        if iban in own_ibans:
-            continue
-
-        # Extract context around the IBAN from the original spaced text
-        raw_text_clean = text.replace(" ", "")
-        pos = raw_text_clean.find(iban)
-        context = ""
-        if pos != -1:
-            start = max(0, pos - 40)
-            end = min(len(raw_text_clean), pos + len(iban) + 40)
-            context = raw_text_clean[start:end]
-
-        save_unassigned_identifier(doc_id, "IBAN", iban, context_text=f"...{context}...")
-
     # 2b. Meter IDs scanning (Zählernummern)
     meter_matches = re.finditer(r'(?:zähler-?nr|meter-?no|zählerstand)[^\d]{0,10}(\d{5,12})', text, re.IGNORECASE)
     for match in meter_matches:

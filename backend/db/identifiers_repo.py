@@ -25,6 +25,16 @@ def add_identifier(sender_name: str, identifier_type: str, identifier_value: str
         """, (sender_name, identifier_type, identifier_value, label, target_category, target_unit, datetime.now().isoformat(timespec="seconds")))
         return cursor.lastrowid
 
+def update_identifier(identifier_id: int, sender_name: str, identifier_type: str, identifier_value: str, label: str = None, target_category: str = None, target_unit: str = None) -> bool:
+    with get_conn() as conn:
+        cursor = conn.execute("""
+            UPDATE sender_identifiers
+            SET sender_name = ?, identifier_type = ?, identifier_value = ?, label = ?, target_category = ?, target_unit = ?
+            WHERE id = ?
+        """, (sender_name, identifier_type, identifier_value, label, target_category, target_unit, identifier_id))
+        return cursor.rowcount > 0
+
+
 def delete_identifier(identifier_id: int) -> bool:
     """Deletes a confirmed identifier by ID."""
     with get_conn() as conn:
@@ -79,7 +89,7 @@ def assign_unassigned_identifier(unassigned_id: int, sender_name: str, label: st
         conn.execute("DELETE FROM unassigned_identifiers WHERE id = ?", (unassigned_id,))
         return cursor.lastrowid
 
-def match_existing_identifiers(text: str) -> tuple[str, dict] | tuple[None, None]:
+def match_existing_identifiers(text: str, allowed_types: set[str] | None = None, excluded_types: set[str] | None = None) -> tuple[str, dict] | tuple[None, None]:
     """
     Scans the given raw text to see if any verified identifier_value exists.
     Matching is case-insensitive and uses strict alphanumeric boundary checks
@@ -94,6 +104,10 @@ def match_existing_identifiers(text: str) -> tuple[str, dict] | tuple[None, None
     # Fetch all registered identifiers
     identifiers = get_all_identifiers()
     for item in identifiers:
+        if allowed_types is not None and item["identifier_type"] not in allowed_types:
+            continue
+        if excluded_types is not None and item["identifier_type"] in excluded_types:
+            continue
         val = str(item["identifier_value"]).lower().strip()
         if val:
             # Bound the value so it cannot be adjacent to any alphanumeric character

@@ -29,6 +29,7 @@ export default defineConfig({
       '/feedback': 'http://localhost:8000',
       '/low-value-rules': 'http://localhost:8000',
       '/tax': 'http://localhost:8000',
+      '/identifiers': 'http://localhost:8000',
     },
   },
 })

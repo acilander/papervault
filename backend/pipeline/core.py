@@ -297,7 +297,7 @@ def process_pdf(file_path, doc_id=None):
 
     # Phase 4b: Deterministic Identifier check (Stufe 0 Input & Override)
     from db.identifiers_repo import match_existing_identifiers
-    matched_sender, matched_item = match_existing_identifiers(text)
+    matched_sender, matched_item = match_existing_identifiers(text, excluded_types={"IBAN"})
 
     if matched_sender:
         log(f"[IDENTIFIER] Deterministischer Absender-Treffer für '{matched_sender}' über ID '{matched_item['identifier_value']}'.")
@@ -321,6 +321,9 @@ def process_pdf(file_path, doc_id=None):
     )
 
     if data:
+        if data.get("document_type") == "Kontoauszug" and not matched_sender:
+            matched_sender, matched_item = match_existing_identifiers(text, allowed_types={"IBAN"})
+
         # Overwrite with deterministic match to guarantee 100% correctness and avoid AI-drift
         if matched_sender:
             data["sender"] = matched_sender
@@ -336,7 +339,7 @@ def process_pdf(file_path, doc_id=None):
             from pipeline.steps import extract_and_match_identifiers
             # Call extract_and_match_identifiers only to scan and record novel unassigned IDs
             # (it won't return anything since we already checked matching above)
-            extract_and_match_identifiers(text, doc_id)
+            extract_and_match_identifiers(text, doc_id, data.get("document_type"))
 
     if data is None:
         os.makedirs(REVIEW_DIR, exist_ok=True)
@@ -422,6 +425,7 @@ def process_pdf(file_path, doc_id=None):
             content_hash=doc_content_hash,
             status=final_status,
             low_value=data.get("low_value", 0),
+            confidence=confidence,
             full_text=safe_text,
             iban=data.get("iban"),
         )

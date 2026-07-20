@@ -1,16 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Trash2, Plus, Check, X, ShieldAlert, CreditCard, Hash, User, Tag, RefreshCw } from 'lucide-react'
+import { Trash2, Plus, Check, X, ShieldAlert, CreditCard, Hash, User, Tag, RefreshCw, Pencil } from 'lucide-react'
 import {
   getIdentifiers,
   createIdentifier,
   deleteIdentifier,
+  updateIdentifier,
   getUnassignedIdentifiers,
   assignUnassignedIdentifier,
   deleteUnassignedIdentifier,
+  getSenders,
   type Identifier,
   type UnassignedIdentifier
 } from '../api'
 import { useConfig } from '../ConfigContext'
+import SenderDatalist from '../components/SenderDatalist'
+
+const IDENTIFIER_TYPE_LABELS: Record<string, string> = {
+  IBAN: 'IBAN (eigenes Konto)',
+  METER_ID: 'Zählernummer',
+  CUSTOMER_NO: 'Kundennummer',
+  PERSONAL_NO: 'Personalnummer',
+  POLICY_NO: 'Versicherungsnummer',
+}
 
 export default function Identifiers() {
   const { categories: CATEGORIES, config } = useConfig()
@@ -19,6 +30,7 @@ export default function Identifiers() {
   const [unassigned, setUnassigned] = useState<UnassignedIdentifier[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [senderOptions, setSenderOptions] = useState<string[]>([])
   
   // Create state
   const [showAddForm, setShowAddForm] = useState(false)
@@ -33,6 +45,15 @@ export default function Identifiers() {
 
   // Assign state (from Proposals)
   const [assigningId, setAssigningId] = useState<number | null>(null)
+  const [editingIdentifier, setEditingIdentifier] = useState<Identifier | null>(null)
+  const [editForm, setEditForm] = useState({
+    sender_name: '',
+    identifier_type: 'IBAN',
+    identifier_value: '',
+    label: '',
+    target_category: '',
+    target_unit: '',
+  })
   const [assignForm, setAssignForm] = useState({
     sender_name: '',
     label: '',
@@ -59,6 +80,7 @@ export default function Identifiers() {
 
   useEffect(() => {
     loadData()
+    getSenders().then(senders => setSenderOptions(Object.keys(senders).sort())).catch(() => {})
   }, [])
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -88,6 +110,40 @@ export default function Identifiers() {
       loadData()
     } catch (err: any) {
       alert(err?.response?.data?.detail || 'Fehler beim Erstellen.')
+    }
+  }
+
+  const openEditDialog = (item: Identifier) => {
+    setEditingIdentifier(item)
+    setEditForm({
+      sender_name: item.sender_name,
+      identifier_type: item.identifier_type,
+      identifier_value: item.identifier_value,
+      label: item.label || '',
+      target_category: item.target_category || '',
+      target_unit: item.target_unit || '',
+    })
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingIdentifier || !editForm.sender_name || !editForm.identifier_value) {
+      alert('Absendername und Wert sind erforderlich.')
+      return
+    }
+    try {
+      await updateIdentifier(editingIdentifier.id, {
+        sender_name: editForm.sender_name,
+        identifier_type: editForm.identifier_type as Identifier['identifier_type'],
+        identifier_value: editForm.identifier_value,
+        label: editForm.label || null,
+        target_category: editForm.target_category || null,
+        target_unit: config?.categories_config?.[editForm.target_category]?.property_unit ? editForm.target_unit || null : null,
+      })
+      setEditingIdentifier(null)
+      loadData()
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || 'Fehler beim Aktualisieren.')
     }
   }
 
@@ -160,18 +216,18 @@ export default function Identifiers() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Identifikatoren &amp; Erkennung</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Verwalte deterministische Erkennungsmerkmale (IBANs, Zählernummern, Kundennummern) zur 100% fehlerfreien Pipeline-Vorfilterung (Stufe-0-Bypass).
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Zuordnungsregeln</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+            Lege Erkennungsmerkmale wie IBANs, Zähler- und Kundennummern fest, um Dokumente automatisch Absendern, Kategorien oder Wohnungen zuzuordnen.
           </p>
         </div>
         <div className="flex space-x-2">
           <button
             onClick={loadData}
-            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+            className="p-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition"
             title="Aktualisieren"
           >
-            <RefreshCw className="w-5 h-5 text-gray-600" />
+            <RefreshCw className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
           <button
             onClick={() => setShowAddForm(!showAddForm)}
@@ -205,9 +261,9 @@ export default function Identifiers() {
               <select
                 value={form.identifier_type}
                 onChange={e => setForm({ ...form, identifier_type: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
+                className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
               >
-                <option value="IBAN">IBAN (Empfänger)</option>
+                <option value="IBAN">IBAN (eigenes Konto)</option>
                 <option value="METER_ID">Zählernummer (Strom, Gas, Wasser)</option>
                 <option value="CUSTOMER_NO">Kundennummer</option>
                 <option value="PERSONAL_NO">Personalnummer (Zeitnachweise)</option>
@@ -221,7 +277,7 @@ export default function Identifiers() {
                 value={form.identifier_value}
                 onChange={e => setForm({ ...form, identifier_value: e.target.value })}
                 placeholder="z.B. DE89500..."
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500 font-mono"
+                className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500 font-mono"
                 required
               />
             </div>
@@ -232,7 +288,7 @@ export default function Identifiers() {
                 value={form.sender_name}
                 onChange={e => setForm({ ...form, sender_name: e.target.value })}
                 placeholder="z.B. Vattenfall"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
+                className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
                 required
               />
             </div>
@@ -243,7 +299,7 @@ export default function Identifiers() {
                 value={form.label}
                 onChange={e => setForm({ ...form, label: e.target.value })}
                 placeholder="z.B. Stromzähler Hauptgebäude"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
+                className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
               />
             </div>
             <div>
@@ -251,7 +307,7 @@ export default function Identifiers() {
               <select
                 value={form.target_category}
                 onChange={e => setForm({ ...form, target_category: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
+                className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
               >
                 <option value="">-- Keine feste Kategorie --</option>
                 {CATEGORIES.map(c => (
@@ -265,7 +321,7 @@ export default function Identifiers() {
                 <select
                   value={form.target_unit}
                   onChange={e => setForm({ ...form, target_unit: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
+                  className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
                 >
                   <option value="">-- Keine feste Wohnung --</option>
                   {landlord.property_units.map(unit => (
@@ -297,8 +353,8 @@ export default function Identifiers() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         
         {/* Left Columns (2/3 width) - Confirmed Identifiers */}
-        <div className="xl:col-span-2 bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4">
-          <h2 className="text-lg font-bold text-gray-800">Verifizierte Identifikatoren ({identifiers.length})</h2>
+        <div className="xl:col-span-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm p-6 space-y-4">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Verifizierte Identifikatoren ({identifiers.length})</h2>
           
           {loading && identifiers.length === 0 ? (
             <div className="py-12 text-center text-gray-400">Lade Daten...</div>
@@ -319,34 +375,41 @@ export default function Identifiers() {
                     <th className="py-3 px-2 text-right">Aktion</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y text-gray-700">
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-gray-700 dark:text-gray-300">
                   {identifiers.map(item => (
-                    <tr key={item.id} className="hover:bg-gray-50 transition">
-                      <td className="py-3 px-2 font-mono text-xs font-semibold break-all max-w-[200px] text-gray-900">
+                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/70 transition">
+                      <td className="py-3 px-2 font-mono text-xs font-semibold break-all max-w-[200px] text-gray-900 dark:text-gray-100">
                         {item.identifier_value}
                       </td>
                       <td className="py-3 px-2">
-                        <span className="inline-flex items-center space-x-1 bg-gray-100 px-2 py-0.5 rounded-full text-xs font-medium">
+                        <span className="inline-flex items-center space-x-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-2 py-0.5 rounded-full text-xs font-medium">
                           {getIconForType(item.identifier_type)}
-                          <span>{item.identifier_type}</span>
+                          <span>{IDENTIFIER_TYPE_LABELS[item.identifier_type] || item.identifier_type}</span>
                         </span>
                       </td>
-                      <td className="py-3 px-2 font-medium text-gray-800">{item.sender_name}</td>
-                      <td className="py-3 px-2 text-gray-500 text-xs">{item.label || '–'}</td>
+                      <td className="py-3 px-2 font-medium text-gray-800 dark:text-gray-100">{item.sender_name}</td>
+                      <td className="py-3 px-2 text-gray-500 dark:text-gray-400 text-xs">{item.label || '–'}</td>
                       <td className="py-3 px-2 space-y-1">
                         {item.target_category && (
-                          <span className="block text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md w-fit">
+                          <span className="block text-xs bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-md w-fit">
                             📂 {item.target_category}
                           </span>
                         )}
                         {item.target_unit && (
-                          <span className="block text-xs bg-orange-50 border border-orange-100 text-orange-700 px-2 py-0.5 rounded-md w-fit">
+                          <span className="block text-xs bg-orange-50 dark:bg-orange-900/30 border border-orange-100 dark:border-orange-800 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-md w-fit">
                             🏠 Wohnung: {item.target_unit}
                           </span>
                         )}
                         {!item.target_category && !item.target_unit && <span className="text-gray-400 text-xs">–</span>}
                       </td>
                       <td className="py-3 px-2 text-right">
+                        <button
+                          onClick={() => openEditDialog(item)}
+                          className="p-1 hover:text-indigo-600 rounded transition text-gray-400 mr-1"
+                          title="Bearbeiten"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleDelete(item.id)}
                           className="p-1 hover:text-red-600 rounded transition text-gray-400"
@@ -364,15 +427,15 @@ export default function Identifiers() {
         </div>
 
         {/* Right Column (1/3 width) - Unassigned Proposals Inbox */}
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4">
-          <div className="flex justify-between items-center border-b pb-2">
-            <h2 className="text-lg font-bold text-gray-800">Vorschlags-Inbox</h2>
-            <span className="bg-orange-100 text-orange-800 text-xs font-bold px-2.5 py-0.5 rounded-full">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm p-6 space-y-4">
+          <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-2">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Vorschlags-Inbox</h2>
+            <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 text-xs font-bold px-2.5 py-0.5 rounded-full">
               {unassigned.length} Neu
             </span>
           </div>
 
-          <p className="text-gray-400 text-xs">
+          <p className="text-gray-400 dark:text-gray-500 text-xs">
             Diese Nummern wurden neu in Belegen gefunden. Weise sie einem Absender zu, um den Auto-Bypass für Folgemonate zu aktivieren.
           </p>
 
@@ -385,21 +448,21 @@ export default function Identifiers() {
           ) : (
             <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
               {unassigned.map(item => (
-                <div key={item.id} className="p-4 border border-gray-150 rounded-xl hover:border-gray-300 transition space-y-3 bg-gray-50/50">
+                <div key={item.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-gray-300 dark:hover:border-gray-600 transition space-y-3 bg-gray-50/50 dark:bg-gray-800/50">
                   <div className="flex justify-between items-start">
-                    <span className="inline-flex items-center space-x-1 bg-white border px-2 py-0.5 rounded-full text-xs font-bold">
+                    <span className="inline-flex items-center space-x-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 py-0.5 rounded-full text-xs font-bold">
                       {getIconForType(item.identifier_type)}
                       <span>{item.identifier_type}</span>
                     </span>
                     <span className="text-[10px] text-gray-400">{(item.detected_at || '').split('T')[0]}</span>
                   </div>
 
-                  <div className="font-mono text-xs font-bold text-gray-800 break-all bg-white border px-2 py-1.5 rounded-lg select-all">
+                  <div className="font-mono text-xs font-bold text-gray-800 dark:text-gray-100 break-all bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 py-1.5 rounded-lg select-all">
                     {item.identifier_value}
                   </div>
 
                   {item.context_text && (
-                    <div className="text-[11px] text-gray-500 italic bg-gray-100/50 p-2 rounded-lg font-serif">
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400 italic bg-gray-100/50 dark:bg-gray-800 p-2 rounded-lg font-serif">
                       {item.context_text}
                     </div>
                   )}
@@ -435,20 +498,80 @@ export default function Identifiers() {
         </div>
       </div>
 
+      {editingIdentifier !== null && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl p-6 max-w-2xl w-full space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-3">
+              <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg">Zuordnungsregel bearbeiten</h3>
+              <button onClick={() => setEditingIdentifier(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Typ</label>
+                <select value={editForm.identifier_type} onChange={e => setEditForm({ ...editForm, identifier_type: e.target.value })} className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500">
+                  <option value="IBAN">IBAN</option>
+                  <option value="METER_ID">Zählernummer</option>
+                  <option value="CUSTOMER_NO">Kundennummer</option>
+                  <option value="PERSONAL_NO">Personalnummer</option>
+                  <option value="POLICY_NO">Versicherungsnummer</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Wert</label>
+                <input type="text" value={editForm.identifier_value} onChange={e => setEditForm({ ...editForm, identifier_value: e.target.value })} className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500 font-mono" required />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Absendername</label>
+                <select value={editForm.sender_name} onChange={e => setEditForm({ ...editForm, sender_name: e.target.value })} className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500" required>
+                  <option value="">-- Absender auswählen --</option>
+                  {senderOptions.map(sender => <option key={sender} value={sender}>{sender}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Beschreibung / Label</label>
+                <input type="text" value={editForm.label} onChange={e => setEditForm({ ...editForm, label: e.target.value })} className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Ziel-Kategorie</label>
+                <select value={editForm.target_category} onChange={e => setEditForm({ ...editForm, target_category: e.target.value, target_unit: config?.categories_config?.[e.target.value]?.property_unit ? editForm.target_unit : '' })} className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500">
+                  <option value="">-- Keine feste Kategorie --</option>
+                  {CATEGORIES.map(category => <option key={category} value={category}>{category}</option>)}
+                </select>
+              </div>
+              {landlord?.enabled && editForm.target_category && config?.categories_config?.[editForm.target_category]?.property_unit && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Ziel-Wohnung</label>
+                  <select value={editForm.target_unit} onChange={e => setEditForm({ ...editForm, target_unit: e.target.value })} className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500">
+                    <option value="">-- Keine feste Wohnung --</option>
+                    {landlord.property_units.map(unit => <option key={unit} value={unit}>{unit}</option>)}
+                  </select>
+                </div>
+              )}
+              <div className="sm:col-span-2 flex justify-end space-x-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onClick={() => setEditingIdentifier(null)} className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">Abbrechen</button>
+                <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition">Änderungen speichern</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Promoted / Assignment Modal dialog */}
       {assigningId !== null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white border rounded-2xl shadow-xl p-6 max-w-md w-full space-y-4">
-            <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="font-bold text-gray-900 text-lg">Vorschlag zuweisen &amp; aktivieren</h3>
-              <button onClick={() => setAssigningId(null)} className="text-gray-400 hover:text-gray-600">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl p-6 max-w-md w-full space-y-4">
+            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-3">
+              <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg">Vorschlag zuweisen &amp; aktivieren</h3>
+              <button onClick={() => setAssigningId(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 text-xs text-orange-800">
+            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 rounded-xl p-3 text-xs text-orange-800 dark:text-orange-300">
               <span className="font-bold">Ausgewählter Identifier:</span>
-              <div className="font-mono mt-1 break-all bg-white p-2 rounded border font-bold text-gray-900">
+              <div className="font-mono mt-1 break-all bg-white dark:bg-gray-900 p-2 rounded border border-orange-100 dark:border-orange-800 font-bold text-gray-900 dark:text-gray-100">
                 {unassigned.find(u => u.id === assigningId)?.identifier_value}
               </div>
             </div>
@@ -462,13 +585,15 @@ export default function Identifiers() {
                   type="text"
                   value={assignForm.sender_name}
                   onChange={e => setAssignForm({ ...assignForm, sender_name: e.target.value })}
-                  placeholder="z.B. Stadtwerke Karlsruhe"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
+                  list="identifier-sender-list"
+                  placeholder="Bestehenden Absender wählen oder neuen eingeben"
+                  className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
                   required
                   autoFocus
                 />
+                <SenderDatalist id="identifier-sender-list" />
                 <p className="text-[10px] text-gray-400 mt-1">
-                  Falls der Absender bereits im Register existiert, wird die ID dort einsortiert. Ansonsten wird ein neuer Absender angelegt.
+                  Wähle einen bestehenden Absender oder gib einen neuen Namen ein.
                 </p>
               </div>
 
@@ -481,7 +606,7 @@ export default function Identifiers() {
                   value={assignForm.label}
                   onChange={e => setAssignForm({ ...assignForm, label: e.target.value })}
                   placeholder="z.B. Hauptstromzähler"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
+                  className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
                 />
               </div>
 
@@ -492,7 +617,7 @@ export default function Identifiers() {
                 <select
                   value={assignForm.target_category}
                   onChange={e => setAssignForm({ ...assignForm, target_category: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
+                  className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
                 >
                   <option value="">-- Keine feste Kategorie --</option>
                   {CATEGORIES.map(c => (
@@ -509,7 +634,7 @@ export default function Identifiers() {
                   <select
                     value={assignForm.target_unit}
                     onChange={e => setAssignForm({ ...assignForm, target_unit: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
+                    className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500"
                   >
                     <option value="">-- Keine feste Wohnung --</option>
                     {landlord.property_units.map(unit => (

@@ -53,6 +53,31 @@ def create_identifier(body: IdentifierCreate):
         raise HTTPException(status_code=400, detail=f"Fehler beim Erstellen des Identifikators: {e}")
 
 
+@router.put("/{id}")
+def update_identifier(id: int, body: IdentifierCreate):
+    try:
+        import db.sender_repo as sender_repo
+        sender_name = body.sender_name.strip()
+        if not sender_repo.exists(sender_name):
+            sender_repo.upsert(sender_name, {})
+        success = repo.update_identifier(
+            identifier_id=id,
+            sender_name=sender_name,
+            identifier_type=body.identifier_type,
+            identifier_value=body.identifier_value.strip(),
+            label=body.label,
+            target_category=body.target_category,
+            target_unit=body.target_unit
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="Identifikator nicht gefunden.")
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Fehler beim Aktualisieren des Identifikators: {e}")
+
+
 @router.delete("/{id}")
 def delete_identifier(id: int):
     """Deletes/removes a confirmed identifier."""
