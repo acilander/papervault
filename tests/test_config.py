@@ -27,3 +27,39 @@ def test_type_category_map_values_are_valid_categories():
 
 def test_no_rechnung_in_categories():
     assert "Rechnung" not in CATEGORIES, "Kategorie 'Rechnung' sollte 'Einkauf & Bestellungen' heißen"
+
+
+def test_save_settings_syncs_config_in_place():
+    import config
+    from config_manager import save_settings
+    
+    # Save original values
+    orig_cats = list(config.CATEGORIES)
+    orig_types = list(config.DOCUMENT_TYPES)
+    
+    try:
+        # Save new settings
+        new_settings = {
+            "personal": {"children": [], "vehicles": {}, "owners": []},
+            "landlord": {"enabled": True},
+            "categories": ["NeuCat1", "NeuCat2"],
+            "document_types": ["NeuType1", "NeuType2"],
+            "category_folder_map": {},
+            "categories_config": {}
+        }
+        
+        # Test in-place update
+        success = save_settings(new_settings)
+        assert success
+        
+        # Verify in-memory lists of config.py are updated in-place (reference-sharing)
+        assert "NeuCat1" in config.CATEGORIES
+        assert "NeuType1" in config.DOCUMENT_TYPES
+        assert len(config.CATEGORIES) == 2
+        assert len(config.DOCUMENT_TYPES) == 2
+    finally:
+        # Restore original lists
+        config.CATEGORIES.clear()
+        config.CATEGORIES.extend(orig_cats)
+        config.DOCUMENT_TYPES.clear()
+        config.DOCUMENT_TYPES.extend(orig_types)

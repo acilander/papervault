@@ -108,6 +108,25 @@ def save_settings(new_settings: dict) -> bool:
         with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
             json.dump(new_settings, f, indent=2, ensure_ascii=False)
         _cached_settings = new_settings
+
+        # Sync the in-memory config list objects to avoid caching bugs across modules
+        try:
+            import config
+            landlord_enabled = new_settings.get("landlord", {}).get("enabled", True)
+            
+            # Update config.CATEGORIES in-place so all modules share the updated list
+            config.CATEGORIES.clear()
+            for cat in new_settings.get("categories", []):
+                if not landlord_enabled and cat in ("Haus_Gemeinkosten", "OG_Miete", "DG_Miete"):
+                    continue
+                config.CATEGORIES.append(cat)
+                
+            # Update config.DOCUMENT_TYPES in-place so all modules share the updated list
+            config.DOCUMENT_TYPES.clear()
+            config.DOCUMENT_TYPES.extend(new_settings.get("document_types", []))
+        except Exception:
+            pass
+
         return True
     except Exception:
         return False
