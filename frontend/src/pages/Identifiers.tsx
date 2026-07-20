@@ -391,7 +391,7 @@ export default function Identifiers() {
                       {getIconForType(item.identifier_type)}
                       <span>{item.identifier_type}</span>
                     </span>
-                    <span className="text-[10px] text-gray-400">{item.detected_at.split('T')[0]}</span>
+                    <span className="text-[10px] text-gray-400">{(item.detected_at || '').split('T')[0]}</span>
                   </div>
 
                   <div className="font-mono text-xs font-bold text-gray-800 break-all bg-white border px-2 py-1.5 rounded-lg select-all">
