@@ -3,17 +3,17 @@ from db.connection import get_conn
 def get_stats():
     """Returns counts per category, per year, total, recent, and new dashboard metrics."""
     with get_conn() as conn:
-        total = conn.execute("SELECT COUNT(*) FROM documents WHERE status = 'ok'").fetchone()[0]
+        total = conn.execute("SELECT COUNT(*) FROM documents WHERE status IN ('ok', 'locked')").fetchone()[0]
 
         by_category = conn.execute("""
             SELECT category, COUNT(*) as count
-            FROM documents WHERE status = 'ok'
+            FROM documents WHERE status IN ('ok', 'locked')
             GROUP BY category ORDER BY count DESC
         """).fetchall()
 
         by_year = conn.execute("""
             SELECT SUBSTR(date, 1, 4) as year, COUNT(*) as count
-            FROM documents WHERE status = 'ok' AND date IS NOT NULL
+            FROM documents WHERE status IN ('ok', 'locked') AND date IS NOT NULL
             GROUP BY year ORDER BY year DESC
         """).fetchall()
 
@@ -23,39 +23,42 @@ def get_stats():
         """).fetchall()
 
         recent = conn.execute("""
-            SELECT * FROM documents WHERE status = 'ok'
+            SELECT * FROM documents WHERE status IN ('ok', 'locked')
             ORDER BY archived_at DESC LIMIT 10
         """).fetchall()
 
         no_sender = conn.execute("""
             SELECT COUNT(*) FROM documents
-            WHERE status = 'ok' AND (sender IS NULL OR sender = '')
+            WHERE status IN ('ok', 'locked') AND (sender IS NULL OR sender = '')
         """).fetchone()[0]
 
         low_value = conn.execute("""
             SELECT COUNT(*) FROM documents
-            WHERE status = 'ok' AND low_value = 1
+            WHERE status IN ('ok', 'locked') AND low_value = 1
         """).fetchone()[0]
 
         # Inferenz-Ampel & Audit metrics
         verified_count = conn.execute("""
             SELECT COUNT(*) FROM documents
-            WHERE status = 'ok' AND verified = 1
+            WHERE status IN ('ok', 'locked') AND verified = 1
+        """).fetchone()[0]
+        locked_count = conn.execute("""
+            SELECT COUNT(*) FROM documents WHERE status = 'locked'
         """).fetchone()[0]
 
         confidence_high = conn.execute("""
             SELECT COUNT(*) FROM documents
-            WHERE status = 'ok' AND confidence = 'high'
+            WHERE status IN ('ok', 'locked') AND confidence = 'high'
         """).fetchone()[0]
 
         confidence_medium = conn.execute("""
             SELECT COUNT(*) FROM documents
-            WHERE status = 'ok' AND confidence = 'medium'
+            WHERE status IN ('ok', 'locked') AND confidence = 'medium'
         """).fetchone()[0]
 
         confidence_low = conn.execute("""
             SELECT COUNT(*) FROM documents
-            WHERE status = 'ok' AND confidence = 'low'
+            WHERE status IN ('ok', 'locked') AND confidence = 'low'
         """).fetchone()[0]
 
         # Financial active contracts fix costs (normalized to monthly)
@@ -77,6 +80,7 @@ def get_stats():
             "no_sender": no_sender,
             "low_value": low_value,
             "verified_count": verified_count,
+            "locked_count": locked_count,
             "confidence_high": confidence_high,
             "confidence_medium": confidence_medium,
             "confidence_low": confidence_low,

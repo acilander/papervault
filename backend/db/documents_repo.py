@@ -120,7 +120,7 @@ _VALID_SORT_COLS = {"filename", "sender", "category", "document_type", "date", "
 
 
 def search_documents(query=None, category=None, year=None, sender=None,
-                     status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None, confidence=None,
+                     status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None, confidence=None, verified=None,
                      sort_by=None, sort_dir=None, limit=100, offset=0):
     """Full-text search + optional filters. Returns list of dicts (no full_text/sim_hash/keywords)."""
     with get_conn() as conn:
@@ -166,6 +166,9 @@ def search_documents(query=None, category=None, year=None, sender=None,
         if confidence:
             sql += " AND d.confidence = ?"
             params.append(confidence)
+        if verified is not None:
+            sql += " AND d.verified = ?"
+            params.append(int(verified))
 
         order_col = sort_by if sort_by in _VALID_SORT_COLS else "archived_at"
         direction = "ASC" if str(sort_dir).upper() == "ASC" else "DESC"
@@ -194,7 +197,7 @@ def bulk_update_documents(ids: list, fields: dict) -> int:
 
 
 def count_documents(query=None, category=None, year=None, sender=None,
-                    status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None, confidence=None):
+                    status=None, tax_relevant=None, tag=None, no_sender=False, low_value=None, confidence=None, verified=None):
     """Count matching documents (same filters as search_documents, no limit/offset)."""
     with get_conn() as conn:
         if query:
@@ -238,6 +241,9 @@ def count_documents(query=None, category=None, year=None, sender=None,
         if confidence:
             sql += " AND d.confidence = ?"
             params.append(confidence)
+        if verified is not None:
+            sql += " AND d.verified = ?"
+            params.append(int(verified))
 
         return conn.execute(sql, params).fetchone()[0]
 

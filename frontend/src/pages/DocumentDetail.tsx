@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
-import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight, EyeOff, Eye, Unlock, Copy, MoreHorizontal } from 'lucide-react'
-import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, ignoreDocument, unignoreDocument, verifyDocument, unverifyDocument, type Document, type DocumentUpdate } from '../api'
+import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight, EyeOff, Eye, Unlock, Lock, Copy, MoreHorizontal } from 'lucide-react'
+import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, ignoreDocument, unignoreDocument, verifyDocument, unverifyDocument, lockDocument, unlockDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
+import { useConfirm, useToast } from '../components/ui'
 
 const STEP_LABELS: Record<string, string> = {
   ingest: 'Datei-Import (Ingest)',
@@ -21,6 +22,8 @@ const STEP_LABELS: Record<string, string> = {
 
 export default function DocumentDetail() {
   const { categories: CATEGORIES, config } = useConfig()
+  const { confirm: confirmAction } = useConfirm()
+  const { toast } = useToast()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
@@ -89,10 +92,10 @@ export default function DocumentDetail() {
 
   if (!doc) return <div className="p-8 text-gray-500">Lade…</div>
 
-  const isLocked = doc.status === 'locked' || doc.verified === 1
+  const isFinalLocked = doc.status === 'locked'
   const isVerified = doc.verified === 1
   const isIgnored = doc.status === 'ignored'
-  const isReadOnly = isLocked || isIgnored
+  const isReadOnly = isFinalLocked || isIgnored
 
   const field = (label: string, key: keyof DocumentUpdate, type: 'text' | 'select' | 'textarea' = 'text', disabled = false) => (
     <div>
@@ -232,6 +235,38 @@ export default function DocumentDetail() {
               <Save size={14} />
               {saved ? 'Gespeichert ✓' : saving ? 'Speichert…' : 'Speichern'}
             </button>
+            {doc.status === 'ok' && !isVerified && (
+              <button
+                onClick={async () => {
+                  if (!await confirmAction({ title: 'Dokument freigeben?', description: 'Du kannst es weiterhin bearbeiten. Änderungen heben die Freigabe automatisch auf.', confirmLabel: 'Freigeben' })) return
+                  try {
+                    setDoc(await verifyDocument(doc.id))
+                    toast('Dokument freigegeben.', 'success')
+                  } catch (e: any) {
+                    toast('Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error')
+                  }
+                }}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 border border-green-300 dark:border-green-800 text-green-700 dark:text-green-400 text-sm rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+              >
+                <CheckCircle size={14} /> Freigeben
+              </button>
+            )}
+            {doc.status === 'ok' && isVerified && (
+              <button
+                onClick={async () => {
+                  if (!await confirmAction({ title: 'Dokument final sperren?', description: 'Nur ein freigegebenes Dokument kann final gesperrt werden. Metadaten und Klassifizierung können danach erst nach einem bewussten Entsperren geändert werden.', confirmLabel: 'Endgültig sperren', variant: 'danger' })) return
+                  try {
+                    setDoc(await lockDocument(doc.id))
+                    toast('Dokument ist final gesperrt.', 'success')
+                  } catch (e: any) {
+                    toast('Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error')
+                  }
+                }}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 transition-colors"
+              >
+                <Lock size={14} /> Final sperren
+              </button>
+            )}
             {doc.status === 'review' && (
               <button
                 onClick={async () => {
@@ -420,15 +455,15 @@ export default function DocumentDetail() {
 
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
           {/* Status badge */}
-          {(isLocked || isIgnored) && (
+          {(isFinalLocked || isVerified || isIgnored) && (
             <div className={`px-3 py-2 rounded-lg text-xs font-medium text-center ${
-              isVerified
-                ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
-                : isLocked
+              isFinalLocked
                 ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                : isVerified
+                ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
                 : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
             }`}>
-              {isVerified ? '✅ Verifiziert – nicht editierbar' : isLocked ? '🔒 Gesperrt – nicht editierbar' : '🚫 Irrelevant – ausgeblendet'}
+              {isFinalLocked ? '🔒 Final gesperrt – nicht editierbar' : isVerified ? '✅ Freigegeben – Änderungen heben die Freigabe auf' : '🚫 Irrelevant – ausgeblendet'}
             </div>
           )}
           {docCollections.length > 0 && (
@@ -444,11 +479,11 @@ export default function DocumentDetail() {
               ) : (
                 <button onClick={async () => { if (!confirm(`„${doc.filename}" als irrelevant markieren? Es wird aus der Liste ausgeblendet und nicht erneut importiert.`)) return; try { setDoc(await ignoreDocument(doc.id)) } catch (e: any) { alert('Fehler: ' + (e?.response?.data?.detail ?? e.message)) } }} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-700 dark:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-800"><EyeOff size={14} />Als irrelevant markieren</button>
               )}
-              {isVerified ? (
-                <button onClick={async () => { try { setDoc(await unverifyDocument(doc.id)) } catch (e: any) { alert('Fehler: ' + (e?.response?.data?.detail ?? e.message)) } }} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-amber-700 dark:text-amber-400 rounded hover:bg-amber-50 dark:hover:bg-amber-900/20"><Unlock size={14} />Bestätigung aufheben</button>
-              ) : (
-                <button disabled={isIgnored} onClick={async () => { if (!confirm(`„${doc.filename}" verifizieren? Es kann dann nicht mehr bearbeitet oder neu klassifiziert werden.`)) return; try { setDoc(await verifyDocument(doc.id)) } catch (e: any) { alert('Fehler: ' + (e?.response?.data?.detail ?? e.message)) } }} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-green-700 dark:text-green-400 rounded hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50"><CheckCircle size={14} />Verifizieren</button>
-              )}
+              {isFinalLocked ? (
+                <button onClick={async () => { if (!await confirmAction({ title: 'Finale Sperre aufheben?', description: 'Das Dokument bleibt geprüft und kann danach wieder bearbeitet werden.', confirmLabel: 'Entsperren', variant: 'danger' })) return; try { setDoc(await unlockDocument(doc.id)); toast('Finale Sperre aufgehoben.', 'info') } catch (e: any) { toast('Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error') } }} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-amber-700 dark:text-amber-400 rounded hover:bg-amber-50 dark:hover:bg-amber-900/20"><Unlock size={14} />Finale Sperre aufheben</button>
+              ) : isVerified ? (
+                <button onClick={async () => { if (!await confirmAction({ title: 'Freigabe aufheben?', description: 'Das Dokument bleibt archiviert und vollständig bearbeitbar.', confirmLabel: 'Freigabe aufheben' })) return; try { setDoc(await unverifyDocument(doc.id)); toast('Freigabe aufgehoben.', 'info') } catch (e: any) { toast('Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error') } }} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-amber-700 dark:text-amber-400 rounded hover:bg-amber-50 dark:hover:bg-amber-900/20"><Unlock size={14} />Freigabe aufheben</button>
+              ) : null}
               <button onClick={remove} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-red-600 dark:text-red-400 rounded hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 size={14} />Aus Datenbank entfernen</button>
             </div>
           </details>

@@ -32,6 +32,7 @@ def list_documents(
     no_sender: Optional[int] = Query(None),
     low_value: Optional[int] = Query(None),
     confidence: Optional[str] = Query(None, description="Filter by confidence: low, medium, high"),
+    verified: Optional[int] = Query(None, ge=0, le=1, description="Filter by reviewed state: 0 or 1"),
     sort_by: Optional[str] = Query("archived_at", description="Column to sort by"),
     sort_dir: Optional[str] = Query("desc", description="Sort direction: asc or desc"),
     limit: int = Query(100, le=500),
@@ -41,7 +42,7 @@ def list_documents(
     filter_kwargs = dict(
         query=q, category=category, year=year, sender=sender,
         status=status, tax_relevant=tax_relevant, tag=tag,
-        no_sender=bool(no_sender), low_value=low_value, confidence=confidence,
+        no_sender=bool(no_sender), low_value=low_value, confidence=confidence, verified=verified,
     )
     sort_kwargs = dict(sort_by=sort_by, sort_dir=sort_dir)
     docs = db.search_documents(**filter_kwargs, **sort_kwargs, limit=limit, offset=offset)
@@ -100,11 +101,15 @@ def update_document(doc_id: int, body: DocumentUpdate):
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
-    if (doc.get("status") == "locked" or doc.get("verified") == 1) and "verified" not in body.model_fields_set:
-        raise HTTPException(status_code=409, detail="Dokument ist gesperrt/verifiziert. Entsperren vor dem Bearbeiten.")
+    if doc.get("status") == "locked":
+        raise HTTPException(status_code=409, detail="Dokument ist final gesperrt. Entsperren vor dem Bearbeiten.")
     if doc.get("status") == "ignored" and "status" not in body.model_fields_set:
         raise HTTPException(status_code=409, detail="Irrelevantes Dokument muss zuerst wiederhergestellt werden.")
     updates = {k: v for k, v in body.model_dump().items() if k in body.model_fields_set}
+    approval_fields = {"sender", "date", "document_type", "category", "summary", "tags", "tax_relevant", "tax_year", "expires_at", "notes", "low_value"}
+    if doc.get("verified") == 1 and approval_fields & set(updates):
+        updates["verified"] = 0
+        db.insert_trace(doc_id, "approval", "warning", "Prüfstatus wegen einer Metadatenänderung zurückgesetzt")
 
     # Record correction as few-shot example if classification fields changed
     fb.record_correction(original=doc, corrected=updates)
@@ -234,49 +239,55 @@ def unignore_document(doc_id: int):
 
 @router.post("/{doc_id}/verify", status_code=200)
 def verify_document(doc_id: int):
-    """Mark a document as verified (locked)."""
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if doc.get("status") != "ok":
+        raise HTTPException(status_code=400, detail="Nur archivierte Dokumente können als geprüft markiert werden")
     db.update_document(doc_id, verified=1)
+    db.insert_trace(doc_id, "approval", "success", "Dokument als geprüft markiert")
     return db.get_document(doc_id)
 
 
 @router.post("/{doc_id}/unverify", status_code=200)
 def unverify_document(doc_id: int):
-    """Unverify a document (unlock)."""
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if doc.get("status") == "locked":
+        raise HTTPException(status_code=409, detail="Finale Sperre zuerst aufheben")
     db.update_document(doc_id, verified=0)
+    db.insert_trace(doc_id, "approval", "warning", "Prüfstatus aufgehoben")
     return db.get_document(doc_id)
 
 
 @router.post("/{doc_id}/lock", status_code=200)
 def lock_document(doc_id: int):
-    """Lock a verified document to prevent accidental edits or reclassification."""
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if doc.get("status") != "ok" or doc.get("verified") != 1:
+        raise HTTPException(status_code=400, detail="Nur geprüfte archivierte Dokumente können final gesperrt werden")
     content_hash = _ensure_content_hash(doc)
     if content_hash:
         db.protect_document_hash(content_hash, "locked", document_id=doc_id, filename=doc.get("filename"))
     db.update_document(doc_id, status="locked")
+    db.insert_trace(doc_id, "approval", "success", "Dokument final gesperrt")
     return db.get_document(doc_id)
 
 
 @router.post("/{doc_id}/unlock", status_code=200)
 def unlock_document(doc_id: int):
-    """Unlock a document so it can be edited again."""
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
     if doc.get("status") != "locked":
-        raise HTTPException(status_code=400, detail="Dokument ist nicht gesperrt")
+        raise HTTPException(status_code=400, detail="Dokument ist nicht final gesperrt")
     content_hash = doc.get("content_hash") or _ensure_content_hash(doc)
     if content_hash:
         db.unprotect_document_hash(hash_value=content_hash)
     db.update_document(doc_id, status="ok")
+    db.insert_trace(doc_id, "approval", "warning", "Finale Sperre aufgehoben; Dokument bleibt geprüft")
     return db.get_document(doc_id)
 
 

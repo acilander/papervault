@@ -295,20 +295,26 @@ def test_lock_and_unlock_document(tmp_path):
     doc_id, _ = _insert_pdf(tmp_path, name="lock.pdf")
     db.update_document(doc_id, content_hash="lockedhash123")
 
+    assert client.post(f"/documents/{doc_id}/lock").status_code == 400
+    assert client.post(f"/documents/{doc_id}/verify").status_code == 200
+
     resp = client.post(f"/documents/{doc_id}/lock")
     assert resp.status_code == 200
     assert resp.json()["status"] == "locked"
+    assert resp.json()["verified"] == 1
     assert db.get_protected_hash("lockedhash123")["type"] == "locked"
 
     resp = client.post(f"/documents/{doc_id}/unlock")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
+    assert resp.json()["verified"] == 1
     assert db.get_protected_hash("lockedhash123") is None
 
 
 def test_locked_document_cannot_be_edited(tmp_path):
     doc_id, _ = _insert_pdf(tmp_path, name="locked_edit.pdf")
     db.update_document(doc_id, content_hash="lockedit123")
+    client.post(f"/documents/{doc_id}/verify")
     client.post(f"/documents/{doc_id}/lock")
 
     resp = client.patch(f"/documents/{doc_id}", json={"category": "Kommunikation"})
@@ -327,13 +333,15 @@ def test_verify_and_unverify_document(tmp_path):
     assert resp.json()["verified"] == 0
 
 
-def test_verified_document_cannot_be_edited(tmp_path):
+def test_editing_reviewed_document_revokes_review(tmp_path):
     doc_id, _ = _insert_pdf(tmp_path, name="verified_edit.pdf")
     client.post(f"/documents/{doc_id}/verify")
 
     resp = client.patch(f"/documents/{doc_id}", json={"category": "Kommunikation"})
-    assert resp.status_code == 409
-    assert db.get_document(doc_id)["category"] != "Kommunikation"
+    assert resp.status_code == 200
+    assert resp.json()["category"] == "Kommunikation"
+    assert resp.json()["verified"] == 0
+    assert any(trace["message"] == "Prüfstatus wegen einer Metadatenänderung zurückgesetzt" for trace in db.get_traces_for_document(doc_id))
 
 
 def test_ignored_hidden_from_default_list(tmp_path):

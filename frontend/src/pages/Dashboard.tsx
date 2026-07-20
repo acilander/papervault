@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { FileText, Clock, ShieldAlert, AlertTriangle, ShieldCheck, DollarSign, Activity } from 'lucide-react'
-import { getStats, getExpiring, getQuality, getDocuments, type Stats, type Document } from '../api'
+import { FileText, Clock, ShieldAlert, AlertTriangle, ShieldCheck, DollarSign, Activity, Inbox } from 'lucide-react'
+import { getStats, getExpiring, getQuality, getDocuments, getIncomingFiles, type Stats, type Document } from '../api'
 
 const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#14b8a6','#e11d48','#6366f1','#84cc16','#ec4899']
 
@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [expiring, setExpiring] = useState<Document[]>([])
   const [reviewDocs, setReviewDocs] = useState<Document[]>([])
   const [quality, setQuality] = useState<Awaited<ReturnType<typeof getQuality>> | null>(null)
+  const [incomingCount, setIncomingCount] = useState<number | null>(null)
   const [error, setError] = useState(false)
 
   useEffect(() => {
@@ -18,6 +19,7 @@ export default function Dashboard() {
     getExpiring(60).then(setExpiring).catch(() => {})
     getDocuments({ status: 'review', limit: 5 }).then(setReviewDocs).catch(() => {})
     getQuality().then(setQuality).catch(() => {})
+    getIncomingFiles().then(data => setIncomingCount(data.files.length)).catch(() => {})
   }, [])
 
   if (error) return (
@@ -27,6 +29,7 @@ export default function Dashboard() {
 
   const totalAll = stats.by_status.reduce((a, b) => a + b.count, 0)
   const okCount = stats.by_status.find(s => s.status === 'ok')?.count ?? 0
+  const archivedCount = okCount + stats.locked_count
   const reviewCount = stats.by_status.find(s => s.status === 'review')?.count ?? 0
 
   return (
@@ -34,14 +37,15 @@ export default function Dashboard() {
       <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Dashboard</h2>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         {[
-          { label: 'Dokumente gesamt', value: totalAll, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/20' },
-          { label: 'Verifiziert & locked', value: `${stats.verified_count} / ${okCount}`, icon: ShieldCheck, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-950/20' },
-          { label: 'In Review (Inbox)', value: reviewCount, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/20' },
-          { label: 'Fixkosten / Monat', value: `${stats.monthly_fix_costs.toFixed(2)} €`, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
-        ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-3">
+          { label: 'Dokumente gesamt', value: totalAll, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/20', to: '/documents' },
+          { label: 'Dateieingang', value: incomingCount ?? '–', icon: Inbox, color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950/20', to: '/monitor' },
+          { label: 'Dokumentprüfung offen', value: reviewCount, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/20', to: '/inbox' },
+          { label: 'Archivfreigabe', value: `${stats.verified_count} / ${archivedCount}`, icon: ShieldCheck, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-950/20', to: '/documents?status=ok&verified=0' },
+          { label: 'Fixkosten / Monat', value: `${stats.monthly_fix_costs.toFixed(2)} €`, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/20', to: '/services' },
+        ].map(({ label, value, icon: Icon, color, bg, to }) => (
+          <Link key={label} to={to} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-3 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm transition">
             <div className={`${bg} ${color} p-2.5 rounded-lg`}>
               <Icon size={20} />
             </div>
@@ -49,7 +53,7 @@ export default function Dashboard() {
               <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
@@ -59,20 +63,20 @@ export default function Dashboard() {
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex flex-col justify-between space-y-3">
           <div className="flex items-center gap-2">
             <ShieldCheck size={16} className="text-indigo-500" />
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Human-in-the-Loop Audit & Locking</h3>
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Archivfreigabe & finale Sperre</h3>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-500 dark:text-gray-400">Verifiziert & Gesperrt (Daten-Lock)</span>
-              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                {okCount > 0 ? `${Math.round((stats.verified_count / okCount) * 100)}%` : '0%'} ({stats.verified_count} Belege)
+              <span className="text-gray-500 dark:text-gray-400">Archivfreigabe erteilt</span>
+              <span className="font-semibold text-green-600 dark:text-green-400">
+                {archivedCount > 0 ? `${Math.round((stats.verified_count / archivedCount) * 100)}%` : '0%'} ({stats.verified_count} Belege)
               </span>
             </div>
             <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2.5 overflow-hidden flex">
-              <div className="bg-indigo-600 h-full rounded-full transition-all" style={{ width: `${okCount > 0 ? (stats.verified_count / okCount) * 100 : 0}%` }} />
+              <div className="bg-green-600 h-full rounded-full transition-all" style={{ width: `${archivedCount > 0 ? (stats.verified_count / archivedCount) * 100 : 0}%` }} />
             </div>
             <p className="text-[10px] text-gray-400 leading-relaxed">
-              Verifizierte Dokumente sind absolut schreibgeschützt, um KI-Abweichungen (AI-Drift) dauerhaft auszuschließen.
+              Freigegebene Dokumente bleiben bearbeitbar; {stats.locked_count} davon sind final gesperrt und damit schreibgeschützt.
             </p>
           </div>
         </div>

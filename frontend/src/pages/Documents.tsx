@@ -56,6 +56,7 @@ export default function Documents() {
   const noSenderFilter = searchParams.get('no_sender') === '1'
   const lowValueFilter = searchParams.get('low_value') === '1'
   const confidenceFilter = searchParams.get('confidence') ?? ''
+  const verifiedFilter = searchParams.get('verified') ?? ''
 
   const setStatus = (v: string) => {
     const p = new URLSearchParams(searchParams)
@@ -96,6 +97,17 @@ export default function Documents() {
     v ? p.set('confidence', v) : p.delete('confidence')
     setSearchParams(p, { replace: true })
   }
+  const setUnreviewedFilter = () => {
+    const p = new URLSearchParams(searchParams)
+    if (verifiedFilter === '0' && status === 'ok') {
+      p.delete('verified')
+      p.delete('status')
+    } else {
+      p.set('verified', '0')
+      p.set('status', 'ok')
+    }
+    setSearchParams(p, { replace: true })
+  }
 
   const resetAll = () => {
     setQ('')
@@ -115,10 +127,11 @@ export default function Documents() {
     no_sender: noSenderFilter ? 1 : undefined,
     low_value: lowValueFilter ? 1 : undefined,
     confidence: confidenceFilter || undefined,
+    verified: verifiedFilter ? Number(verifiedFilter) : undefined,
     tag: tagFilter || undefined,
     sort_by: sortBy,
     sort_dir: sortDir,
-  }), [q, category, year, sender, status, taxFilter, noSenderFilter, lowValueFilter, confidenceFilter, tagFilter, sortBy, sortDir])
+  }), [q, category, year, sender, status, taxFilter, noSenderFilter, lowValueFilter, confidenceFilter, verifiedFilter, tagFilter, sortBy, sortDir])
 
   const load = useCallback(async (p = page) => {
     setLoading(true)
@@ -312,7 +325,11 @@ export default function Documents() {
             <span className="text-xs font-semibold text-gray-400 mr-1">Schnellweichen:</span>
             <button onClick={() => setStatus(status === 'review' ? '' : 'review')}
               className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${status === 'review' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-              📥 Ausstehend
+              📥 Dokumentprüfung offen
+            </button>
+            <button onClick={setUnreviewedFilter}
+              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${verifiedFilter === '0' && status === 'ok' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              ⏳ Archivfreigabe offen
             </button>
             <button onClick={() => setTaxFilter(v => !v)}
               className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${taxFilter ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
@@ -549,6 +566,7 @@ export default function Documents() {
                   <th className="px-4 py-2 font-medium cursor-pointer hover:text-gray-700 dark:hover:text-gray-200" onClick={() => handleSort('status')}>
                     <span className="inline-flex items-center gap-1">Status {sortBy === 'status' && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}</span>
                   </th>
+                  <th className="px-4 py-2 font-medium text-center">Freigabe</th>
                   <th className="px-4 py-2 font-medium cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 text-center" onClick={() => handleSort('confidence')}>
                     <span className="inline-flex items-center gap-1 justify-center">KI {sortBy === 'confidence' && <ArrowUpDown size={12} className={sortDir === 'asc' ? '' : 'rotate-180'} />}</span>
                   </th>
@@ -573,14 +591,12 @@ export default function Documents() {
                         state={{ docIds: docs.map(d => d.id), currentIndex: index, search: searchParams.toString() }}
                         className="text-blue-600 hover:underline truncate block flex items-center gap-1.5"
                       >
-                        {doc.verified === 1 ? (
-                          <span title="Bestätigt / Verifiziert" className="inline-flex"><CheckCircle size={12} className="text-green-600 shrink-0" /></span>
+                        {doc.status === 'locked' ? (
+                          <span title="Final gesperrt" className="inline-flex"><Lock size={12} className="text-amber-600 shrink-0" /></span>
+                        ) : doc.verified === 1 ? (
+                          <span title="Freigegeben" className="inline-flex"><CheckCircle size={12} className="text-green-600 shrink-0" /></span>
                         ) : (
-                          doc.status === 'locked' ? (
-                            <span title="Gesperrt" className="inline-flex"><Lock size={12} className="text-amber-600 shrink-0" /></span>
-                          ) : (
-                            <span className="text-gray-400 shrink-0" title="KI-Vorschlag">🤖</span>
-                          )
+                          <span className="text-gray-400 shrink-0" title="KI-Vorschlag">🤖</span>
                         )}
                         {doc.filename}
                       </Link>
@@ -597,6 +613,9 @@ export default function Documents() {
                       <Badge variant={STATUS_VARIANTS[doc.status] ?? 'neutral'}>{doc.status ?? '–'}</Badge>
                     </td>
                     <td className="px-4 py-2 text-center">
+                      {doc.status === 'locked' ? <Badge variant="warning">Final gesperrt</Badge> : doc.verified === 1 ? <Badge variant="success">Freigegeben</Badge> : doc.status === 'ok' ? <Badge variant="neutral">Offen</Badge> : <span className="text-gray-400">–</span>}
+                    </td>
+                    <td className="px-4 py-2 text-center">
                       {doc.confidence === 'high' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="KI-Vertrauen: Hoch" />}
                       {doc.confidence === 'medium' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500" title="KI-Vertrauen: Medium" />}
                       {doc.confidence === 'low' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" title="KI-Vertrauen: Niedrig" />}
@@ -606,7 +625,7 @@ export default function Documents() {
                   </tr>
                 ))}
                 {docs.length === 0 && !loading && (
-                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">Keine Dokumente gefunden</td></tr>
+                  <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">Keine Dokumente gefunden</td></tr>
                 )}
               </tbody>
             </table>

@@ -154,7 +154,7 @@ export default function Monitor() {
   }
 
   const handleStop = async () => {
-    if (!await confirm({ title: 'Archiver stoppen?', description: 'Neue Dateien in der Inbox werden dann nicht mehr automatisch verarbeitet.', confirmLabel: 'Stoppen', variant: 'danger' })) return
+    if (!await confirm({ title: 'Archiver stoppen?', description: 'Neue Dateien im Dateieingang werden dann nicht mehr automatisch verarbeitet.', confirmLabel: 'Stoppen', variant: 'danger' })) return
     setActionBusy(true)
     try {
       await axios.post('/monitor/archiver/stop')
@@ -336,7 +336,7 @@ export default function Monitor() {
 
   const handleImportCopy = async () => {
     if (selectedImportCandidates.size === 0) return
-    if (!await confirm({ title: `${selectedImportCandidates.size} Dateien in die Inbox kopieren?`, description: 'Der Archiver verarbeitet die kopierten Dateien anschließend.', confirmLabel: 'Kopieren' })) return
+    if (!await confirm({ title: `${selectedImportCandidates.size} Dateien in den Dateieingang kopieren?`, description: 'Der Archiver verarbeitet die kopierten Dateien anschließend.', confirmLabel: 'Kopieren' })) return
     setImportBusy(true)
     setImportCopyProgress(null)
     setImportCopyLog([])
@@ -441,7 +441,7 @@ export default function Monitor() {
               {archiver.running ? `Archiver läuft (PID ${archiver.pid})` : 'Archiver gestoppt'}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {archiver.running ? 'Überwacht Inbox auf neue PDFs' : 'Klicke Start um den Archiver zu starten'}
+              {archiver.running ? 'Überwacht Dateieingang auf neue Dateien' : 'Klicke Start um den Archiver zu starten'}
             </p>
           </div>
           <div className="flex gap-2">
@@ -450,7 +450,7 @@ export default function Monitor() {
                 <Square size={13} /> Stop
               </Button>
             ) : (
-              <Button variant="success" size="sm" onClick={handleStart} disabled={actionBusy || inboxLoading} title={inboxLoading ? 'Warte auf Inbox-Scan…' : undefined}>
+              <Button variant="success" size="sm" onClick={handleStart} disabled={actionBusy || inboxLoading} title={inboxLoading ? 'Warte auf Dateieingang-Scan…' : undefined}>
                 <Play size={13} /> Start
               </Button>
             )}
@@ -610,8 +610,8 @@ export default function Monitor() {
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center gap-2">
           <Inbox size={14} className="text-blue-500" />
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Inbox</h3>
-          <span className="ml-auto text-xs text-gray-400">{inbox?.files.length ?? 0} PDFs</span>
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Dateieingang</h3>
+          <span className="ml-auto text-xs text-gray-400">{inbox?.files.length ?? 0} Dateien</span>
         </div>
 
         {inbox?.error && (
@@ -619,7 +619,7 @@ export default function Monitor() {
         )}
 
         {inbox && !inbox.error && inbox.files.length === 0 && (
-          <p className="px-4 py-3 text-xs text-gray-400">Inbox ist leer ✓</p>
+          <p className="px-4 py-3 text-xs text-gray-400">Dateieingang ist leer ✓</p>
         )}
 
         <div className="flex-1 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-800">
@@ -758,7 +758,7 @@ export default function Monitor() {
           {selectedImportCandidates.size > 0 && (
             <button onClick={handleImportCopy} disabled={importBusy}
               className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg disabled:opacity-50 transition-colors">
-              {selectedImportCandidates.size} in Inbox kopieren
+              {selectedImportCandidates.size} in Dateieingang kopieren
             </button>
           )}
           {importCandidates !== null && importCandidates.length > 0 && (

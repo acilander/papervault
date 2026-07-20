@@ -89,6 +89,7 @@ class StatsOut(BaseModel):
     no_sender: int = 0
     low_value: int = 0
     verified_count: int = 0
+    locked_count: int = 0
     confidence_high: int = 0
     confidence_medium: int = 0
     confidence_low: int = 0

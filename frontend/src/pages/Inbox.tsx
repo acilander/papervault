@@ -16,8 +16,8 @@ interface EditState {
 type InboxTab = 'review' | 'processing' | 'failed'
 
 const TAB_LABELS: Record<InboxTab, string> = {
-  review: 'Zu überprüfen',
-  processing: 'In Verarbeitung',
+  review: 'Dokumentprüfung offen',
+  processing: 'Klassifizierung läuft',
   failed: 'Fehlgeschlagen',
 }
 
@@ -169,7 +169,7 @@ export default function Inbox() {
     }
   }
 
-  if (loading) return <div className="p-8 text-gray-500">Lade Inbox…</div>
+  if (loading) return <div className="p-8 text-gray-500">Lade Dokumentprüfung…</div>
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -214,8 +214,8 @@ export default function Inbox() {
       {docs.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 bg-white dark:bg-gray-900 p-8">
           <CheckCircle size={48} className="text-green-500 mb-4 opacity-70" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Inbox ist leer</h3>
-          <p className="text-sm mt-1 text-gray-500">✓ Super! Keine ausstehenden Belege in diesem Bereich.</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Keine Dokumente in diesem Bereich</h3>
+          <p className="text-sm mt-1 text-gray-500">✓ Super! Aktuell ist keine Aktion erforderlich.</p>
         </div>
       ) : (
         <div className="flex-1 flex overflow-hidden bg-white dark:bg-gray-900">

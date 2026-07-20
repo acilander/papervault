@@ -44,7 +44,7 @@ const navGroups: NavGroup[] = [
     title: 'Eingang & Suche',
     items: [
       { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/inbox', label: 'Prüfung', icon: InboxIcon },
+      { to: '/inbox', label: 'Dokumentprüfung', icon: InboxIcon },
       { to: '/documents', label: 'Dokumente', icon: FileText },
       { to: '/chat', label: 'KI-Suche', icon: MessageSquare },
     ]
@@ -64,7 +64,7 @@ const navGroups: NavGroup[] = [
     title: 'Qualität & Pflege',
     items: [
       { to: '/senders', label: 'Absender', icon: Users },
-      { to: '/identifiers', label: 'Erkennung (IDs)', icon: Fingerprint },
+      { to: '/identifiers', label: 'Zuordnungsregeln', icon: Fingerprint },
       { to: '/duplicates', label: 'Duplikate', icon: ScanSearch },
       { to: '/validation', label: 'Validierung', icon: ShieldCheck },
       { to: '/feedback', label: 'Feedback', icon: BookOpen },

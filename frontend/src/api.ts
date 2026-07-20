@@ -58,6 +58,7 @@ export interface Stats {
   no_sender: number
   low_value: number
   verified_count: number
+  locked_count: number
   confidence_high: number
   confidence_medium: number
   confidence_low: number
@@ -264,6 +265,9 @@ export const importOrphans = (paths: string[]) =>
 export const cleanupEmptyFolders = () =>
   api.post<{ removed: number; folders: string[] }>('/monitor/cleanup-empty-folders').then(r => r.data)
 
+export const getIncomingFiles = () =>
+  api.get<{ source_dir: string; files: { filename: string }[] }>('/monitor/inbox').then(r => r.data)
+
 export interface ImportCandidate {
   file_path: string
   rel_path: string
@@ -305,7 +309,7 @@ export const addDocumentToCollection = (collectionId: number, documentId: number
 export const getDocumentsPage = async (params: {
   q?: string; category?: string; year?: string; sender?: string; status?: string
   tax_relevant?: number; tag?: string; no_sender?: number; low_value?: number
-  confidence?: string; sort_by?: string; sort_dir?: string
+  confidence?: string; verified?: number; sort_by?: string; sort_dir?: string
   limit: number; offset: number
 }): Promise<{ docs: Document[]; total: number }> => {
   const r = await api.get<Document[]>('/documents/', { params })
@@ -502,6 +506,9 @@ export const getIdentifiers = () =>
 
 export const createIdentifier = (data: Omit<Identifier, 'id' | 'created_at'>) =>
   api.post<{ ok: boolean; id: number }>('/identifiers/', data).then(r => r.data)
+
+export const updateIdentifier = (id: number, data: Omit<Identifier, 'id' | 'created_at'>) =>
+  api.put<{ ok: boolean }>(`/identifiers/${id}`, data).then(r => r.data)
 
 export const deleteIdentifier = (id: number) =>
   api.delete<{ ok: boolean }>(`/identifiers/${id}`).then(r => r.data)
