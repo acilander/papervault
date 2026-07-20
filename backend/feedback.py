@@ -2,25 +2,9 @@
 feedback.py – Sammelt manuelle Korrekturen aus der GUI als Few-Shot-Beispiele.
 Persistenz: SQLite-Tabelle `feedback` via db.feedback_repo.
 """
-import json
-import os
 from datetime import datetime
 
 import db.feedback_repo as feedback_repo
-
-
-def _migrate_from_json():
-    """One-time migration: import feedback.json into DB if it exists and DB is empty."""
-    from config import FEEDBACK_FILE
-    if not os.path.exists(FEEDBACK_FILE):
-        return
-    try:
-        with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if data:
-            feedback_repo.import_from_list(data)
-    except Exception:
-        pass
 
 
 def record_correction(original: dict, corrected: dict):

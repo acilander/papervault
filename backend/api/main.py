@@ -19,8 +19,6 @@ async def lifespan(app: FastAPI):
     os.makedirs(config.SOURCE_DIR, exist_ok=True)
     db.init_db()
     storage.load_sender_registry()
-    import feedback as fb
-    fb._migrate_from_json()
     import threading
     from llm import load_model, assert_gpu_support
     if not config.MOCK_LLM:
