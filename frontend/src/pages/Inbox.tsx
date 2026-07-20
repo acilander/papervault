@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { CheckCircle, RefreshCw, Trash2, Square, CheckSquare, EyeOff, Activity, MoreHorizontal, Save } from 'lucide-react'
-import { getDocuments, confirmDocument, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, getDocumentTraces, ignoreDocument, updateDocument, pdfUrl, type Document, type DocumentTrace } from '../api'
+import { addDocumentType, getDocuments, confirmDocument, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, getDocumentTraces, ignoreDocument, updateDocument, pdfUrl, type Document, type DocumentTrace } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
 import { Button, useConfirm, useToast } from '../components/ui'
@@ -22,7 +22,7 @@ const TAB_LABELS: Record<InboxTab, string> = {
 }
 
 export default function Inbox() {
-  const { categories: CATEGORIES, documentTypes: DOCUMENT_TYPES } = useConfig()
+  const { categories: CATEGORIES, documentTypes: DOCUMENT_TYPES, reloadConfig } = useConfig()
   const { confirm } = useConfirm()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<InboxTab>('review')
@@ -179,9 +179,7 @@ export default function Inbox() {
     }
   }
 
-  const loadTrace = async (docId: number) => {
-    setShowTrace(open => !open)
-    if (showTrace) return
+  const fetchTrace = useCallback(async (docId: number) => {
     setTraceLoading(true)
     try {
       setTraces(await getDocumentTraces(docId))
@@ -189,6 +187,30 @@ export default function Inbox() {
       toast('Verlauf konnte nicht geladen werden: ' + (e?.response?.data?.detail ?? e.message), 'error')
     } finally {
       setTraceLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    if (!activeId) {
+      setTraces([])
+      return
+    }
+    setTraces([])
+    fetchTrace(activeId)
+  }, [activeId, fetchTrace])
+
+  const loadTrace = () => {
+    setShowTrace(open => !open)
+  }
+
+  const approveSuggestedDocumentType = async (documentType: string) => {
+    if (!await confirm({ title: `„${documentType}" als neuen Dokumenttyp hinzufügen?`, description: 'Der Typ wird in den Einstellungen gespeichert und künftig für ähnliche Belege angeboten.', confirmLabel: 'Dokumenttyp hinzufügen' })) return
+    try {
+      await addDocumentType(documentType)
+      await reloadConfig()
+      toast(`Dokumenttyp „${documentType}" hinzugefügt.`, 'success')
+    } catch (e: any) {
+      toast('Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error')
     }
   }
 
@@ -356,7 +378,7 @@ export default function Inbox() {
                   <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Beleg-Sichtung</span>
                   <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => loadTrace(activeDoc.id)}
+                      onClick={loadTrace}
                       disabled={isBusy}
                       title="Pipeline-Verlauf"
                       className={`p-1.5 rounded border transition-colors disabled:opacity-40 ${showTrace ? 'border-blue-300 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
@@ -387,27 +409,66 @@ export default function Inbox() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
-                  {/* KI-Confidence (Ampelnotiz) */}
-                  {activeDoc.confidence && (
-                    <div className={`p-3 rounded-lg text-xs border flex flex-col gap-1 ${
-                      activeDoc.confidence === 'high'
-                        ? 'bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800/60'
-                        : activeDoc.confidence === 'medium'
-                        ? 'bg-yellow-50 dark:bg-yellow-950/20 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800/60'
-                        : 'bg-red-50 dark:bg-red-950/20 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/60'
-                    }`}>
-                      <div className="flex items-center gap-1.5 font-bold">
-                        {activeDoc.confidence === 'high' && <span>🟢 KI-Vertrauen: HOCH</span>}
-                        {activeDoc.confidence === 'medium' && <span>🟡 KI-Vertrauen: MITTEL</span>}
-                        {activeDoc.confidence === 'low' && <span>🔴 KI-Vertrauen: NIEDRIG (Sichtung empfohlen)</span>}
+                  {(() => {
+                    const classificationTrace = [...traces].reverse().find(trace => trace.step_name === 'llm_classification')
+                    const preAnalysisTrace = [...traces].reverse().find(trace => trace.step_name === 'pre_analysis')
+                    const classificationDetails = (classificationTrace?.details ?? {}) as Record<string, any>
+                    const features = (preAnalysisTrace?.details?.features ?? {}) as Record<string, any>
+                    const diagnostics = Array.isArray(classificationDetails.diagnostics) ? classificationDetails.diagnostics : []
+                    const featureLabels = [
+                      features.has_amount && 'Betrag erkannt',
+                      features.has_iban && 'IBAN erkannt',
+                      features.has_tax_id && 'Steuer-ID erkannt',
+                      features.has_date && 'Datum erkannt',
+                      features.has_table && 'Tabellenstruktur',
+                      features.page_count && `${features.page_count} Seite${features.page_count === 1 ? '' : 'n'}`,
+                      features.type_from_filename || features.type_candidate ? `Typ-Kandidat: ${features.type_from_filename || features.type_candidate}` : null,
+                    ].filter(Boolean)
+                    const latestDiagnostic = diagnostics.at(-1) as Record<string, any> | undefined
+                    const confidenceReason = classificationDetails.confidence_reason || activeDoc.notes?.match(/^\[Vertrauen:\s*(?:HIGH|MEDIUM|LOW)\]\s*(.*)$/i)?.[1]
+                    const hasSignals = activeDoc.confidence || activeDoc.low_value || featureLabels.length > 0 || classificationTrace?.status === 'failed'
+                    if (!hasSignals) return null
+                    return (
+                      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-800/40 p-3 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-gray-800 dark:text-gray-100">KI-Einschätzung</span>
+                          {traceLoading && <RefreshCw size={12} className="animate-spin text-blue-500" />}
+                        </div>
+                        {classificationTrace?.status === 'failed' ? (
+                          <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 p-2 text-xs text-red-800 dark:text-red-300">
+                            <p className="font-semibold">🔴 KI-Klassifikation fehlgeschlagen</p>
+                            {latestDiagnostic?.errors && <p className="mt-1">{latestDiagnostic.errors.join(' ')}</p>}
+                            {latestDiagnostic?.error && <p className="mt-1">{latestDiagnostic.error}</p>}
+                          </div>
+                        ) : activeDoc.confidence && (
+                          <div className={`rounded-md border p-2 text-xs ${
+                            activeDoc.confidence === 'high'
+                              ? 'bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800/60'
+                              : activeDoc.confidence === 'medium'
+                              ? 'bg-yellow-50 dark:bg-yellow-950/20 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800/60'
+                              : 'bg-red-50 dark:bg-red-950/20 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/60'
+                          }`}>
+                            <p className="font-semibold">{activeDoc.confidence === 'high' ? '🟢 KI-Vertrauen: hoch' : activeDoc.confidence === 'medium' ? '🟡 KI-Vertrauen: mittel' : '� KI-Vertrauen: niedrig'}</p>
+                            {confidenceReason && <p className="mt-1">{confidenceReason}</p>}
+                          </div>
+                        )}
+                        {activeDoc.low_value === 1 && (
+                          <div className="rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-2 text-xs text-amber-800 dark:text-amber-300">
+                            <p className="font-semibold">⚠️ Geringer Archivwert</p>
+                            <p className="mt-1">Die KI hält den langfristigen Archivnutzen für gering. Das ist ein Hinweis, keine automatische Irrelevant-Entscheidung.</p>
+                          </div>
+                        )}
+                        {featureLabels.length > 0 && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Erkannte Merkmale</p>
+                            <div className="flex flex-wrap gap-1">
+                              {featureLabels.map(label => <span key={String(label)} className="rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 py-0.5 text-[10px] text-gray-600 dark:text-gray-300">{label}</span>)}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      {activeDoc.notes && activeDoc.notes.includes('[Vertrauen:') && (
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                          {activeDoc.notes.replace(/^\[Vertrauen:\s*(HIGH|MEDIUM|LOW)\]\s*/i, '')}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                    )
+                  })()}
 
                   {showTrace && (
                     <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-3 space-y-2">
@@ -427,11 +488,25 @@ export default function Inbox() {
                               <div className="min-w-0">
                                 <p className="font-semibold text-gray-700 dark:text-gray-200">{trace.step_name}</p>
                                 <p className="text-gray-500 dark:text-gray-400">{trace.message}</p>
+                                {trace.details && (
+                                  <details className="mt-1">
+                                    <summary className="cursor-pointer text-[11px] text-blue-600 dark:text-blue-400 hover:underline">Details anzeigen</summary>
+                                    <pre className="mt-1 max-h-36 overflow-auto rounded bg-white dark:bg-gray-950 p-2 text-[10px] text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{JSON.stringify(trace.details, null, 2)}</pre>
+                                  </details>
+                                )}
                               </div>
                             </div>
                           ))}
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {edit.document_type && !DOCUMENT_TYPES.includes(edit.document_type) && (
+                    <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
+                      <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">KI-Vorschlag für neuen Dokumenttyp: „{edit.document_type}"</p>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400">Übernimm ihn bewusst oder wähle unten einen vorhandenen Typ. Für diesen Beleg kannst du auch „Irrelevant" wählen.</p>
+                      <button onClick={() => approveSuggestedDocumentType(edit.document_type)} className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-md transition">Als neuen Typ hinzufügen</button>
                     </div>
                   )}
 
@@ -472,6 +547,7 @@ export default function Inbox() {
                         onChange={e => setEdits(prev => ({ ...prev, [activeDoc.id]: { ...edit, document_type: e.target.value } }))}
                         className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
                         <option value="">– wählen –</option>
+                        {edit.document_type && !DOCUMENT_TYPES.includes(edit.document_type) && <option value={edit.document_type}>{edit.document_type} (KI-Vorschlag)</option>}
                         {DOCUMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </div>
@@ -487,41 +563,41 @@ export default function Inbox() {
                   </div>
                 </div>
 
-                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/10 flex items-center justify-end shrink-0">
-                  <div className="flex gap-2">
+                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/10 shrink-0 space-y-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => { setReprocessHint(''); setReprocessDlg(activeDoc.id) }}
                       disabled={isBusy}
-                      className="flex items-center gap-1.5 px-3 py-2 border border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/10 disabled:opacity-50 text-xs font-semibold rounded-lg transition-all shadow-sm"
+                      className="flex items-center justify-center gap-1 px-2 py-2 border border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/10 disabled:opacity-50 text-xs font-semibold rounded-lg transition-all"
                     >
                       <RefreshCw size={12} className={busy[activeDoc.id] === 'reclassify' ? 'animate-spin' : ''} />
-                      Neu analysieren (KI)
+                      KI neu
                     </button>
                     <button
                       onClick={() => saveAndDefer(activeDoc)}
                       disabled={isBusy}
-                      className="flex items-center gap-1.5 px-3 py-2 border border-blue-300 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20 disabled:opacity-50 text-xs font-semibold rounded-lg transition-all shadow-sm"
+                      className="flex items-center justify-center gap-1 px-2 py-2 border border-blue-300 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20 disabled:opacity-50 text-xs font-semibold rounded-lg transition-all"
                     >
                       <Save size={13} />
-                      {busy[activeDoc.id] === 'save' ? 'Wird gespeichert…' : 'Speichern & zurückstellen'}
+                      {busy[activeDoc.id] === 'save' ? 'Speichert…' : 'Speichern'}
                     </button>
                     <button
                       onClick={() => markIrrelevant(activeDoc)}
                       disabled={isBusy}
-                      className="flex items-center gap-1.5 px-3 py-2 border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-50 text-xs font-semibold rounded-lg transition-all shadow-sm"
+                      className="flex items-center justify-center gap-1 px-2 py-2 border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-50 text-xs font-semibold rounded-lg transition-all"
                     >
                       <EyeOff size={13} />
-                      {busy[activeDoc.id] === 'ignore' ? 'Wird markiert…' : 'Irrelevant'}
-                    </button>
-                    <button
-                      onClick={() => confirmDoc(activeDoc)}
-                      disabled={isBusy}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-all shadow-sm"
-                    >
-                      <CheckCircle size={14} />
-                      {busy[activeDoc.id] === 'confirm' ? 'Wird archiviert…' : 'Bestätigen & Archivieren'}
+                      {busy[activeDoc.id] === 'ignore' ? 'Markiert…' : 'Irrelevant'}
                     </button>
                   </div>
+                  <button
+                    onClick={() => confirmDoc(activeDoc)}
+                    disabled={isBusy}
+                    className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-all shadow-sm"
+                  >
+                    <CheckCircle size={14} />
+                    {busy[activeDoc.id] === 'confirm' ? 'Wird archiviert…' : 'Bestätigen & Archivieren'}
+                  </button>
                 </div>
               </div>
             )
