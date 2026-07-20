@@ -206,6 +206,13 @@ def process_pdf(file_path, doc_id=None):
     from llm.classify import get_classification_diagnostics
     log(f"--- Neue Datei: {os.path.basename(file_path)} ---")
 
+    # Refresh categories and document types from disk/settings.json
+    try:
+        from config_manager import refresh_config_from_disk
+        refresh_config_from_disk()
+    except Exception:
+        pass
+
     # Reload sender_registry from DB to guarantee absolute multi-process/concurrency synchronization
     try:
         from storage import load_sender_registry

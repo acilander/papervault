@@ -189,8 +189,14 @@ export default function Settings() {
         await load()
         await reloadConfig()
       }
-    } catch {
-      setError('Fehler beim Speichern der Einstellungen.')
+    } catch (e: any) {
+      if (e?.response?.status === 409) {
+        setError(e?.response?.data?.detail ?? 'Konflikt: Die Einstellungen wurden zwischenzeitlich von einem anderen Prozess geändert. Ihre lokalen Änderungen konnten nicht gespeichert werden. Die Seite wurde aktualisiert.')
+        await load()
+        await reloadConfig()
+      } else {
+        setError('Fehler beim Speichern der Einstellungen.')
+      }
     } finally {
       setSavingSettings(false)
     }

@@ -6,8 +6,15 @@ from config import TARGET_BASE
 
 SETTINGS_FILE = os.path.join(TARGET_BASE, "settings.json")
 
+class SettingsConflictError(Exception):
+    def __init__(self, current_revision: int, expected_revision: int):
+        self.current_revision = current_revision
+        self.expected_revision = expected_revision
+        super().__init__(f"Conflict: expected revision {expected_revision}, but current is {current_revision}")
+
 # Default settings based on legacy categories.py
 DEFAULT_SETTINGS = {
+    "settings_revision": 1,
     "personal": {
         "children": ["Lena", "Felix", "Maximilian"],
         "vehicles": {
@@ -71,10 +78,31 @@ DEFAULT_SETTINGS = {
 
 _cached_settings = None
 
-def get_settings() -> dict:
+def _read_settings_fresh() -> dict:
+    """Read settings.json fresh from disk, merge defaults, and NEVER automatically persist."""
+    if not os.path.exists(SETTINGS_FILE):
+        return dict(DEFAULT_SETTINGS)
+    try:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            user_settings = json.load(f)
+            # Ensure all top-level keys exist (merge with defaults for safety)
+            merged = dict(DEFAULT_SETTINGS)
+            merged.update(user_settings)
+            for k, v in DEFAULT_SETTINGS.items():
+                if isinstance(v, dict):
+                    # Deep merge secondary dictionaries
+                    sub_merged = dict(v)
+                    if k in user_settings and isinstance(user_settings[k], dict):
+                        sub_merged.update(user_settings[k])
+                    merged[k] = sub_merged
+            return merged
+    except Exception:
+        return dict(DEFAULT_SETTINGS)
+
+def get_settings(force=False) -> dict:
     """Load and return settings.json. Creates default if missing."""
     global _cached_settings
-    if _cached_settings is not None:
+    if _cached_settings is not None and not force:
         return _cached_settings
 
     os.makedirs(TARGET_BASE, exist_ok=True)
@@ -84,31 +112,47 @@ def get_settings() -> dict:
                 json.dump(DEFAULT_SETTINGS, f, indent=2, ensure_ascii=False)
         except Exception:
             pass
-        _cached_settings = DEFAULT_SETTINGS
+        _cached_settings = dict(DEFAULT_SETTINGS)
         return _cached_settings
 
-    try:
-        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-            user_settings = json.load(f)
-            # Ensure all top-level keys exist (merge with defaults for safety)
-            for k, v in DEFAULT_SETTINGS.items():
-                if k not in user_settings:
-                    user_settings[k] = v
-                elif isinstance(v, dict):
-                    # Deep merge secondary dictionaries
-                    for subk, subv in v.items():
-                        if subk not in user_settings[k]:
-                            user_settings[k][subk] = subv
-            _cached_settings = user_settings
-            return _cached_settings
-    except Exception:
-        return DEFAULT_SETTINGS
+    _cached_settings = _read_settings_fresh()
+    return _cached_settings
 
-def save_settings(new_settings: dict) -> bool:
-    """Save settings.json to disk."""
+def refresh_config_from_disk():
+    """Checks disk revision. If changed (or not yet loaded), reload and update config.CATEGORIES/config.DOCUMENT_TYPES in-memory lists."""
+    global _cached_settings
+    fresh = _read_settings_fresh()
+    current_rev = _cached_settings.get("settings_revision", 0) if _cached_settings else 0
+    fresh_rev = fresh.get("settings_revision", 1)
+    if _cached_settings is None or fresh_rev != current_rev:
+        _cached_settings = fresh
+        try:
+            import config
+            landlord_enabled = fresh.get("landlord", {}).get("enabled", True)
+            
+            # Update config.CATEGORIES in-place so all modules share the updated list
+            config.CATEGORIES.clear()
+            for cat in fresh.get("categories", []):
+                if not landlord_enabled and cat in ("Haus_Gemeinkosten", "OG_Miete", "DG_Miete"):
+                    continue
+                config.CATEGORIES.append(cat)
+                
+            # Update config.DOCUMENT_TYPES in-place so all modules share the updated list
+            config.DOCUMENT_TYPES.clear()
+            config.DOCUMENT_TYPES.extend(fresh.get("document_types", []))
+        except Exception:
+            pass
+
+def save_settings(new_settings: dict, expected_revision: int = None) -> bool:
+    """Save settings.json to disk with conflict detection and atomic replacement."""
     global _cached_settings
     try:
-        current_settings = get_settings()
+        current_settings = _read_settings_fresh()
+        current_revision = current_settings.get("settings_revision", 1)
+        
+        if expected_revision is not None and current_revision != expected_revision:
+            raise SettingsConflictError(current_revision, expected_revision)
+
         merged_settings = dict(current_settings)
         merged_settings.update(new_settings)
         for key in ("personal", "landlord", "category_folder_map", "categories_config"):
@@ -126,11 +170,21 @@ def save_settings(new_settings: dict) -> bool:
         if any(category not in folder_map or category not in category_config for category in categories):
             return False
 
+        # Increment revision
+        merged_settings["settings_revision"] = current_revision + 1
+
         if os.path.exists(SETTINGS_FILE):
             backup_file = f"{SETTINGS_FILE}.bak-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-            shutil.copy2(SETTINGS_FILE, backup_file)
-        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            try:
+                shutil.copy2(SETTINGS_FILE, backup_file)
+            except Exception:
+                pass
+        
+        temp_file = f"{SETTINGS_FILE}.tmp"
+        with open(temp_file, "w", encoding="utf-8") as f:
             json.dump(merged_settings, f, indent=2, ensure_ascii=False)
+        os.replace(temp_file, SETTINGS_FILE)
+        
         _cached_settings = merged_settings
 
         # Sync the in-memory config list objects to avoid caching bugs across modules
@@ -152,5 +206,7 @@ def save_settings(new_settings: dict) -> bool:
             pass
 
         return True
+    except SettingsConflictError:
+        raise
     except Exception:
         return False

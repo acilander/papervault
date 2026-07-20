@@ -74,6 +74,7 @@ export const getCategories = () => api.get<string[]>('/stats/categories').then(r
 export const getDocumentTypes = () => api.get<string[]>('/stats/document-types').then(r => r.data)
 
 export interface AppConfig {
+  settings_revision?: number
   personal: {
     children: string[]
     vehicles: Record<string, string[]>

@@ -129,7 +129,7 @@ def set_model(req: SetModelRequest):
 def get_user_settings():
     from config_manager import get_settings
     import config
-    settings = get_settings()
+    settings = get_settings(force=True)
     # Expose path configurations dynamically from config/env
     settings["paths"] = {
         "source_dir": config.SOURCE_DIR,
@@ -140,8 +140,15 @@ def get_user_settings():
 
 @router.put("/settings")
 def update_user_settings(req: dict):
-    from config_manager import save_settings
+    from config_manager import save_settings, SettingsConflictError
     import config
+
+    expected_revision = req.pop("settings_revision", None)
+    if expected_revision is not None:
+        try:
+            expected_revision = int(expected_revision)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Ungültige settings_revision.")
 
     paths_changed = False
     paths = req.pop("paths", {})
@@ -159,7 +166,15 @@ def update_user_settings(req: dict):
             "TARGET_BASE": target_base
         })
 
-    if save_settings(req):
+    try:
+        success = save_settings(req, expected_revision=expected_revision)
+    except SettingsConflictError as ce:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Konflikt: Die Einstellungen wurden zwischenzeitlich von einem anderen Prozess oder Benutzer geändert (aktuelle Version: {ce.current_revision}). Bitte laden Sie die Einstellungen neu, um die aktuellen Werte anzuzeigen."
+        )
+
+    if success:
         msg = "Einstellungen gespeichert."
         if paths_changed:
             msg += " HINWEIS: Da sich System-Pfade geändert haben, ist ein Neustart der App (start_all.bat) zwingend erforderlich, um den Hintergrund-Archiver zu synchronisieren!"
@@ -169,17 +184,25 @@ def update_user_settings(req: dict):
 
 @router.post("/settings/document-types")
 def add_document_type(req: dict):
-    from config_manager import get_settings, save_settings
+    from config_manager import get_settings, save_settings, SettingsConflictError
 
     document_type = str(req.get("document_type") or "").strip()
     if not document_type or len(document_type) > 80:
         raise HTTPException(status_code=400, detail="Ungültiger Dokumenttyp.")
 
-    settings = get_settings()
+    settings = get_settings(force=True)
     document_types = list(settings.get("document_types") or [])
+    expected_revision = settings.get("settings_revision", 1)
     if document_type not in document_types:
         document_types.append(document_type)
-        if not save_settings({"document_types": document_types}):
+        try:
+            success = save_settings({"document_types": document_types}, expected_revision=expected_revision)
+        except SettingsConflictError as ce:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Konflikt: Die Einstellungen wurden zwischenzeitlich geändert (aktuelle Version: {ce.current_revision}). Dokumenttyp konnte nicht hinzugefügt werden."
+            )
+        if not success:
             raise HTTPException(status_code=500, detail="Dokumenttyp konnte nicht gespeichert werden.")
     return {"ok": True, "document_types": document_types}
 
