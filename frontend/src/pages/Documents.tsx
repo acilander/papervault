@@ -4,19 +4,20 @@ import { Search, LayoutList, LayoutGrid, Download, X, Undo2, FolderPlus, ArrowUp
 import { getDocumentsPage, getExpiring, thumbnailUrl, bulkUpdate, csvExportUrl, getCollections, addDocumentToCollection, type Document, type Collection } from '../api'
 import { useConfig } from '../ConfigContext'
 import Pagination from '../components/Pagination'
+import { Badge, Button } from '../components/ui'
 
-const STATUS_COLORS: Record<string, string> = {
-  ok:                    'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-  pending:               'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-  review:                'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
-  missing:               'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
-  classification_failed: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-  duplicate:             'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
-  no_text:               'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-  encrypted:             'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
-  corrupt:               'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-  ignored:               'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-  locked:                'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+const STATUS_VARIANTS: Record<string, 'info' | 'success' | 'warning' | 'danger' | 'neutral' | 'purple'> = {
+  ok: 'success',
+  pending: 'info',
+  review: 'warning',
+  missing: 'warning',
+  classification_failed: 'danger',
+  duplicate: 'purple',
+  no_text: 'neutral',
+  encrypted: 'warning',
+  corrupt: 'danger',
+  ignored: 'neutral',
+  locked: 'warning',
 }
 
 const PAGE_SIZE = 50
@@ -247,10 +248,7 @@ export default function Documents() {
               className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
           </div>
-          <button onClick={() => goToPage(1)}
-            className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-            Suchen
-          </button>
+          <Button size="sm" onClick={() => goToPage(1)}>Suchen</Button>
           {(status || taxFilter || expiresFilter || noSenderFilter || lowValueFilter || confidenceFilter || q || category || year || sender || tagFilter) && (
             <button onClick={resetAll}
               className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
@@ -313,23 +311,23 @@ export default function Documents() {
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-xs font-semibold text-gray-400 mr-1">Schnellweichen:</span>
             <button onClick={() => setStatus(status === 'review' ? '' : 'review')}
-              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${status === 'review' ? 'bg-orange-500 text-white border-orange-500 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${status === 'review' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
               📥 Ausstehend
             </button>
             <button onClick={() => setTaxFilter(v => !v)}
-              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${taxFilter ? 'bg-yellow-500 text-white border-yellow-500 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${taxFilter ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
               🧾 Steuerrelevant
             </button>
             <button onClick={() => setExpiresFilter(v => !v)}
-              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${expiresFilter ? 'bg-red-500 text-white border-red-500 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${expiresFilter ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
               ⏰ Läuft ab
             </button>
             <button onClick={() => setNoSenderFilter(v => !v)}
-              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${noSenderFilter ? 'bg-gray-600 text-white border-gray-600 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${noSenderFilter ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
               👤 Kein Absender
             </button>
             <button onClick={() => setLowValueFilter(v => !v)}
-              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${lowValueFilter ? 'bg-gray-500 text-white border-gray-500 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all ${lowValueFilter ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
               ⚠️ Geringer Wert
             </button>
           </div>
@@ -367,7 +365,7 @@ export default function Documents() {
             <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? '' : tag)}
               className={`px-2 py-0.5 rounded-full text-xs border transition-colors ${
                 tagFilter === tag
-                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  ? 'bg-blue-600 text-white border-blue-600'
                   : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
               }`}>
               #{tag}
@@ -596,7 +594,7 @@ export default function Documents() {
                     <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{doc.document_type ?? '–'}</td>
                     <td className="px-4 py-2 text-gray-500 dark:text-gray-400 whitespace-nowrap">{doc.date ?? '–'}</td>
                     <td className="px-4 py-2">
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status ?? '–'}</span>
+                      <Badge variant={STATUS_VARIANTS[doc.status] ?? 'neutral'}>{doc.status ?? '–'}</Badge>
                     </td>
                     <td className="px-4 py-2 text-center">
                       {doc.confidence === 'high' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="KI-Vertrauen: Hoch" />}
@@ -634,7 +632,7 @@ export default function Documents() {
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-xs text-gray-400">{doc.date?.slice(0, 7) ?? '–'}</span>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className={`px-1.5 py-0.5 rounded-full text-xs ${STATUS_COLORS[doc.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{doc.status ?? '–'}</span>
+                      <Badge variant={STATUS_VARIANTS[doc.status] ?? 'neutral'}>{doc.status ?? '–'}</Badge>
                       {doc.confidence === 'high' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 shrink-0" title="KI-Vertrauen: Hoch" />}
                       {doc.confidence === 'medium' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500 shrink-0" title="KI-Vertrauen: Medium" />}
                       {doc.confidence === 'low' && <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" title="KI-Vertrauen: Niedrig" />}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Circle, RefreshCw, Play, Square, Inbox, FileText, AlertCircle, Image, Loader, FolderOpen, Activity } from 'lucide-react'
 import axios from 'axios'
 import { scanOrphans, importOrphans, scanMissing, deleteMissing, repairMissing, type ImportCandidate } from '../api'
+import { Button, useConfirm, useToast } from '../components/ui'
 
 interface LogLine { id: number; text: string; ts: string }
 interface InboxFile { filename: string; size_kb: number; modified: string }
@@ -10,6 +11,8 @@ interface ArchiverStatus { running: boolean; pid: number | null }
 interface Orphan { file_path: string; filename: string; folder: string; category_hint: string; size_kb: number; modified: string }
 
 export default function Monitor() {
+  const { confirm } = useConfirm()
+  const { toast } = useToast()
   const [lines, setLines] = useState<LogLine[]>([])
   const [connected, setConnected] = useState(false)
   const [sseError, setSseError] = useState<string | null>(null)
@@ -64,7 +67,7 @@ export default function Monitor() {
       }
       poll()
     } catch (e: any) {
-      alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+      toast('Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error')
       setProcessingBusy(false); setProcessingFile(null)
     }
   }
@@ -146,18 +149,18 @@ export default function Monitor() {
       await axios.post('/monitor/archiver/start')
       await fetchStatus()
     } catch (e: any) {
-      alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+      toast('Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error')
     } finally { setActionBusy(false) }
   }
 
   const handleStop = async () => {
-    if (!confirm('Archiver stoppen?')) return
+    if (!await confirm({ title: 'Archiver stoppen?', description: 'Neue Dateien in der Inbox werden dann nicht mehr automatisch verarbeitet.', confirmLabel: 'Stoppen', variant: 'danger' })) return
     setActionBusy(true)
     try {
       await axios.post('/monitor/archiver/stop')
       await fetchStatus()
     } catch (e: any) {
-      alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+      toast('Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error')
     } finally { setActionBusy(false) }
   }
 
@@ -254,20 +257,20 @@ export default function Monitor() {
       setOrphans(res.orphans)
       setSelectedOrphans(new Set())
     } catch (e: any) {
-      alert('Scan-Fehler: ' + (e?.response?.data?.detail ?? e.message))
+      toast('Scan-Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error')
     } finally { setOrphanBusy(false) }
   }
 
   const handleOrphanImport = async () => {
     if (selectedOrphans.size === 0) return
-    if (!confirm(`${selectedOrphans.size} Datei(en) in DB importieren? Status wird auf "pending" gesetzt – der Archiver klassifiziert sie neu.`)) return
+    if (!await confirm({ title: `${selectedOrphans.size} Dateien importieren?`, description: 'Die Dateien werden als ausstehend erfasst und anschließend neu klassifiziert.', confirmLabel: 'Importieren' })) return
     setOrphanBusy(true)
     try {
       const res = await importOrphans(Array.from(selectedOrphans))
-      alert(`✓ ${res.imported} importiert, ${res.skipped} übersprungen.` + (res.errors.length ? `\n${res.errors.join('\n')}` : ''))
+      toast(`${res.imported} importiert, ${res.skipped} übersprungen.` + (res.errors.length ? ` ${res.errors.length} Fehler.` : ''), res.errors.length ? 'error' : 'success')
       await handleOrphanScan()
     } catch (e: any) {
-      alert('Import-Fehler: ' + (e?.response?.data?.detail ?? e.message))
+      toast('Import-Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error')
     } finally { setOrphanBusy(false) }
   }
 
@@ -333,7 +336,7 @@ export default function Monitor() {
 
   const handleImportCopy = async () => {
     if (selectedImportCandidates.size === 0) return
-    if (!confirm(`${selectedImportCandidates.size} Datei(en) in die Inbox kopieren? Der Archiver verarbeitet sie anschließend.`)) return
+    if (!await confirm({ title: `${selectedImportCandidates.size} Dateien in die Inbox kopieren?`, description: 'Der Archiver verarbeitet die kopierten Dateien anschließend.', confirmLabel: 'Kopieren' })) return
     setImportBusy(true)
     setImportCopyProgress(null)
     setImportCopyLog([])
@@ -443,16 +446,13 @@ export default function Monitor() {
           </div>
           <div className="flex gap-2">
             {archiver.running ? (
-              <button onClick={handleStop} disabled={actionBusy}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors">
+              <Button variant="danger" size="sm" onClick={handleStop} disabled={actionBusy}>
                 <Square size={13} /> Stop
-              </button>
+              </Button>
             ) : (
-              <button onClick={handleStart} disabled={actionBusy || inboxLoading}
-                title={inboxLoading ? 'Warte auf Inbox-Scan…' : undefined}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors">
+              <Button variant="success" size="sm" onClick={handleStart} disabled={actionBusy || inboxLoading} title={inboxLoading ? 'Warte auf Inbox-Scan…' : undefined}>
                 <Play size={13} /> Start
-              </button>
+              </Button>
             )}
             <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
               <input type="checkbox" checked={thumbForce} onChange={e => setThumbForce(e.target.checked)} className="accent-gray-600" />
@@ -879,11 +879,11 @@ export default function Monitor() {
                   setMissingBusy(true)
                   try {
                     const r = await repairMissing()
-                    alert(`✓ ${r.repaired} repariert, ${r.not_found} nicht gefunden.`)
+                    toast(`${r.repaired} repariert, ${r.not_found} nicht gefunden.`, r.not_found ? 'info' : 'success')
                     const scan = await scanMissing()
                     setMissingDocs(scan.missing)
                   } catch (e: any) {
-                    alert('Fehler: ' + e.message)
+                    toast('Fehler: ' + e.message, 'error')
                   }
                   setMissingBusy(false)
                 }}
@@ -894,14 +894,14 @@ export default function Monitor() {
               </button>
               <button
                 onClick={async () => {
-                  if (!confirm(`${missingDocs.length} DB-Einträge wirklich löschen? Die Dateien können danach neu eingelesen werden.`)) return
+                  if (!await confirm({ title: `${missingDocs.length} DB-Einträge löschen?`, description: 'Die Dateien bleiben erhalten und können später erneut eingelesen werden.', confirmLabel: 'Einträge löschen', variant: 'danger' })) return
                   setMissingBusy(true)
                   try {
                     const r = await deleteMissing()
                     setMissingDocs([])
-                    alert(`✓ ${r.deleted} Einträge gelöscht`)
+                    toast(`${r.deleted} Einträge gelöscht`, 'success')
                   } catch (e: any) {
-                    alert('Fehler: ' + e.message)
+                    toast('Fehler: ' + e.message, 'error')
                   }
                   setMissingBusy(false)
                 }}

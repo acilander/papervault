@@ -4,11 +4,14 @@ import { Search, GitMerge, Trash2, Save, FolderSync, CheckCircle, Pencil, Refres
 import { getSenders, getSenderCounts, reloadSenders, rebuildSenders, cleanupSenders, updateSender, mergeSender, deleteSender, reorganizeSender, removeSenderCategory, renameSender, auditSenders, ambiguousSenders, reclassifySender, confirmPendingSender, reprocessDocumentsWithoutSender, type SenderEntry, type AuditEntry, type AmbiguousEntry } from '../api'
 import { useConfig } from '../ConfigContext'
 import Pagination from '../components/Pagination'
+import { useConfirm, useToast } from '../components/ui'
 
 const SENDERS_PAGE_SIZE = 50
 
 export default function Senders() {
   const { categories: CATEGORIES } = useConfig()
+  const { confirm: confirmAction } = useConfirm()
+  const { toast } = useToast()
   const navigate = useNavigate()
   const [senders, setSenders] = useState<Record<string, SenderEntry>>({})
   const [counts, setCounts] = useState<Record<string, { ok: number; review: number }>>({})
@@ -103,27 +106,23 @@ export default function Senders() {
   const handleMerge = async (name: string) => {
     const target = mergeTarget[name]
     if (!target) return
-    if (!confirm(`"${name}" in "${target}" zusammenführen?\n\nAlle PDFs von "${name}" werden in den Ordner von "${target}" verschoben und in der DB neu zugeordnet.`)) return
+    if (!await confirmAction({ title: `„${name}" zusammenführen?`, description: `Alle PDFs werden dem Absender „${target}" zugeordnet und in dessen Ordner verschoben.`, confirmLabel: 'Zusammenführen' })) return
     try {
       const res = await mergeSender(name, target)
-      alert(
-        `✓ Zusammengeführt: "${name}" → "${target}"\n` +
-        `${res.moved} PDFs verschoben, ${res.skipped} übersprungen.` +
-        (res.errors.length ? `\n\nFehler:\n${res.errors.join('\n')}` : '')
-      )
+      toast(`Zusammengeführt: ${res.moved} PDFs verschoben, ${res.skipped} übersprungen.` + (res.errors.length ? ` ${res.errors.length} Fehler.` : ''), res.errors.length ? 'error' : 'success')
       await load()
     } catch (e: any) {
-      alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+      toast('Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error')
     }
   }
 
   const handleDelete = async (name: string) => {
-    if (!confirm(`Absender "${name}" wirklich löschen?`)) return
+    if (!await confirmAction({ title: `Absender „${name}" löschen?`, description: 'Die Zuordnung wird aus dem Register entfernt.', confirmLabel: 'Löschen', variant: 'danger' })) return
     try {
       await deleteSender(name)
       await load()
     } catch (e: any) {
-      alert('Fehler beim Löschen: ' + (e?.response?.data?.detail ?? e.message))
+      toast('Fehler beim Löschen: ' + (e?.response?.data?.detail ?? e.message), 'error')
     }
   }
 

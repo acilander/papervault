@@ -3,6 +3,7 @@ import { CheckCircle, RefreshCw, Trash2, Square, CheckSquare } from 'lucide-reac
 import { getDocuments, confirmDocument, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, updateDocument, pdfUrl, type Document } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
+import { Button, useConfirm, useToast } from '../components/ui'
 
 interface EditState {
   sender: string
@@ -22,6 +23,8 @@ const TAB_LABELS: Record<InboxTab, string> = {
 
 export default function Inbox() {
   const { categories: CATEGORIES, documentTypes: DOCUMENT_TYPES } = useConfig()
+  const { confirm } = useConfirm()
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<InboxTab>('review')
   const [docs, setDocs] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
@@ -123,7 +126,7 @@ export default function Inbox() {
       })
       window.dispatchEvent(new CustomEvent('documents-changed'))
     } catch (e: any) {
-      alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+      toast('Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error')
     } finally {
       setBusy(b => ({ ...b, [doc.id]: '' }))
     }
@@ -142,7 +145,7 @@ export default function Inbox() {
   const confirmSelected = async () => {
     const toConfirm = docs.filter(d => selected.has(d.id))
     if (!toConfirm.length) return
-    if (!window.confirm(`${toConfirm.length} markierte Dokumente archivieren?`)) return
+    if (!await confirm({ title: `${toConfirm.length} Dokumente archivieren?`, description: 'Die markierten Dokumente werden endgültig in ihre Archivordner verschoben.', confirmLabel: 'Archivieren' })) return
     
     for (const doc of toConfirm) {
       await confirmDoc(doc)
@@ -150,7 +153,7 @@ export default function Inbox() {
   }
 
   const remove = async (doc: Document) => {
-    if (!window.confirm(`"${doc.filename}" unwiderruflich löschen?`)) return
+    if (!await confirm({ title: 'Dokument endgültig löschen?', description: `„${doc.filename}" wird von Datenträger und Datenbank entfernt.`, confirmLabel: 'Löschen', variant: 'danger' })) return
     setBusy(b => ({ ...b, [doc.id]: 'delete' }))
     try {
       await deleteDocumentWithFile(doc.id)
@@ -197,18 +200,12 @@ export default function Inbox() {
           </h1>
           {docs.length > 0 && selected.size > 0 && (
             <div className="flex gap-2">
-              <button
-                onClick={() => { setReprocessAllHint(''); setReprocessAllDlg(true) }}
-                className="flex items-center gap-1.5 px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded transition-colors shadow-sm"
-              >
+              <Button variant="secondary" size="sm" onClick={() => { setReprocessAllHint(''); setReprocessAllDlg(true) }}>
                 <RefreshCw size={12} /> {selected.size} reklassifizieren
-              </button>
-              <button
-                onClick={confirmSelected}
-                className="flex items-center gap-1.5 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded transition-colors shadow-sm"
-              >
+              </Button>
+              <Button variant="success" size="sm" onClick={confirmSelected}>
                 <CheckCircle size={12} /> {selected.size} archivieren
-              </button>
+              </Button>
             </div>
           )}
         </div>

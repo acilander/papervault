@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
-import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, Pencil, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight, EyeOff, Eye, Unlock, Copy } from 'lucide-react'
+import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight, EyeOff, Eye, Unlock, Copy, MoreHorizontal } from 'lucide-react'
 import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, ignoreDocument, unignoreDocument, verifyDocument, unverifyDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
@@ -45,6 +45,7 @@ export default function DocumentDetail() {
   const [traceDlg, setTraceDlg] = useState(false)
   const [expandedTraceId, setExpandedTraceId] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
+  const [actionMenuOpen, setActionMenuOpen] = useState(false)
 
   const copyTracesToClipboard = () => {
     const formatted = traces.map(t => ({
@@ -174,51 +175,104 @@ export default function DocumentDetail() {
 
       {/* Right: Metadata editor */}
       <div className="w-80 bg-white dark:bg-gray-900 flex flex-col">
-        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center gap-2">
-          <button
-            onClick={() => {
-              if (navState?.search) {
-                navigate(`/documents?${navState.search}`)
-              } else {
-                navigate(-1)
-              }
-            }}
-            className="text-gray-400 hover:text-gray-700"
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate flex-1">{doc.filename}</h2>
-          {navState?.docIds && navState.docIds.length > 1 && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => {
-                  if (!navState.docIds || navState.currentIndex == null) return
-                  const prevIndex = Math.max(0, navState.currentIndex - 1)
-                  navigate(`/documents/${navState.docIds[prevIndex]}`, { state: { ...navState, currentIndex: prevIndex } })
-                }}
-                disabled={navState.currentIndex === 0}
-                className="p-1 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Vorheriges Dokument"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <span className="text-xs text-gray-400 tabular-nums">
-                {navState.currentIndex != null ? navState.currentIndex + 1 : 0} / {navState.docIds.length}
-              </span>
-              <button
-                onClick={() => {
-                  if (!navState.docIds || navState.currentIndex == null) return
-                  const nextIndex = Math.min(navState.docIds.length - 1, navState.currentIndex + 1)
-                  navigate(`/documents/${navState.docIds[nextIndex]}`, { state: { ...navState, currentIndex: nextIndex } })
-                }}
-                disabled={navState.currentIndex === navState.docIds.length - 1}
-                className="p-1 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Nächstes Dokument"
-              >
-                <ChevronRight size={18} />
-              </button>
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 space-y-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (navState?.search) {
+                  navigate(`/documents?${navState.search}`)
+                } else {
+                  navigate(-1)
+                }
+              }}
+              className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              title="Zurück zur Dokumentliste"
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{doc.filename}</h2>
+              <span className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{doc.status.replace('_', ' ')}</span>
             </div>
-          )}
+            {navState?.docIds && navState.docIds.length > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    if (!navState.docIds || navState.currentIndex == null) return
+                    const prevIndex = Math.max(0, navState.currentIndex - 1)
+                    navigate(`/documents/${navState.docIds[prevIndex]}`, { state: { ...navState, currentIndex: prevIndex } })
+                  }}
+                  disabled={navState.currentIndex === 0}
+                  className="p-1 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Vorheriges Dokument"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <span className="text-xs text-gray-400 tabular-nums">
+                  {navState.currentIndex != null ? navState.currentIndex + 1 : 0} / {navState.docIds.length}
+                </span>
+                <button
+                  onClick={() => {
+                    if (!navState.docIds || navState.currentIndex == null) return
+                    const nextIndex = Math.min(navState.docIds.length - 1, navState.currentIndex + 1)
+                    navigate(`/documents/${navState.docIds[nextIndex]}`, { state: { ...navState, currentIndex: nextIndex } })
+                  }}
+                  disabled={navState.currentIndex === navState.docIds.length - 1}
+                  className="p-1 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Nächstes Dokument"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={save} disabled={saving || isReadOnly}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              <Save size={14} />
+              {saved ? 'Gespeichert ✓' : saving ? 'Speichert…' : 'Speichern'}
+            </button>
+            {doc.status === 'review' && (
+              <button
+                onClick={async () => {
+                  setConfirming(true)
+                  try {
+                    await confirmDocument(doc.id)
+                    const updated = await getDocument(doc.id)
+                    if (updated) setDoc(updated)
+                  } catch (e: any) {
+                    alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                  } finally {
+                    setConfirming(false)
+                  }
+                }}
+                disabled={confirming}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                <CheckCircle size={14} />
+                {confirming ? '…' : 'Archivieren'}
+              </button>
+            )}
+            <div className="relative">
+              <button
+                onClick={() => setActionMenuOpen(open => !open)}
+                className="p-2 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                aria-label="Weitere Aktionen"
+                title="Weitere Aktionen"
+              >
+                <MoreHorizontal size={18} />
+              </button>
+              {actionMenuOpen && (
+                <div className="absolute right-0 top-10 z-20 w-60 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-1.5 space-y-0.5">
+                  {(edit.sender || doc.sender) && <button onClick={() => { navigate(`/documents?sender=${encodeURIComponent(edit.sender ?? doc.sender ?? '')}`); setActionMenuOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><Users size={15} />Ähnliche Dokumente</button>}
+                  <button onClick={() => { openInExplorer(doc.id); setActionMenuOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><FolderOpen size={15} />Im Explorer anzeigen</button>
+                  <button onClick={() => { setReprocessHint(''); setReprocessDlg(true); setActionMenuOpen(false) }} disabled={isReadOnly} className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"><RefreshCw size={15} />Neu klassifizieren</button>
+                  <button onClick={() => { setCollectionDlg(true); setActionMenuOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><BookMarked size={15} />Sammlungen verwalten</button>
+                  <button onClick={() => { loadTraces(); setTraceDlg(true); setActionMenuOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><Copy size={15} />Pipeline-Verlauf</button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -316,59 +370,52 @@ export default function DocumentDetail() {
               className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500" />
           </div>
 
-          <div>
-            <p className="text-xs font-medium text-gray-500 mb-1">Dateipfad</p>
-            <p className="text-xs text-gray-400 break-all">{doc.file_path}</p>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 mb-1">Archiviert am</p>
-            <p className="text-xs text-gray-400">{doc.archived_at}</p>
-          </div>
-          <div className="pt-1.5">
-            <button
-              onClick={() => { loadTraces(); setTraceDlg(true) }}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-colors"
-            >
-              🔍 Pipeline-Verlauf anzeigen ({traces.length})
-            </button>
-          </div>
-
           {/* Rename */}
-          <div className="pt-1 border-t border-gray-100 dark:border-gray-800">
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              <Pencil size={11} className="inline mr-1" />
-              Datei umbenennen
-            </label>
-            <div className="flex gap-1">
-              <input
-                type="text"
-                placeholder={doc.filename}
-                value={newFilename}
-                onChange={e => setNewFilename(e.target.value)}
-                disabled={isReadOnly}
-                className="flex-1 text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-0 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500"
-              />
-              <button
-                disabled={!newFilename.trim() || renaming || isReadOnly}
-                onClick={async () => {
-                  if (!confirm(`Datei umbenennen zu "${newFilename.trim()}"?`)) return
-                  setRenaming(true)
-                  try {
-                    const updated = await renameDocument(doc.id, newFilename.trim())
-                    setDoc(updated)
-                    setNewFilename('')
-                  } catch (e: any) {
-                    alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
-                  } finally {
-                    setRenaming(false)
-                  }
-                }}
-                className="px-2 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-40 transition-colors whitespace-nowrap"
-              >
-                {renaming ? '…' : 'OK'}
-              </button>
+          <details className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/40">
+            <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-300">Details & Diagnose</summary>
+            <div className="border-t border-gray-200 dark:border-gray-700 p-3 space-y-3">
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Dateipfad</p>
+                <p className="text-xs text-gray-400 break-all">{doc.file_path}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Archiviert am</p>
+                <p className="text-xs text-gray-400">{doc.archived_at}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Datei umbenennen</label>
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    placeholder={doc.filename}
+                    value={newFilename}
+                    onChange={e => setNewFilename(e.target.value)}
+                    disabled={isReadOnly}
+                    className="flex-1 text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-0 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500"
+                  />
+                  <button
+                    disabled={!newFilename.trim() || renaming || isReadOnly}
+                    onClick={async () => {
+                      if (!confirm(`Datei umbenennen zu "${newFilename.trim()}"?`)) return
+                      setRenaming(true)
+                      try {
+                        const updated = await renameDocument(doc.id, newFilename.trim())
+                        setDoc(updated)
+                        setNewFilename('')
+                      } catch (e: any) {
+                        alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
+                      } finally {
+                        setRenaming(false)
+                      }
+                    }}
+                    className="px-2 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-40 transition-colors whitespace-nowrap"
+                  >
+                    {renaming ? '…' : 'OK'}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          </details>
         </div>
 
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
@@ -381,142 +428,30 @@ export default function DocumentDetail() {
                 ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
                 : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
             }`}>
-              {isVerified
-                ? '✅ Verifiziert – nicht editierbar'
-                : isLocked
-                ? '🔒 Gesperrt – nicht editierbar'
-                : '🚫 Irrelevant – ausgeblendet'}
+              {isVerified ? '✅ Verifiziert – nicht editierbar' : isLocked ? '🔒 Gesperrt – nicht editierbar' : '🚫 Irrelevant – ausgeblendet'}
             </div>
           )}
-
-          <button onClick={save} disabled={saving || isReadOnly}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
-            <Save size={14} />
-            {saved ? 'Gespeichert ✓' : saving ? 'Speichert…' : 'Speichern'}
-          </button>
-          {doc.status === 'review' && (
-            <button
-              onClick={async () => {
-                setConfirming(true)
-                try {
-                  await confirmDocument(doc.id)
-                  const updated = await getDocument(doc.id)
-                  if (updated) setDoc(updated)
-                } catch (e: any) {
-                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
-                } finally {
-                  setConfirming(false)
-                }
-              }}
-              disabled={confirming}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
-              <CheckCircle size={14} />
-              {confirming ? 'Wird archiviert…' : 'Bestätigen & Archivieren'}
-            </button>
-          )}
-          {(edit.sender || doc.sender) && (
-            <button
-              onClick={() => navigate(`/documents?sender=${encodeURIComponent(edit.sender ?? doc.sender ?? '')}`)}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-colors">
-              <Users size={14} />
-              Ähnliche: {edit.sender ?? doc.sender}
-            </button>
-          )}
-          <button onClick={() => openInExplorer(doc.id)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-            <FolderOpen size={14} />
-            Im Explorer öffnen
-          </button>
-          <button
-            onClick={() => { setReprocessHint(''); setReprocessDlg(true) }}
-            disabled={isReadOnly}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-sm rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 disabled:opacity-50 transition-colors">
-            <RefreshCw size={14} />
-            Neu klassifizieren
-          </button>
-          <button
-            onClick={() => setCollectionDlg(true)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 text-sm rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
-            <BookMarked size={14} />
-            Zur Sammlung hinzufügen
-          </button>
           {docCollections.length > 0 && (
             <div className="flex flex-wrap gap-1 px-1">
-              {docCollections.map(c => (
-                <span key={c.id} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full text-white" style={{backgroundColor: c.color}}>
-                  {c.name}
-                </span>
-              ))}
+              {docCollections.map(c => <span key={c.id} className="inline-flex text-xs px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: c.color }}>{c.name}</span>)}
             </div>
           )}
-          {isIgnored ? (
-            <button
-              onClick={async () => {
-                try {
-                  const updated = await unignoreDocument(doc.id)
-                  setDoc(updated)
-                } catch (e: any) {
-                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
-                }
-              }}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-colors"
-            >
-              <Eye size={14} /> Wiederherstellen
-            </button>
-          ) : (
-            <button
-              onClick={async () => {
-                if (!confirm(`„${doc.filename}" als irrelevant markieren? Es wird aus der Liste ausgeblendet und nicht erneut importiert.`)) return
-                try {
-                  const updated = await ignoreDocument(doc.id)
-                  setDoc(updated)
-                } catch (e: any) {
-                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
-                }
-              }}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-colors"
-            >
-              <EyeOff size={14} /> Irrelevant
-            </button>
-          )}
-
-          {isVerified ? (
-            <button
-              onClick={async () => {
-                try {
-                  const updated = await unverifyDocument(doc.id)
-                  setDoc(updated)
-                } catch (e: any) {
-                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
-                }
-              }}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 transition-colors"
-            >
-              <Unlock size={14} /> Bestätigung aufheben
-            </button>
-          ) : (
-            <button
-              onClick={async () => {
-                if (!confirm(`„${doc.filename}" verifizieren? Es kann dann nicht mehr bearbeitet oder neu klassifiziert werden.`)) return
-                try {
-                  const updated = await verifyDocument(doc.id)
-                  setDoc(updated)
-                } catch (e: any) {
-                  alert('Fehler: ' + (e?.response?.data?.detail ?? e.message))
-                }
-              }}
-              disabled={isIgnored}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-sm rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 border border-green-200 dark:border-green-800 disabled:opacity-50 transition-colors"
-            >
-              <CheckCircle size={14} /> Verifizieren / Bestätigen
-            </button>
-          )}
-
-          <button onClick={remove}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
-            <Trash2 size={14} />
-            Aus DB entfernen
-          </button>
+          <details className="rounded-lg border border-gray-200 dark:border-gray-700">
+            <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-300">Dokumentverwaltung</summary>
+            <div className="border-t border-gray-200 dark:border-gray-700 p-2 space-y-1">
+              {isIgnored ? (
+                <button onClick={async () => { try { setDoc(await unignoreDocument(doc.id)) } catch (e: any) { alert('Fehler: ' + (e?.response?.data?.detail ?? e.message)) } }} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-700 dark:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-800"><Eye size={14} />Wiederherstellen</button>
+              ) : (
+                <button onClick={async () => { if (!confirm(`„${doc.filename}" als irrelevant markieren? Es wird aus der Liste ausgeblendet und nicht erneut importiert.`)) return; try { setDoc(await ignoreDocument(doc.id)) } catch (e: any) { alert('Fehler: ' + (e?.response?.data?.detail ?? e.message)) } }} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-700 dark:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-800"><EyeOff size={14} />Als irrelevant markieren</button>
+              )}
+              {isVerified ? (
+                <button onClick={async () => { try { setDoc(await unverifyDocument(doc.id)) } catch (e: any) { alert('Fehler: ' + (e?.response?.data?.detail ?? e.message)) } }} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-amber-700 dark:text-amber-400 rounded hover:bg-amber-50 dark:hover:bg-amber-900/20"><Unlock size={14} />Bestätigung aufheben</button>
+              ) : (
+                <button disabled={isIgnored} onClick={async () => { if (!confirm(`„${doc.filename}" verifizieren? Es kann dann nicht mehr bearbeitet oder neu klassifiziert werden.`)) return; try { setDoc(await verifyDocument(doc.id)) } catch (e: any) { alert('Fehler: ' + (e?.response?.data?.detail ?? e.message)) } }} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-green-700 dark:text-green-400 rounded hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50"><CheckCircle size={14} />Verifizieren</button>
+              )}
+              <button onClick={remove} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-red-600 dark:text-red-400 rounded hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 size={14} />Aus Datenbank entfernen</button>
+            </div>
+          </details>
         </div>
 
         {/* Duplicate: link to original */}

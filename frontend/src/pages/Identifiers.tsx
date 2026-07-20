@@ -184,7 +184,7 @@ export default function Identifiers() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center space-x-2">
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl flex items-center space-x-2">
           <ShieldAlert className="w-5 h-5 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -192,10 +192,10 @@ export default function Identifiers() {
 
       {/* Manual Registration Form */}
       {showAddForm && (
-        <form onSubmit={handleCreate} className="p-6 bg-white border border-gray-200 rounded-2xl shadow-sm space-y-4 max-w-2xl">
-          <div className="flex justify-between items-center border-b pb-3 mb-2">
-            <h3 className="font-semibold text-gray-800 text-lg">Identifikator manuell registrieren</h3>
-            <button type="button" onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-gray-600">
+        <form onSubmit={handleCreate} className="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm space-y-4 max-w-2xl">
+          <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-3 mb-2">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-lg">Identifikator manuell registrieren</h3>
+            <button type="button" onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
               <X className="w-5 h-5" />
             </button>
           </div>
