@@ -38,10 +38,10 @@ function Stop-ProcessTree($id) {
             } elseif ($LastExitCode -eq 128) {
                 Write-Host "Prozessbaum von PID $id bereits beendet (128)."
             } else {
-                Write-Host "taskkill meldete Exit Code $LastExitCode fuer PID $id: $output"
+                Write-Host "taskkill meldete Exit Code $LastExitCode fuer PID $($id): $output"
             }
         } catch {
-            Write-Host "Fehler beim Beenden des Prozessbaums fuer PID $id: $_"
+            Write-Host "Fehler beim Beenden des Prozessbaums fuer PID $($id): $_"
         }
     }
 }
