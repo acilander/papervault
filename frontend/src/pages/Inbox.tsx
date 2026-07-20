@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import { CheckCircle, RefreshCw, Trash2, Square, CheckSquare } from 'lucide-react'
-import { getDocuments, confirmDocument, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, updateDocument, pdfUrl, type Document } from '../api'
+import { CheckCircle, RefreshCw, Trash2, Square, CheckSquare, EyeOff, Activity, MoreHorizontal, Save } from 'lucide-react'
+import { getDocuments, confirmDocument, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, getDocumentTraces, ignoreDocument, updateDocument, pdfUrl, type Document, type DocumentTrace } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
 import { Button, useConfirm, useToast } from '../components/ui'
@@ -35,6 +35,10 @@ export default function Inbox() {
   const [reprocessDlg, setReprocessDlg] = useState<number | null>(null)
   const [reprocessAllDlg, setReprocessAllDlg] = useState(false)
   const [reprocessAllHint, setReprocessAllHint] = useState('')
+  const [showTrace, setShowTrace] = useState(false)
+  const [traces, setTraces] = useState<DocumentTrace[]>([])
+  const [traceLoading, setTraceLoading] = useState(false)
+  const [actionMenuOpen, setActionMenuOpen] = useState(false)
   
   // Selection state
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -152,6 +156,75 @@ export default function Inbox() {
     }
   }
 
+  const saveAndDefer = async (doc: Document) => {
+    const edit = edits[doc.id]
+    if (!edit) return
+    setBusy(b => ({ ...b, [doc.id]: 'save' }))
+    try {
+      const updated = await updateDocument(doc.id, {
+        sender: edit.sender || null,
+        date: edit.date || null,
+        category: edit.category || null,
+        document_type: edit.document_type || null,
+        summary: edit.summary || null,
+      })
+      setDocs(prev => prev.map(item => item.id === doc.id ? updated : item))
+      setEdits(prev => ({ ...prev, [doc.id]: initEdit(updated) }))
+      window.dispatchEvent(new CustomEvent('documents-changed'))
+      toast('Änderungen gespeichert. Dokument bleibt in der Prüfung.', 'success')
+    } catch (e: any) {
+      toast('Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error')
+    } finally {
+      setBusy(b => ({ ...b, [doc.id]: '' }))
+    }
+  }
+
+  const loadTrace = async (docId: number) => {
+    setShowTrace(open => !open)
+    if (showTrace) return
+    setTraceLoading(true)
+    try {
+      setTraces(await getDocumentTraces(docId))
+    } catch (e: any) {
+      toast('Verlauf konnte nicht geladen werden: ' + (e?.response?.data?.detail ?? e.message), 'error')
+    } finally {
+      setTraceLoading(false)
+    }
+  }
+
+  const markIrrelevant = async (doc: Document) => {
+    if (!await confirm({ title: 'Als irrelevant markieren?', description: `„${doc.filename}" wird aus der Dokumentprüfung entfernt und bei erneutem Import ignoriert.`, confirmLabel: 'Irrelevant markieren', variant: 'danger' })) return
+    setBusy(b => ({ ...b, [doc.id]: 'ignore' }))
+    try {
+      await ignoreDocument(doc.id)
+      setDocs(d => d.filter(x => x.id !== doc.id))
+      setSelected(prev => {
+        const next = new Set(prev)
+        next.delete(doc.id)
+        return next
+      })
+      window.dispatchEvent(new CustomEvent('documents-changed'))
+      toast('Dokument als irrelevant markiert.', 'success')
+    } catch (e: any) {
+      toast('Fehler: ' + (e?.response?.data?.detail ?? e.message), 'error')
+    } finally {
+      setBusy(b => ({ ...b, [doc.id]: '' }))
+    }
+  }
+
+  const markSelectedIrrelevant = async () => {
+    const toIgnore = docs.filter(d => selected.has(d.id))
+    if (!toIgnore.length) return
+    if (!await confirm({ title: `${toIgnore.length} Dokumente als irrelevant markieren?`, description: 'Die markierten Dokumente werden aus der Prüfung entfernt und bei erneutem Import ignoriert.', confirmLabel: 'Irrelevant markieren', variant: 'danger' })) return
+    for (const doc of toIgnore) {
+      await ignoreDocument(doc.id)
+    }
+    setDocs(d => d.filter(x => !selected.has(x.id)))
+    setSelected(new Set())
+    window.dispatchEvent(new CustomEvent('documents-changed'))
+    toast(`${toIgnore.length} Dokumente als irrelevant markiert.`, 'success')
+  }
+
   const remove = async (doc: Document) => {
     if (!await confirm({ title: 'Dokument endgültig löschen?', description: `„${doc.filename}" wird von Datenträger und Datenbank entfernt.`, confirmLabel: 'Löschen', variant: 'danger' })) return
     setBusy(b => ({ ...b, [doc.id]: 'delete' }))
@@ -203,6 +276,9 @@ export default function Inbox() {
               <Button variant="secondary" size="sm" onClick={() => { setReprocessAllHint(''); setReprocessAllDlg(true) }}>
                 <RefreshCw size={12} /> {selected.size} reklassifizieren
               </Button>
+              <Button variant="danger" size="sm" onClick={markSelectedIrrelevant}>
+                <EyeOff size={12} /> {selected.size} irrelevant
+              </Button>
               <Button variant="success" size="sm" onClick={confirmSelected}>
                 <CheckCircle size={12} /> {selected.size} archivieren
               </Button>
@@ -237,6 +313,8 @@ export default function Inbox() {
                     key={doc.id}
                     onClick={() => {
                       setActiveId(doc.id)
+                      setShowTrace(false)
+                      setActionMenuOpen(false)
                       if (!edits[doc.id]) setEdits(e => ({ ...e, [doc.id]: initEdit(doc) }))
                     }}
                     className={`p-3 flex items-start gap-2 cursor-pointer transition-all border-l-2 select-none ${
@@ -278,13 +356,33 @@ export default function Inbox() {
                   <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Beleg-Sichtung</span>
                   <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => remove(activeDoc)}
+                      onClick={() => loadTrace(activeDoc.id)}
                       disabled={isBusy}
-                      title="Löschen"
-                      className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 transition-colors"
+                      title="Pipeline-Verlauf"
+                      className={`p-1.5 rounded border transition-colors disabled:opacity-40 ${showTrace ? 'border-blue-300 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                     >
-                      <Trash2 size={14} />
+                      <Activity size={14} />
                     </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => setActionMenuOpen(open => !open)}
+                        disabled={isBusy}
+                        title="Weitere Aktionen"
+                        className="p-1.5 rounded border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 transition-colors"
+                      >
+                        <MoreHorizontal size={14} />
+                      </button>
+                      {actionMenuOpen && (
+                        <div className="absolute right-0 top-8 z-20 w-48 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-1">
+                          <button
+                            onClick={() => { setActionMenuOpen(false); remove(activeDoc) }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-950/20"
+                          >
+                            <Trash2 size={13} /> Endgültig löschen
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -307,6 +405,32 @@ export default function Inbox() {
                         <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
                           {activeDoc.notes.replace(/^\[Vertrauen:\s*(HIGH|MEDIUM|LOW)\]\s*/i, '')}
                         </p>
+                      )}
+                    </div>
+                  )}
+
+                  {showTrace && (
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-gray-700 dark:text-gray-200">Pipeline-Verlauf</span>
+                        {traceLoading && <RefreshCw size={12} className="animate-spin text-blue-500" />}
+                      </div>
+                      {traceLoading ? (
+                        <p className="text-xs text-gray-400">Verlauf wird geladen…</p>
+                      ) : traces.length === 0 ? (
+                        <p className="text-xs text-gray-400">Keine Verarbeitungsschritte aufgezeichnet.</p>
+                      ) : (
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                          {traces.map(trace => (
+                            <div key={trace.id} className="flex gap-2 text-xs">
+                              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${trace.status === 'success' ? 'bg-green-500' : trace.status === 'warning' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                              <div className="min-w-0">
+                                <p className="font-semibold text-gray-700 dark:text-gray-200">{trace.step_name}</p>
+                                <p className="text-gray-500 dark:text-gray-400">{trace.message}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   )}
@@ -363,10 +487,7 @@ export default function Inbox() {
                   </div>
                 </div>
 
-                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/10 flex items-center justify-between shrink-0">
-                  <a href={pdfUrl(activeDoc.id)} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline">
-                    In neuem Tab öffnen
-                  </a>
+                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/10 flex items-center justify-end shrink-0">
                   <div className="flex gap-2">
                     <button
                       onClick={() => { setReprocessHint(''); setReprocessDlg(activeDoc.id) }}
@@ -375,6 +496,22 @@ export default function Inbox() {
                     >
                       <RefreshCw size={12} className={busy[activeDoc.id] === 'reclassify' ? 'animate-spin' : ''} />
                       Neu analysieren (KI)
+                    </button>
+                    <button
+                      onClick={() => saveAndDefer(activeDoc)}
+                      disabled={isBusy}
+                      className="flex items-center gap-1.5 px-3 py-2 border border-blue-300 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20 disabled:opacity-50 text-xs font-semibold rounded-lg transition-all shadow-sm"
+                    >
+                      <Save size={13} />
+                      {busy[activeDoc.id] === 'save' ? 'Wird gespeichert…' : 'Speichern & zurückstellen'}
+                    </button>
+                    <button
+                      onClick={() => markIrrelevant(activeDoc)}
+                      disabled={isBusy}
+                      className="flex items-center gap-1.5 px-3 py-2 border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-50 text-xs font-semibold rounded-lg transition-all shadow-sm"
+                    >
+                      <EyeOff size={13} />
+                      {busy[activeDoc.id] === 'ignore' ? 'Wird markiert…' : 'Irrelevant'}
                     </button>
                     <button
                       onClick={() => confirmDoc(activeDoc)}

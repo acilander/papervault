@@ -134,6 +134,18 @@ export const getDocument = (id: number) =>
 export const updateDocument = (id: number, body: DocumentUpdate) =>
   api.patch<Document>(`/documents/${id}`, body).then(r => r.data)
 
+export interface DocumentTrace {
+  id: number
+  timestamp: string
+  step_name: string
+  status: 'success' | 'warning' | 'failed'
+  message: string
+  details?: Record<string, unknown> | null
+}
+
+export const getDocumentTraces = (id: number) =>
+  api.get<DocumentTrace[]>(`/documents/${id}/traces`).then(r => r.data)
+
 export const deleteDocument = (id: number) => api.delete(`/documents/${id}`)
 
 export const ignoreDocument = (id: number) =>
