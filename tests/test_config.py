@@ -40,6 +40,7 @@ def test_save_settings_syncs_config_in_place(tmp_path, monkeypatch):
     # Save original config lists
     orig_cats = list(config.CATEGORIES)
     orig_types = list(config.DOCUMENT_TYPES)
+    orig_settings = config_manager._cached_settings
     
     try:
         # Save new settings
@@ -48,8 +49,11 @@ def test_save_settings_syncs_config_in_place(tmp_path, monkeypatch):
             "landlord": {"enabled": True},
             "categories": ["NeuCat1", "NeuCat2"],
             "document_types": ["NeuType1", "NeuType2"],
-            "category_folder_map": {},
-            "categories_config": {}
+            "category_folder_map": {"NeuCat1": "01_NeuCat1", "NeuCat2": "02_NeuCat2"},
+            "categories_config": {
+                "NeuCat1": {"use_year_folder": True, "root": "1_Privat_und_Alltag", "property_unit": None},
+                "NeuCat2": {"use_year_folder": True, "root": "1_Privat_und_Alltag", "property_unit": None},
+            }
         }
         
         # Test in-place update
@@ -67,3 +71,4 @@ def test_save_settings_syncs_config_in_place(tmp_path, monkeypatch):
         config.CATEGORIES.extend(orig_cats)
         config.DOCUMENT_TYPES.clear()
         config.DOCUMENT_TYPES.extend(orig_types)
+        config_manager._cached_settings = orig_settings

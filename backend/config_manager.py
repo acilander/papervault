@@ -1,5 +1,7 @@
 import os
 import json
+import shutil
+from datetime import datetime
 from config import TARGET_BASE
 
 SETTINGS_FILE = os.path.join(TARGET_BASE, "settings.json")
@@ -64,8 +66,7 @@ DEFAULT_SETTINGS = {
     ],
     "periodic_keywords": [
         "abrechnung", "kontoauszug", "nachweis", "lohn", "gehalt", "entgelt", "kreditkarte", "steuernachweis"
-    ],
-    "own_ibans": []
+    ]
 }
 
 _cached_settings = None
@@ -107,25 +108,46 @@ def save_settings(new_settings: dict) -> bool:
     """Save settings.json to disk."""
     global _cached_settings
     try:
+        current_settings = get_settings()
+        merged_settings = dict(current_settings)
+        merged_settings.update(new_settings)
+        for key in ("personal", "landlord", "category_folder_map", "categories_config"):
+            if isinstance(current_settings.get(key), dict) and isinstance(new_settings.get(key), dict):
+                merged = dict(current_settings[key])
+                merged.update(new_settings[key])
+                merged_settings[key] = merged
+
+        categories = merged_settings.get("categories") or []
+        document_types = merged_settings.get("document_types") or []
+        folder_map = merged_settings.get("category_folder_map") or {}
+        category_config = merged_settings.get("categories_config") or {}
+        if not categories or not document_types:
+            return False
+        if any(category not in folder_map or category not in category_config for category in categories):
+            return False
+
+        if os.path.exists(SETTINGS_FILE):
+            backup_file = f"{SETTINGS_FILE}.bak-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            shutil.copy2(SETTINGS_FILE, backup_file)
         with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-            json.dump(new_settings, f, indent=2, ensure_ascii=False)
-        _cached_settings = new_settings
+            json.dump(merged_settings, f, indent=2, ensure_ascii=False)
+        _cached_settings = merged_settings
 
         # Sync the in-memory config list objects to avoid caching bugs across modules
         try:
             import config
-            landlord_enabled = new_settings.get("landlord", {}).get("enabled", True)
+            landlord_enabled = merged_settings.get("landlord", {}).get("enabled", True)
             
             # Update config.CATEGORIES in-place so all modules share the updated list
             config.CATEGORIES.clear()
-            for cat in new_settings.get("categories", []):
+            for cat in merged_settings.get("categories", []):
                 if not landlord_enabled and cat in ("Haus_Gemeinkosten", "OG_Miete", "DG_Miete"):
                     continue
                 config.CATEGORIES.append(cat)
                 
             # Update config.DOCUMENT_TYPES in-place so all modules share the updated list
             config.DOCUMENT_TYPES.clear()
-            config.DOCUMENT_TYPES.extend(new_settings.get("document_types", []))
+            config.DOCUMENT_TYPES.extend(merged_settings.get("document_types", []))
         except Exception:
             pass
 
