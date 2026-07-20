@@ -151,27 +151,38 @@ def update_document(doc_id: int, body: DocumentUpdate):
         update_provider_for_document(doc_id, new_sender)
         update_partner_for_document(doc_id, new_sender)
 
-    # 3. Rename file on disk for ok-documents when sender, date or document_type changed
-    filename_fields = {"sender", "date", "document_type"}
-    if updated_doc.get("status") == "ok" and filename_fields & set(updates.keys()):
+    # 3. Rebuild the archive path for ok-documents when metadata changes affect its name or folder.
+    archive_fields = {"sender", "date", "document_type", "category"}
+    if updated_doc.get("status") == "ok" and archive_fields & set(updates.keys()):
+        from pipeline.steps import archive_file_on_disk
         from pdf_utils import build_filename
         current_path = updated_doc.get("file_path")
         if current_path and os.path.exists(current_path):
             current_name = os.path.basename(current_path)
+            path_for_archive = current_path
             # Word and Excel files must never be renamed!
             if current_path.lower().endswith(".pdf"):
                 new_name = build_filename(updated_doc, current_name)
-            else:
-                new_name = current_name
-            if new_name != current_name:
-                new_path = os.path.join(os.path.dirname(current_path), new_name)
-                new_path = unique_path(new_path)
-                try:
-                    os.rename(current_path, new_path)
-                    db.update_document(doc_id, file_path=new_path, filename=os.path.basename(new_path))
-                    updated_doc = db.get_document(doc_id)
-                except OSError:
-                    pass
+                if new_name != current_name:
+                    renamed_path = unique_path(os.path.join(os.path.dirname(current_path), new_name))
+                    try:
+                        os.rename(current_path, renamed_path)
+                        path_for_archive = renamed_path
+                    except OSError:
+                        pass
+            try:
+                dest_path = archive_file_on_disk(
+                    path_for_archive,
+                    updated_doc.get("category"),
+                    updated_doc.get("sender"),
+                    updated_doc.get("date"),
+                    document_type=updated_doc.get("document_type"),
+                    iban=updated_doc.get("iban"),
+                )
+                db.update_document(doc_id, file_path=dest_path, filename=os.path.basename(dest_path))
+                updated_doc = db.get_document(doc_id)
+            except OSError:
+                pass
 
     return updated_doc
 

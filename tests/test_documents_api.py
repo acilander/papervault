@@ -84,6 +84,19 @@ def test_update_document_and_pinned_category(tmp_path):
     assert resp.status_code == 404
 
 
+def test_updating_archived_date_moves_file_to_correct_year_folder(tmp_path):
+    doc_id, old_path = _insert_pdf(tmp_path, name="old.pdf", date="2024-01-15")
+
+    resp = client.patch(f"/documents/{doc_id}", json={"date": "2025-02-03"})
+
+    assert resp.status_code == 200
+    updated = resp.json()
+    assert not os.path.exists(old_path)
+    assert os.path.exists(updated["file_path"])
+    assert os.path.basename(os.path.dirname(updated["file_path"])) == "2025"
+    assert "2025-02-03" in updated["filename"]
+
+
 def test_delete_document(tmp_path):
     doc_id, _ = _insert_pdf(tmp_path)
     resp = client.delete(f"/documents/{doc_id}")

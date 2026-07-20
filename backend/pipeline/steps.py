@@ -249,7 +249,11 @@ def archive_file_on_disk(file_path, category, sender, date, document_type=None, 
 
     os.makedirs(target_dir, exist_ok=True)
 
-    dest_pdf = unique_path(os.path.join(target_dir, os.path.basename(file_path)))
+    target_path = os.path.join(target_dir, os.path.basename(file_path))
+    if os.path.normcase(os.path.abspath(file_path)) == os.path.normcase(os.path.abspath(target_path)):
+        return file_path
+
+    dest_pdf = unique_path(target_path)
     shutil.move(file_path, dest_pdf)
     return dest_pdf
 
