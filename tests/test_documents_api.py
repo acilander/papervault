@@ -213,6 +213,24 @@ def test_confirm_review_document(tmp_path, monkeypatch):
     assert resp.status_code == 400
 
 
+def test_classification_failed_document_requires_review_before_confirmation(tmp_path):
+    doc_id, _ = _insert_pdf(tmp_path, name="failed.pdf", status="classification_failed", category="Sonstiges")
+
+    resp = client.post(f"/documents/{doc_id}/confirm")
+
+    assert resp.status_code == 400
+    assert db.get_document(doc_id)["status"] == "classification_failed"
+
+
+def test_editing_classification_failed_document_moves_it_to_review(tmp_path):
+    doc_id, _ = _insert_pdf(tmp_path, name="failed.pdf", status="classification_failed", category="Sonstiges")
+
+    resp = client.patch(f"/documents/{doc_id}", json={"summary": "Manuell geprüfter Energieausweis."})
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "review"
+
+
 def test_delete_document_with_file(tmp_path):
     doc_id, path = _insert_pdf(tmp_path)
     resp = client.delete(f"/documents/{doc_id}/delete-file")

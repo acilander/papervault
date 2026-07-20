@@ -332,15 +332,15 @@ def process_pdf(file_path, doc_id=None):
             extract_and_match_identifiers(text, doc_id)
 
     if data is None:
-        os.makedirs(FAILED_DIR, exist_ok=True)
-        dest_pdf = unique_path(os.path.join(FAILED_DIR, os.path.basename(file_path)))
+        os.makedirs(REVIEW_DIR, exist_ok=True)
+        dest_pdf = unique_path(os.path.join(REVIEW_DIR, os.path.basename(file_path)))
         shutil.move(file_path, dest_pdf)
-        log(f"Alle Versuche fehlgeschlagen. Verschoben nach: {dest_pdf}")
-        log("--- Abgeschlossen (fehlgeschlagen) ---")
-        processing_log(os.path.basename(file_path), "classification_failed")
+        log(f"Alle Versuche fehlgeschlagen. Zur manuellen Pruefung verschoben nach: {dest_pdf}")
+        log("--- Abgeschlossen (manuelle Pruefung erforderlich) ---")
+        processing_log(os.path.basename(dest_pdf), "review")
         db.update_document(doc_id, file_path=dest_pdf, filename=os.path.basename(dest_pdf),
                            summary="FEHLER: LLM-Klassifizierung nach allen Versuchen fehlgeschlagen.",
-                           status="classification_failed")
+                           status="review")
         try:
             db.insert_trace(doc_id, "llm_classification", "failed", "LLM-Klassifizierung nach allen Versuchen fehlgeschlagen. Datei zur manuellen Erfassung verschoben.", {"file_path": dest_pdf})
         except Exception:
