@@ -1,7 +1,14 @@
 import sys, os
+import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 from llm import validate_classification
+
+
+@pytest.fixture(autouse=True)
+def stable_document_types(monkeypatch):
+    import pipeline.validation as validation
+    monkeypatch.setattr(validation, "DOCUMENT_TYPES", ["Kontoauszug", "Warenrechnung", "Dienstleistungsrechnung", "Abrechnung", "Vertrag", "Sonstiges"])
 
 
 def _valid():
@@ -46,7 +53,9 @@ def test_invalid_document_type_rejected():
     assert any("document_type" in e for e in errors)
 
 
-def test_owner_as_sender_rejected():
+def test_owner_as_sender_rejected(monkeypatch):
+    import pipeline.validation as validation
+    monkeypatch.setattr(validation, "OWNER_NAMES", ["alexander staiger"])
     d = _valid()
     d["sender"] = "Alexander Staiger"
     errors = validate_classification(d)
@@ -59,6 +68,13 @@ def test_placeholder_sender_normalized_to_none():
         d["sender"] = placeholder
         validate_classification(d)
         assert d["sender"] is None, f"Platzhalter '{placeholder}' hätte zu None normalisiert werden sollen"
+
+
+def test_retry_guidance_targets_invalid_fields():
+    from llm.classify import _build_retry_instruction
+    guidance = _build_retry_instruction(["'sender' ist zu kurz", "'summary' ist zu kurz"])
+    assert "Briefkopf" in guidance
+    assert "Zusammenfassung" in guidance
 
 
 def test_null_sender_is_accepted():

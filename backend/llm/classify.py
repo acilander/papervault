@@ -2,6 +2,7 @@ import json
 import os
 import re
 import time
+from contextvars import ContextVar
 from datetime import datetime
 from difflib import get_close_matches
 
@@ -13,6 +14,29 @@ from utils import log, normalize_umlauts, extract_year
 from pipeline.validation import validate_classification, _looks_like_ocr_garbage, check_sender_semantic
 
 from llm.driver import _llm_lock, load_model
+
+
+_classification_diagnostics: ContextVar[list[dict]] = ContextVar("classification_diagnostics", default=[])
+
+
+def get_classification_diagnostics() -> list[dict]:
+    return _classification_diagnostics.get()
+
+
+def _build_retry_instruction(errors: list[str]) -> str:
+    guidance = []
+    joined = " ".join(errors).lower()
+    if "'sender'" in joined:
+        guidance.append("Bestimme den Aussteller ausschließlich aus Briefkopf oder Logo. Wenn er nicht eindeutig ist, setze sender auf null.")
+    if "'date'" in joined:
+        guidance.append("Verwende nur ein belegtes Datum im Format YYYY-MM-DD oder YYYY. Wenn keines erkennbar ist, setze date auf null.")
+    if "'category'" in joined:
+        guidance.append("Wähle exakt eine der erlaubten Kategorien aus dem Systemprompt.")
+    if "'summary'" in joined:
+        guidance.append("Formuliere eine konkrete, vollständige Zusammenfassung mit mindestens einem Satz.")
+    if "'document_type'" in joined:
+        guidance.append("Wähle möglichst einen erlaubten Dokumenttyp. Falls keiner passt, schlage einen kurzen präzisen neuen Typ vor.")
+    return " ".join(guidance) or "Korrigiere alle genannten Felder anhand des Dokumenttexts und gib ausschließlich valides JSON zurück."
 
 
 def normalize_sender(sender):
@@ -50,18 +74,6 @@ def sanitize_llm_output(data: dict) -> dict:
             val = re.sub(r'[\r\n\t]+', ' ', val)
             val = re.sub(r' {2,}', ' ', val).strip()
             data[field] = val if val else None
-
-    # Auto-register newly invented document types (LLM Freedom Workflow)
-    doc_type = data.get("document_type")
-    if doc_type and isinstance(doc_type, str):
-        from config_manager import get_settings, save_settings
-        settings = get_settings()
-        known_types = settings.get("document_types", [])
-        # Only auto-register if it's a short, concise term (max 4 words, no crazy sentences)
-        if doc_type not in known_types and len(doc_type.split()) <= 4 and len(doc_type) <= 40:
-            log(f"[LLM] Das LLM hat einen neuen Dokumenttyp erfunden: '{doc_type}'. Registriere in Einstellungen.")
-            settings["document_types"].append(doc_type)
-            save_settings(settings)
 
     sender = data.get("sender")
     if isinstance(sender, str) and _looks_like_ocr_garbage(sender):
@@ -248,6 +260,7 @@ def _reconciliation_pass(data: dict, sender: str) -> dict:
 
 
 def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=None, similar_docs=None, header_zone=None):
+    _classification_diagnostics.set([])
     from config import MOCK_LLM
     if MOCK_LLM:
         log("[MOCK] Generiere simulierte Klassifizierung...")
@@ -342,11 +355,13 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
         log(f"Prompt zu lang – kuerze Text auf {_text_budget} Zeichen.")
 
     feedback = None
+    failure_signatures: set[tuple[str, ...]] = set()
 
     for attempt in range(1, MAX_RETRIES + 1):
         log(f"LLM Klassifizierung (Zwei-Stufen-Kaskade), Versuch {attempt}/{MAX_RETRIES}...")
         t0 = time.time()
         raw = ""
+        temperature = 0.0 if attempt == 1 else 0.15
         try:
             # Stage 1: Basis-Metadaten (sender, date, document_type)
             system_prompt_s1 = build_stage1_system_prompt(_settings)
@@ -355,14 +370,14 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
                 {"role": "user", "content": f"Extrahiere Absender, Datum und Typ für dieses Dokument:\n\n{user_content}"}
             ]
             if feedback:
-                messages_s1.append({"role": "user", "content": f"Fehler im vorherigen Versuch: {feedback}. Bitte korrigiere die Metadaten."})
+                messages_s1.append({"role": "user", "content": f"Korrekturauftrag nach dem vorherigen Versuch: {feedback} Antworte ausschließlich mit einem vollständigen JSON-Objekt."})
 
             from llm.driver import _llm
             with _llm_lock:
                 result_s1 = _llm.create_chat_completion(
                     messages=messages_s1,
                     max_tokens=128,
-                    temperature=0.0
+                    temperature=temperature
                 )
             raw_s1 = result_s1["choices"][0]["message"]["content"]
             raw = raw_s1
@@ -382,11 +397,13 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
                 {"role": "system", "content": system_prompt_s2},
                 {"role": "user", "content": f"Extrahiere die restlichen tiefen Daten:\n\n{user_content}"}
             ]
+            if feedback:
+                messages_s2.append({"role": "user", "content": f"Korrekturauftrag: {feedback} Antworte ausschließlich mit einem vollständigen JSON-Objekt."})
             with _llm_lock:
                 result_s2 = _llm.create_chat_completion(
                     messages=messages_s2,
                     max_tokens=512,
-                    temperature=0.0
+                    temperature=temperature
                 )
             raw_s2 = result_s2["choices"][0]["message"]["content"]
             raw = raw_s2
@@ -470,6 +487,13 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
                 log(f"LLM OK [{confidence.upper()}] in {time.time()-t0:.1f}s: {json.dumps(data, ensure_ascii=False)}")
                 return data
 
+            type_errors = [e for e in errors if e.startswith("'document_type'")]
+            if type_errors and len(type_errors) == len(errors):
+                data["confidence"] = "low"
+                data["confidence_reason"] = "Vorgeschlagener Dokumenttyp benötigt eine Entscheidung in der Dokumentprüfung."
+                log(f"KI-Vorschlag für neuen Dokumenttyp '{data.get('document_type')}' zur manuellen Freigabe vorgemerkt.")
+                return data
+
             owner_error = any("Empfaenger" in e for e in errors)
             if owner_error and len(errors) == 1:
                 data["sender"] = None
@@ -494,21 +518,54 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
                     log(f"LLM OK [LOW] in {time.time()-t0:.1f}s: {json.dumps(data, ensure_ascii=False)}")
                     return data
 
-            feedback = "; ".join(errors)
-            log(f"Plausibilitaetsfehler (Versuch {attempt}): {feedback}")
+            signature = tuple(sorted(errors))
+            diagnostics = list(_classification_diagnostics.get())
+            diagnostics.append({
+                "attempt": attempt,
+                "failure_type": "validation",
+                "errors": errors,
+                "proposed": {field: data.get(field) for field in ("sender", "date", "document_type", "category")},
+            })
+            _classification_diagnostics.set(diagnostics)
+            if signature in failure_signatures:
+                data["confidence"] = "low"
+                data["confidence_reason"] = "Gleicher Validierungsfehler trotz adaptivem Wiederholungsversuch. Manuelle Prüfung erforderlich."
+                log(f"Wiederholter Plausibilitaetsfehler nach Versuch {attempt}; Übergabe an Dokumentprüfung.")
+                return data
+            failure_signatures.add(signature)
+            feedback = _build_retry_instruction(errors)
+            log(f"Plausibilitaetsfehler (Versuch {attempt}): {'; '.join(errors)}")
 
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            diagnostics = list(_classification_diagnostics.get())
+            diagnostics.append({
+                "attempt": attempt,
+                "failure_type": "invalid_json",
+                "error": str(e),
+                "response_length": len(raw),
+            })
+            _classification_diagnostics.set(diagnostics)
             log(f"LLM antwortete kein valides JSON (Versuch {attempt}): {raw[:200]!r}")
-            feedback = None
+            feedback = "Die vorherige Antwort war kein valides JSON. Gib ausschließlich das angeforderte vollständige JSON-Objekt ohne zusätzlichen Text zurück."
         except Exception as e:
             err_str = str(e)
-            if "exceed context window" in err_str:
+            context_overflow = "exceed context window" in err_str
+            if context_overflow:
                 _overhead = len(system_prompt) + len(sender_hint) + len(filename_hint) + len(header_block) + len(hint_instruction) + 200
                 _new_budget = max(300, (len(user_content) - _overhead) // 2)
                 user_content = f"Klassifiziere dieses Dokument:{sender_hint}{filename_hint}{header_block}\n\n--- DOKUMENT-VOLLTEXT ---\n{safe_text[:_new_budget]}{hint_instruction}"
                 base_messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_content}]
                 feedback = None
                 log(f"Token-Overflow – kuerze Text auf {_new_budget} Zeichen fuer naechsten Versuch.")
+            diagnostics = list(_classification_diagnostics.get())
+            diagnostics.append({
+                "attempt": attempt,
+                "failure_type": "runtime_error",
+                "error": err_str[:300],
+            })
+            _classification_diagnostics.set(diagnostics)
+            if not context_overflow:
+                feedback = f"Beim vorherigen Modellaufruf trat ein technischer Fehler auf: {err_str[:200]}. Prüfe die geforderten Felder erneut und gib valides JSON zurück."
             log(f"LLM Fehler nach {time.time()-t0:.1f}s (Versuch {attempt}): {e}")
             if attempt < MAX_RETRIES:
                 time.sleep(2)

@@ -7,7 +7,7 @@ from datetime import datetime
 
 from config import (
     TARGET_BASE, DUPLICATES_DIR, FAILED_DIR, ENCRYPTED_DIR, REVIEW_DIR,
-    CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, CATEGORIES,
+    CATEGORY_FOLDER_MAP, SENDER_SUBFOLDERS, CATEGORIES, DOCUMENT_TYPES,
 )
 from pdf_utils import (
     extract_text, ocr_pdf, prepare_text_for_llm,
@@ -203,6 +203,7 @@ def _stage_or_archive(file_path: str, new_name: str, confidence: str, data: dict
 
 def process_pdf(file_path, doc_id=None):
     from llm import classify_document, filter_keywords_against_text
+    from llm.classify import get_classification_diagnostics
     log(f"--- Neue Datei: {os.path.basename(file_path)} ---")
 
     # Reload sender_registry from DB to guarantee absolute multi-process/concurrency synchronization
@@ -352,7 +353,7 @@ def process_pdf(file_path, doc_id=None):
                            summary="FEHLER: LLM-Klassifizierung nach allen Versuchen fehlgeschlagen.",
                            status="review")
         try:
-            db.insert_trace(doc_id, "llm_classification", "failed", "LLM-Klassifizierung nach allen Versuchen fehlgeschlagen. Datei zur manuellen Erfassung verschoben.", {"file_path": dest_pdf})
+            db.insert_trace(doc_id, "llm_classification", "failed", "LLM-Klassifizierung nach allen Versuchen fehlgeschlagen. Datei zur manuellen Erfassung verschoben.", {"file_path": dest_pdf, "diagnostics": get_classification_diagnostics()})
         except Exception:
             pass
         cleanup_empty_inbox_folders(file_path)
@@ -360,6 +361,8 @@ def process_pdf(file_path, doc_id=None):
 
     try:
         db.insert_trace(doc_id, "llm_classification", "success", f"Erfolgreich klassifiziert: {data.get('sender')} | {data.get('document_type')} | {data.get('category')} (Vertrauen: {data.get('confidence', 'low').upper()})", {"confidence": data.get("confidence"), "confidence_reason": data.get("confidence_reason"), "metadata": data})
+        if data.get("document_type") not in DOCUMENT_TYPES:
+            db.insert_trace(doc_id, "document_type_approval", "warning", "KI-Vorschlag für einen neuen Dokumenttyp benötigt eine Entscheidung.", {"suggested_document_type": data.get("document_type")})
     except Exception:
         pass
 

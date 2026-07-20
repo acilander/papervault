@@ -167,6 +167,23 @@ def update_user_settings(req: dict):
     raise HTTPException(status_code=500, detail="Fehler beim Speichern der Einstellungen.")
 
 
+@router.post("/settings/document-types")
+def add_document_type(req: dict):
+    from config_manager import get_settings, save_settings
+
+    document_type = str(req.get("document_type") or "").strip()
+    if not document_type or len(document_type) > 80:
+        raise HTTPException(status_code=400, detail="Ungültiger Dokumenttyp.")
+
+    settings = get_settings()
+    document_types = list(settings.get("document_types") or [])
+    if document_type not in document_types:
+        document_types.append(document_type)
+        if not save_settings({"document_types": document_types}):
+            raise HTTPException(status_code=500, detail="Dokumenttyp konnte nicht gespeichert werden.")
+    return {"ok": True, "document_types": document_types}
+
+
 # ── Background LLM Downloader Service ────────────────────────────────────────
 
 _download_status = {
