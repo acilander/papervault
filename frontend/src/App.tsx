@@ -192,8 +192,8 @@ function AppContent() {
                       {label === 'Absender' && badges.unreviewed > 0 && (
                         <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">{badges.unreviewed}</span>
                       )}
-                      {label === 'Prüfung' && badges.review > 0 && (
-                        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400">{badges.review}</span>
+                      {label === 'Prüfung' && (badges.review + badges.failed) > 0 && (
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400">{badges.review + badges.failed}</span>
                       )}
                       {label === 'Duplikate' && badges.duplicates > 0 && (
                         <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">{badges.duplicates}</span>
