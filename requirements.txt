@@ -14,10 +14,6 @@ pdf2image==1.17.0
 pytesseract==0.3.13
 
 # === LLM (local inference) ===
-# Pre-built CPU-only wheel (garantiert absturzsicher ohne AVX-512-Konflikte auf allen Intel & AMD CPUs):
-# Wir binden abetlens offiziellen CPU-Index ein, damit pip automatisch das vorkompilierte Wheel für CPU-Inferenz wählt:
---extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-
 # Pre-built CUDA wheel (kein Build nötig, Python 3.10–3.12 + CUDA 11.8–13.2):
 #   pip install llama-cpp-python==0.3.32 --force-reinstall --no-cache-dir --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu132
 # GPU-Nutzung: N_GPU_LAYERS=-1 in .env (alle Layer auf GPU, Pflicht)

@@ -385,7 +385,7 @@ def classify_document(safe_text, filename=None, user_hint=None, feature_prompt=N
             with _llm_lock:
                 result_s2 = _llm.create_chat_completion(
                     messages=messages_s2,
-                    max_tokens=256,
+                    max_tokens=512,
                     temperature=0.0
                 )
             raw_s2 = result_s2["choices"][0]["message"]["content"]

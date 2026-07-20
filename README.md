@@ -61,23 +61,16 @@ CUDA-Version prüfen: `nvidia-smi` → Spalte "CUDA Version"
 > Voraussetzungen: **Python 3.10–3.12** (kein 3.13/3.14!) und das **venv aktiviert**.
 
 ```bash
-# CUDA 13.x (RTX-Karten, Treiber 610+):
-pip install llama-cpp-python==0.3.32 --force-reinstall --no-cache-dir --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu132
-
-# CUDA 12.x:
-pip install llama-cpp-python==0.3.32 --force-reinstall --no-cache-dir --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
-
-# CPU-only (kein CUDA):
-pip install llama-cpp-python==0.3.32 --force-reinstall --no-cache-dir --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+# Produktivsystem mit RTX 3060 (verifiziert):
+pip install llama-cpp-python==0.3.32 --force-reinstall --no-cache-dir --only-binary=:all: --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu132
 ```
 
-Verfügbare CUDA-Versionen: `cu118`, `cu121`–`cu125`, `cu130`, `cu132`  
-Welche passt: `nvcc --version` oder `nvidia-smi` → Treiber ≥ 520 → cu121, Treiber ≥ 610 → cu132
+Die verifizierte Produktivkonfiguration ist in `requirements-gpu-cu132.txt` festgelegt. Sie verwendet ausschließlich fertige Wheels und bricht ab, statt stillschweigend einen Source- oder CPU-Build zu installieren.
 
-### 5. Restliche Abhängigkeiten
+### 5. Produktivsystem installieren
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-gpu-cu132.txt
 ```
 
 > **Bekannte Versionsbeschränkungen:**

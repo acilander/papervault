@@ -15,6 +15,7 @@ from pipeline import process_pdf
 from pdf_utils import generate_thumbnail
 
 ARCHIVER_STDOUT = "archiver_stdout.log"
+ARCHIVER_LOG = os.path.join(TARGET_BASE, "archiver.log")
 
 # Import our new business logic services
 from services.archiver_service import archiver_status, archiver_start, archiver_stop
@@ -42,13 +43,13 @@ async def stream_logs():
                     await _asyncio.sleep(0.5)
                     continue
                 yield f"data: {line.strip()}\n\n"
-    return StreamingResponse(_tail_file(LOG_FILE), media_type="text/event-stream",
+    return StreamingResponse(_tail_file(ARCHIVER_LOG), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 @router.get("/buffer")
 def get_buffer():
     """Return the last 100 lines of the archiver stdout or log file."""
-    path = ARCHIVER_STDOUT if os.path.exists(ARCHIVER_STDOUT) else LOG_FILE
+    path = ARCHIVER_STDOUT if os.path.exists(ARCHIVER_STDOUT) else ARCHIVER_LOG
     if not os.path.exists(path):
         return {"lines": []}
     with open(path, encoding='utf-8', errors='replace') as f:

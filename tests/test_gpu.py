@@ -18,14 +18,9 @@ def test_llama_cpp_importable():
 
 
 def test_llama_cpp_cuda_dlls_present():
-    """cudart64_12.dll und cublas64_12.dll müssen im llama_cpp lib-Verzeichnis liegen."""
+    """llama_cpp muss ein funktionsfähiges GPU-Backend melden."""
     import llama_cpp
-    lib_dir = os.path.join(os.path.dirname(llama_cpp.__file__), "lib")
-    cudart = os.path.join(lib_dir, "cudart64_12.dll")
-    cublas = os.path.join(lib_dir, "cublas64_12.dll")
-    if not os.path.exists(cudart):
-        pytest.skip(f"CUDA DLL fehlt: {cudart}")
-    assert os.path.exists(cublas), f"Fehlende DLL: {cublas}"
+    assert llama_cpp.llama_supports_gpu_offload(), "llama_cpp wurde ohne GPU-Backend installiert"
 
 
 def test_llama_cpp_gpu_offloading():
@@ -39,10 +34,8 @@ def test_llama_cpp_gpu_offloading():
     import llama_cpp
     from config import MODEL_PATH, N_GPU_LAYERS
 
-    lib_dir = os.path.join(os.path.dirname(llama_cpp.__file__), "lib")
-    cudart = os.path.join(lib_dir, "cudart64_12.dll")
-    if not os.path.exists(cudart):
-        pytest.skip(f"CUDA DLL fehlt: {cudart}")
+    if not llama_cpp.llama_supports_gpu_offload():
+        pytest.skip("llama_cpp wurde ohne GPU-Backend installiert")
     if not os.path.exists(MODEL_PATH):
         pytest.skip(f"Modelldatei nicht gefunden: {MODEL_PATH}")
 
@@ -76,8 +69,7 @@ def test_llama_cpp_gpu_offloading():
     )
 
     assert "offloaded" in output.lower(), (
-        "GPU-Offloading nicht erkannt. llama_cpp läuft auf CPU. "
-        "Prüfe ob cudart64_12.dll im llama_cpp/lib Verzeichnis liegt."
+        "GPU-Offloading nicht erkannt. llama_cpp läuft auf CPU."
     )
 
     match = re.search(r'offloaded\s+(\d+)/(\d+)\s+layers to GPU', output, re.IGNORECASE)

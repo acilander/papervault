@@ -1,0 +1,6 @@
+--only-binary=:all:
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu132
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch==2.11.0+cu128
+torchvision==0.26.0+cu128
+-r requirements.txt
