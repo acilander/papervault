@@ -205,6 +205,13 @@ def process_pdf(file_path, doc_id=None):
     from llm import classify_document, filter_keywords_against_text
     log(f"--- Neue Datei: {os.path.basename(file_path)} ---")
 
+    # Reload sender_registry from DB to guarantee absolute multi-process/concurrency synchronization
+    try:
+        from storage import load_sender_registry
+        load_sender_registry()
+    except Exception:
+        pass
+
     # Phase 1: DB identity
     doc_id = _register_doc(file_path, doc_id)
     try:
