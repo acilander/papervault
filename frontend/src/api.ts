@@ -93,6 +93,7 @@ export interface AppConfig {
   category_folder_map: Record<string, string>
   categories_config: Record<string, any>
   document_types: string[]
+  transaction_roles?: Record<string, { label: string; color: string }>
   paths?: {
     source_dir: string
     target_base: string

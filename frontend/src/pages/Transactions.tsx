@@ -72,8 +72,8 @@ export default function Transactions() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [typeFilter, setTypeFilter] = useState<string>('')
-  const toast = useToast()
-  const confirm = useConfirm()
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
 
   // Creation modal state
   const [createOpen, setCreateFormOpen] = useState(false)
