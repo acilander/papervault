@@ -638,11 +638,30 @@ export default function Inbox() {
                       <label className="block text-xs font-semibold text-gray-400 mb-1">Dokumenttyp</label>
                       <select
                         value={edit.document_type}
-                        onChange={e => setEdits(prev => ({ ...prev, [activeDoc.id]: { ...edit, document_type: e.target.value } }))}
+                        onChange={async e => {
+                          const val = e.target.value
+                          if (val === 'ADD_NEW_TYPE_PROMPT') {
+                            const newType = prompt('Gib den Namen des neuen Dokumenttyps ein:')
+                            if (newType && newType.trim()) {
+                              const sanitized = newType.trim()
+                              try {
+                                await addDocumentType(sanitized)
+                                await reloadConfig()
+                                setEdits(prev => ({ ...prev, [activeDoc.id]: { ...edit, document_type: sanitized } }))
+                                toast(`Dokumenttyp „${sanitized}“ hinzugefügt.`, 'success')
+                              } catch (err: any) {
+                                toast('Fehler beim Erstellen: ' + err.message, 'error')
+                              }
+                            }
+                          } else {
+                            setEdits(prev => ({ ...prev, [activeDoc.id]: { ...edit, document_type: val } }))
+                          }
+                        }}
                         className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
                         <option value="">– wählen –</option>
                         {edit.document_type && !DOCUMENT_TYPES.includes(edit.document_type) && <option value={edit.document_type}>{edit.document_type} (KI-Vorschlag)</option>}
                         {DOCUMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        <option value="ADD_NEW_TYPE_PROMPT" className="text-blue-500 font-bold border-t border-gray-100">+ Neuer Dokumenttyp...</option>
                       </select>
                     </div>
                     <div>
