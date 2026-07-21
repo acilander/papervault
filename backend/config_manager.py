@@ -35,35 +35,33 @@ DEFAULT_SETTINGS = {
     },
     "categories": [
         "Arbeit & Rente", "Bank & Finanzen", "Gesundheit", "Privatversicherungen",
-        "Fahrzeug", "Einkauf & Konsum", "EG_Kosten", "UG_Kosten",
-        "Haus_Gemeinkosten", "OG_Miete", "DG_Miete", "Sonstiges"
+        "Fahrzeug", "Einkauf & Konsum", "Betriebskosten", "Mieteinnahmen",
+        "Instandhaltung", "Verwaltungskosten", "Sonstiges"
     ],
     "category_folder_map": {
         "Arbeit & Rente":         "01_Arbeit_und_Rente",
         "Bank & Finanzen":        "02_Banken_und_Finanzen",
         "Gesundheit":             "03_Gesundheit_und_Vorsorge",
-        "EG_Kosten":              "04_EG_Kosten",
-        "Fahrzeug":               "05_Fahrzeug",
-        "Einkauf & Konsum":       "06_Konsum_und_Einkauf",
-        "Haus_Gemeinkosten":      "07_Gesamthaus_Gemeinkosten",
-        "OG_Miete":               "08_Vermietung_OG",
-        "DG_Miete":               "09_Vermietung_DG",
+        "Fahrzeug":               "04_Fahrzeug",
+        "Einkauf & Konsum":       "05_Konsum_und_Einkauf",
+        "Betriebskosten":         "06_Betriebskosten",
+        "Mieteinnahmen":          "07_Mieteinnahmen",
+        "Instandhaltung":         "08_Instandhaltung_und_Modernisierung",
+        "Verwaltungskosten":      "09_Verwaltungskosten",
         "Privatversicherungen":   "10_Versicherungen",
-        "UG_Kosten":              "11_UG_Kosten",
-        "Sonstiges":              "12_Sonstiges",
+        "Sonstiges":              "11_Sonstiges",
     },
     "categories_config": {
         "Arbeit & Rente":         {"use_year_folder": True, "root": "1_Privat_und_Alltag", "property_unit": None},
         "Bank & Finanzen":        {"use_year_folder": True, "root": "1_Privat_und_Alltag", "property_unit": None},
         "Gesundheit":             {"use_year_folder": True, "root": "1_Privat_und_Alltag", "property_unit": None},
-        "EG_Kosten":              {"use_year_folder": True, "root": "1_Privat_und_Alltag", "property_unit": "EG"},
         "Fahrzeug":               {"use_year_folder": True, "root": "1_Privat_und_Alltag", "property_unit": None},
         "Einkauf & Konsum":       {"use_year_folder": True, "root": "1_Privat_und_Alltag", "property_unit": None},
-        "Haus_Gemeinkosten":      {"use_year_folder": True, "root": "2_Mehrfamilienhaus_Verwaltung", "property_unit": "Gesamthaus"},
-        "OG_Miete":               {"use_year_folder": True, "root": "2_Mehrfamilienhaus_Verwaltung", "property_unit": "OG"},
-        "DG_Miete":               {"use_year_folder": True, "root": "2_Mehrfamilienhaus_Verwaltung", "property_unit": "DG"},
         "Privatversicherungen":   {"use_year_folder": False, "root": "1_Privat_und_Alltag", "property_unit": None},
-        "UG_Kosten":              {"use_year_folder": True, "root": "1_Privat_und_Alltag", "property_unit": "UG"},
+        "Betriebskosten":         {"use_year_folder": True, "root": "2_Mehrfamilienhaus_Verwaltung", "property_unit": None},
+        "Mieteinnahmen":          {"use_year_folder": True, "root": "2_Mehrfamilienhaus_Verwaltung", "property_unit": None},
+        "Instandhaltung":         {"use_year_folder": True, "root": "2_Mehrfamilienhaus_Verwaltung", "property_unit": None},
+        "Verwaltungskosten":      {"use_year_folder": True, "root": "2_Mehrfamilienhaus_Verwaltung", "property_unit": None},
         "Sonstiges":              {"use_year_folder": True, "root": "1_Privat_und_Alltag", "property_unit": None},
     },
     "document_types": [
@@ -85,6 +83,51 @@ def _read_settings_fresh() -> dict:
     try:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             user_settings = json.load(f)
+            
+            # --- Automatic Category & Config Migration to Orthogonal Model ---
+            legacy_cats = {"EG_Kosten", "UG_Kosten", "Haus_Gemeinkosten", "OG_Miete", "DG_Miete"}
+            has_legacy = False
+            if "categories" in user_settings:
+                has_legacy = any(c in legacy_cats for c in user_settings["categories"])
+                
+            if has_legacy:
+                # Migrate categories list
+                cats = [c for c in user_settings["categories"] if c not in legacy_cats]
+                for new_cat in ("Betriebskosten", "Mieteinnahmen", "Instandhaltung", "Verwaltungskosten"):
+                    if new_cat not in cats:
+                        if "Sonstiges" in cats:
+                            cats.insert(cats.index("Sonstiges"), new_cat)
+                        else:
+                            cats.append(new_cat)
+                user_settings["categories"] = cats
+                
+                # Migrate category_folder_map
+                folder_map = user_settings.get("category_folder_map") or {}
+                for old_cat in list(folder_map.keys()):
+                    if old_cat in legacy_cats:
+                        folder_map.pop(old_cat, None)
+                for k, v in DEFAULT_SETTINGS["category_folder_map"].items():
+                    if k not in folder_map:
+                        folder_map[k] = v
+                user_settings["category_folder_map"] = folder_map
+                
+                # Migrate categories_config
+                cats_config = user_settings.get("categories_config") or {}
+                for old_cat in list(cats_config.keys()):
+                    if old_cat in legacy_cats:
+                        cats_config.pop(old_cat, None)
+                for k, v in DEFAULT_SETTINGS["categories_config"].items():
+                    if k not in cats_config:
+                        cats_config[k] = v
+                user_settings["categories_config"] = cats_config
+                
+                # Auto-persist the migrated settings to disk
+                try:
+                    with open(SETTINGS_FILE, "w", encoding="utf-8") as f_write:
+                        json.dump(user_settings, f_write, indent=2, ensure_ascii=False)
+                except Exception:
+                    pass
+
             # Ensure all top-level keys exist (merge with defaults for safety)
             merged = dict(DEFAULT_SETTINGS)
             merged.update(user_settings)

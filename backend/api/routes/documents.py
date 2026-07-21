@@ -183,6 +183,7 @@ def update_document(doc_id: int, body: DocumentUpdate):
                     updated_doc.get("date"),
                     document_type=updated_doc.get("document_type"),
                     iban=updated_doc.get("iban"),
+                    property_unit=updated_doc.get("property_unit"),
                 )
                 db.update_document(doc_id, file_path=dest_path, filename=os.path.basename(dest_path))
                 updated_doc = db.get_document(doc_id)
@@ -707,7 +708,8 @@ def confirm_document(doc_id: int):
 
         # Call centralized archiving helper
         dest_pdf = archive_file_on_disk(path, category, sender, doc.get("date"),
-                                        document_type=doc.get("document_type"), iban=doc.get("iban"))
+                                        document_type=doc.get("document_type"), iban=doc.get("iban"),
+                                        property_unit=doc.get("property_unit"))
 
         db.update_document(doc_id, status="ok", file_path=dest_pdf, filename=os.path.basename(dest_pdf))
         storage.record_sender(category, sender)

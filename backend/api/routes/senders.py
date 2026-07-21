@@ -515,7 +515,8 @@ def confirm_pending(name: str):
                     path = renamed_path
 
             dest = _archive(path, category, name, doc.get("date"),
-                            document_type=doc.get("document_type"), iban=doc.get("iban"))
+                            document_type=doc.get("document_type"), iban=doc.get("iban"),
+                            property_unit=doc.get("property_unit"))
             db.update_document(doc_id, status="ok", file_path=dest,
                                filename=os.path.basename(dest), category=category)
             storage.record_sender(category, name)
@@ -556,7 +557,8 @@ def reorganize_sender(name: str):
             continue
         try:
             dest = _archive(src, target_category, name, doc.get("date"),
-                            document_type=doc.get("document_type"), iban=doc.get("iban"))
+                            document_type=doc.get("document_type"), iban=doc.get("iban"),
+                            property_unit=doc.get("property_unit"))
             db.update_document(doc["id"], file_path=dest, category=target_category,
                                filename=os.path.basename(dest))
             dest_dir = os.path.dirname(dest)

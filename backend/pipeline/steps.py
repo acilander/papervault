@@ -195,7 +195,7 @@ def check_fuzzy_duplicate(doc_id, sender, date, document_type):
     return None
 
 
-def archive_file_on_disk(file_path, category, sender, date, document_type=None, iban=None):
+def archive_file_on_disk(file_path, category, sender, date, document_type=None, iban=None, property_unit=None):
     """Generates the correct final TARGET_BASE folder path and moves the file there.
     Returns the final destination file path."""
     import re
@@ -210,8 +210,6 @@ def archive_file_on_disk(file_path, category, sender, date, document_type=None, 
     root_dir = config.get("root", "1_Privat_und_Alltag")
     use_year = config.get("use_year_folder", True)
 
-    full_folder_name = os.path.join(root_dir, folder_name)
-
     raw_date = str(date or "")
     year_match = re.search(r'\b(\d{4})\b', raw_date)
     year = year_match.group() if year_match else "Unbekannt"
@@ -223,29 +221,45 @@ def archive_file_on_disk(file_path, category, sender, date, document_type=None, 
     if safe_sender and any(owner in safe_sender.lower() for owner in OWNER_NAMES):
         safe_sender = "00_Ausgehend_Vermieter"
 
-    if category == "Bank & Finanzen" and SENDER_SUBFOLDERS and safe_sender:
-        subtype = "Kontoauszüge" if document_type == "Kontoauszug" else "Dokumente"
-        if iban:
-            safe_iban = re.sub(r'[^A-Z0-9]', '', iban.upper())[:34]
+    if root_dir == "2_Mehrfamilienhaus_Verwaltung":
+        # Decoupled MFH: 2_Mehrfamilienhaus_Verwaltung/{Wohnung}/{Jahr}/{Kategorie}/{Sender}/
+        unit = property_unit or "Gesamthaus"
+        if SENDER_SUBFOLDERS and safe_sender:
             if use_year:
-                target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, safe_iban, subtype, year)
+                target_dir = os.path.join(TARGET_BASE, root_dir, unit, year, folder_name, safe_sender)
             else:
-                target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, safe_iban, subtype)
+                target_dir = os.path.join(TARGET_BASE, root_dir, unit, folder_name, safe_sender)
         else:
             if use_year:
-                target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, subtype, year)
+                target_dir = os.path.join(TARGET_BASE, root_dir, unit, year, folder_name)
             else:
-                target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, subtype)
-    elif SENDER_SUBFOLDERS and safe_sender:
-        if use_year:
-            target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, year)
-        else:
-            target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender)
+                target_dir = os.path.join(TARGET_BASE, root_dir, unit, folder_name)
     else:
-        if use_year:
-            target_dir = os.path.join(TARGET_BASE, full_folder_name, year)
+        # Private: 1_Privat_und_Alltag/{Kategorie}/{Jahr}/{Sender}/
+        full_folder_name = os.path.join(root_dir, folder_name)
+        if category == "Bank & Finanzen" and SENDER_SUBFOLDERS and safe_sender:
+            subtype = "Kontoauszüge" if document_type == "Kontoauszug" else "Dokumente"
+            if iban:
+                safe_iban = re.sub(r'[^A-Z0-9]', '', iban.upper())[:34]
+                if use_year:
+                    target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, safe_iban, subtype, year)
+                else:
+                    target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, safe_iban, subtype)
+            else:
+                if use_year:
+                    target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, subtype, year)
+                else:
+                    target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, subtype)
+        elif SENDER_SUBFOLDERS and safe_sender:
+            if use_year:
+                target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender, year)
+            else:
+                target_dir = os.path.join(TARGET_BASE, full_folder_name, safe_sender)
         else:
-            target_dir = os.path.join(TARGET_BASE, full_folder_name)
+            if use_year:
+                target_dir = os.path.join(TARGET_BASE, full_folder_name, year)
+            else:
+                target_dir = os.path.join(TARGET_BASE, full_folder_name)
 
     os.makedirs(target_dir, exist_ok=True)
 

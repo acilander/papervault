@@ -286,3 +286,29 @@ def init_db():
     init_tax_documents_table()
     from db.tax_positions_repo import init_tax_positions_table
     init_tax_positions_table()
+    
+    # Run automatic categories & units migration to clean orthogonal model
+    migrate_legacy_categories_to_orthogonal()
+
+def migrate_legacy_categories_to_orthogonal():
+    """Migrate legacy categories to orthogonal categories and set correct property_units."""
+    mapping = [
+        # (old_category, new_category, property_unit)
+        ("EG_Kosten", "Betriebskosten", "EG"),
+        ("UG_Kosten", "Betriebskosten", "UG"),
+        ("Haus_Gemeinkosten", "Betriebskosten", "Gesamthaus"),
+        ("OG_Miete", "Mieteinnahmen", "OG"),
+        ("DG_Miete", "Mieteinnahmen", "DG"),
+    ]
+    with get_conn() as conn:
+        for old_cat, new_cat, unit in mapping:
+            # Update the categories and property units of documents in the database
+            conn.execute(
+                "UPDATE documents SET category = ?, property_unit = ? WHERE category = ?",
+                (new_cat, unit, old_cat)
+            )
+            # Also update target_category and target_unit of sender_identifiers (the rules!)
+            conn.execute(
+                "UPDATE sender_identifiers SET target_category = ?, target_unit = ? WHERE target_category = ?",
+                (new_cat, unit, old_cat)
+            )
