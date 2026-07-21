@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Trash2, Plus, Check, X, ShieldAlert, CreditCard, Hash, User, Tag, RefreshCw, Pencil } from 'lucide-react'
+import { Trash2, Plus, Check, X, ShieldAlert, CreditCard, Hash, User, Tag, RefreshCw, Pencil, Eye } from 'lucide-react'
 import {
   getIdentifiers,
   createIdentifier,
@@ -9,6 +9,7 @@ import {
   assignUnassignedIdentifier,
   deleteUnassignedIdentifier,
   getSenders,
+  pdfUrl,
   type Identifier,
   type UnassignedIdentifier
 } from '../api'
@@ -60,6 +61,24 @@ export default function Identifiers() {
     target_category: '',
     target_unit: '',
   })
+
+  // Hover preview state
+  const [hoveredDocId, setHoveredDocId] = useState<number | null>(null)
+  const [hoveredPos, setHoveredPos] = useState<{ top: number; left: number } | null>(null)
+
+  const handleMouseEnter = (e: React.MouseEvent, docId: number) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setHoveredDocId(docId)
+    setHoveredPos({
+      top: rect.top - 150, // Offset vertically to center roughly
+      left: rect.left - 440, // 420px preview width + 20px gap
+    })
+  }
+
+  const handleMouseLeave = () => {
+    setHoveredDocId(null)
+    setHoveredPos(null)
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -467,12 +486,28 @@ export default function Identifiers() {
                     </div>
                   )}
 
-                  <div className="text-[10px] text-gray-400 flex items-center space-x-1">
-                    <span>📄 Beleg:</span>
-                    <span className="font-medium text-gray-500 truncate" title={item.document_filename || ''}>
-                      {item.document_filename || 'Unbekannt'}
-                    </span>
-                  </div>
+                  {item.document_id ? (
+                    <div
+                      onMouseEnter={(e) => handleMouseEnter(e, item.document_id)}
+                      onMouseLeave={handleMouseLeave}
+                      className="text-[10px] text-gray-400 flex items-center justify-between cursor-help hover:bg-gray-100 dark:hover:bg-gray-800 p-1.5 rounded-lg border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition"
+                    >
+                      <div className="flex items-center space-x-1 min-w-0 flex-1">
+                        <span>📄 Beleg:</span>
+                        <span className="font-medium text-gray-700 dark:text-gray-300 truncate" title={item.document_filename || ''}>
+                          {item.document_filename || 'Unbekannt'}
+                        </span>
+                      </div>
+                      <Eye className="w-3.5 h-3.5 text-blue-500 shrink-0 ml-1.5 animate-pulse" />
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-gray-400 flex items-center space-x-1">
+                      <span>📄 Beleg:</span>
+                      <span className="font-medium text-gray-500 truncate" title={item.document_filename || ''}>
+                        {item.document_filename || 'Unbekannt'}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex justify-end space-x-2 border-t pt-2 mt-1">
                     <button
@@ -660,6 +695,28 @@ export default function Identifiers() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {hoveredDocId && hoveredPos && (
+        <div
+          className="fixed z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-2 w-[420px] h-[550px] pointer-events-none animate-fade-in"
+          style={{
+            top: `${Math.max(10, Math.min(window.innerHeight - 560, hoveredPos.top))}px`,
+            left: `${Math.max(10, hoveredPos.left)}px`,
+          }}
+        >
+          <div className="w-full h-full rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-950 flex flex-col">
+            <div className="px-3 py-1 bg-white dark:bg-gray-900 text-[10px] text-gray-500 font-medium border-b border-gray-100 dark:border-gray-800 flex justify-between items-center shrink-0">
+              <span>📄 Schnell-Vorschau</span>
+              <span className="text-gray-400">Beleg-ID: #{hoveredDocId}</span>
+            </div>
+            <iframe
+              src={pdfUrl(hoveredDocId)}
+              className="w-full h-full border-0"
+              title="Schnell-Vorschau"
+            />
           </div>
         </div>
       )}
