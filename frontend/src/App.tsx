@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
-import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Inbox as InboxIcon, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package, ScrollText, Wrench, BookOpen, Calculator, Fingerprint, FolderKanban } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Inbox, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package, ScrollText, Wrench, BookOpen, Calculator, Fingerprint, FolderKanban } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import DocumentDetail from './pages/DocumentDetail'
 import Senders from './pages/Senders'
 import Monitor from './pages/Monitor'
-import Inbox from './pages/Inbox'
+import InboxPage from './pages/Inbox'
 import Chat from './pages/Chat'
 import Duplicates from './pages/Duplicates'
 import Validation from './pages/Validation'
@@ -45,7 +45,7 @@ const navGroups: NavGroup[] = [
     title: 'Eingang & Suche',
     items: [
       { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/inbox', label: 'Dokumentprüfung', icon: InboxIcon },
+      { to: '/inbox', label: 'Dokumentprüfung', icon: Inbox },
       { to: '/documents', label: 'Dokumente', icon: FileText },
       { to: '/transactions', label: 'Vorgänge', icon: FolderKanban },
       { to: '/chat', label: 'KI-Suche', icon: MessageSquare },
@@ -217,7 +217,7 @@ function AppContent() {
             <Route path="/documents/:id" element={<DocumentDetail />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/senders" element={<Senders />} />
-            <Route path="/inbox" element={<Inbox />} />
+            <Route path="/inbox" element={<InboxPage />} />
             <Route path="/monitor" element={<Monitor />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/duplicates" element={<Duplicates />} />
