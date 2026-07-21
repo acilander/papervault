@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
-import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight, EyeOff, Eye, Unlock, Lock, Copy, MoreHorizontal } from 'lucide-react'
+import { ArrowLeft, Save, FolderOpen, Trash2, RefreshCw, FileX, BookMarked, Users, CheckCircle, ChevronLeft, ChevronRight, EyeOff, Eye, Unlock, Lock, Copy, MoreHorizontal, FolderKanban, X } from 'lucide-react'
 import { getDocument, updateDocument, updateSender, deleteDocument, openInExplorer, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, renameDocument, pdfUrl, getOriginalDocument, confirmDocument, ignoreDocument, unignoreDocument, verifyDocument, unverifyDocument, lockDocument, unlockDocument, type Document, type DocumentUpdate } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
@@ -38,6 +38,46 @@ export default function DocumentDetail() {
   const [copied, setCopied] = useState(false)
   const [actionMenuOpen, setActionMenuOpen] = useState(false)
 
+  // Transactions states
+  const [linkedTxs, setLinkedTxs] = useState<{ id: number; title: string; status: string; type: string; role: string; linked_at: string }[] | null>(null)
+  const [allTxs, setAllTxs] = useState<{ id: number; title: string; status: string; type: string; document_count: number }[]>([])
+  const [txDlg, setTxDlg] = useState(false)
+  const [txRole, setTxRole] = useState('invoice')
+  const [selectedTxId, setSelectedTxId] = useState<number | null>(null)
+
+  const loadDocTxs = useCallback(() => {
+    if (!id) return
+    axios.get(`/transactions/document/${id}`).then(r => setLinkedTxs(r.data)).catch(() => {})
+  }, [id])
+
+  const loadAllTxs = useCallback(() => {
+    axios.get('/transactions/').then(r => setAllTxs(r.data)).catch(() => {})
+  }, [])
+
+  const handleLinkToTx = async () => {
+    if (!id || !selectedTxId) return
+    try {
+      await axios.post(`/transactions/${selectedTxId}/documents`, { document_id: Number(id), role: txRole })
+      toast('Erfolgreich mit Vorgang verknüpft', 'success')
+      setTxDlg(false)
+      loadDocTxs()
+    } catch (e: any) {
+      toast('Fehler beim Verknüpfen', 'error')
+    }
+  }
+
+  const handleUnlinkFromTx = async (txId: number) => {
+    if (!id) return
+    if (!confirm('Verknüpfung mit diesem Vorgang wirklich aufheben?')) return
+    try {
+      await axios.delete(`/transactions/${txId}/documents/${id}`)
+      toast('Verknüpfung aufgehoben', 'success')
+      loadDocTxs()
+    } catch (e: any) {
+      toast('Fehler beim Entkoppeln', 'error')
+    }
+  }
+
   const copyTracesToClipboard = () => {
     const formatted = traces.map(t => ({
       timestamp: t.timestamp,
@@ -63,6 +103,8 @@ export default function DocumentDetail() {
     axios.get('/collections/').then(r => setAllCollections(r.data)).catch(() => {})
     axios.get(`/collections/by-document/${id}`).then(r => setDocCollections(r.data)).catch(() => {})
     loadTraces()
+    loadDocTxs()
+    loadAllTxs()
     getDocument(Number(id)).then(d => {
       setDoc(d)
       if (d.status === 'duplicate') {
@@ -76,7 +118,7 @@ export default function DocumentDetail() {
         low_value: d.low_value ?? 0,
       })
     })
-  }, [id, loadTraces])
+  }, [id, loadTraces, loadDocTxs, loadAllTxs])
 
   if (!doc) return <div className="p-8 text-gray-500">Lade…</div>
 
@@ -439,6 +481,52 @@ export default function DocumentDetail() {
               </div>
             </div>
           </details>
+
+          {/* Linked Transactions (Vorgänge) */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 bg-indigo-50/10 dark:bg-indigo-950/5 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                <FolderKanban size={14} className="text-indigo-500" /> Verknüpfte Vorgänge
+              </span>
+              <button
+                onClick={() => {
+                  setSelectedTxId(allTxs[0]?.id || null)
+                  setTxDlg(true)
+                }}
+                disabled={isReadOnly}
+                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded transition"
+              >
+                + Verknüpfen
+              </button>
+            </div>
+            
+            {linkedTxs === null ? (
+              <p className="text-[10px] text-gray-400">Lade Vorgänge...</p>
+            ) : linkedTxs.length === 0 ? (
+              <p className="text-[10px] text-gray-400 italic">Dieser Beleg ist noch in keinem Vorgang verknüpft.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {linkedTxs.map(tx => (
+                  <div key={tx.id} className="flex justify-between items-center p-2 rounded bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-xs">
+                    <div className="min-w-0 flex-1 pr-2">
+                      <a href="/transactions" className="text-xs font-bold text-gray-800 dark:text-gray-200 hover:underline truncate block">
+                        {tx.title}
+                      </a>
+                      <p className="text-[9px] text-gray-400 font-medium">Rolle: <span className="font-bold text-indigo-500">{tx.role.toUpperCase()}</span></p>
+                    </div>
+                    <button
+                      onClick={() => handleUnlinkFromTx(tx.id)}
+                      disabled={isReadOnly}
+                      className="p-1 text-gray-400 hover:text-red-500 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition shrink-0"
+                      title="Verknüpfung aufheben"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
@@ -742,6 +830,72 @@ export default function DocumentDetail() {
             <button onClick={() => setTraceDlg(false)}
               className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
               Schließen
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Link transaction dialog */}
+    {txDlg && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 border border-gray-200 dark:border-gray-800">
+          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Mit Vorgang verknüpfen</h3>
+          
+          <div>
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Vorgang auswählen</label>
+            <select
+              value={selectedTxId || ''}
+              onChange={(e) => setSelectedTxId(Number(e.target.value))}
+              className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 mt-1.5"
+            >
+              <option value="">-- Vorgang wählen --</option>
+              {allTxs.map(tx => (
+                <option key={tx.id} value={tx.id}>{tx.title} ({tx.type === 'continuous' ? 'Dauervertrag' : 'Prozess'})</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Beleg-Rolle im Vorgang</label>
+            <select
+              value={txRole}
+              onChange={(e) => setTxRole(e.target.value)}
+              className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 mt-1.5"
+            >
+              <optgroup label="Diskrete Einkaufskette">
+                <option value="quote">Angebot</option>
+                <option value="order">Bestellung</option>
+                <option value="confirmation">Auftragsbestätigung</option>
+                <option value="delivery_note">Lieferschein</option>
+                <option value="invoice">Rechnung</option>
+                <option value="reminder">Mahnung / Zahlungserinnerung</option>
+              </optgroup>
+              <optgroup label="Laufender Dauervertrag">
+                <option value="contract_doc">Vertragsurkunde / Versicherungsschein</option>
+                <option value="terms">AGBs / Tarifblätter / Konditionen</option>
+                <option value="payment_plan">Abschlags- / Tilgungsplan</option>
+                <option value="periodic_statement">Auszug / Jahresabrechnung</option>
+                <option value="change_notice">Änderungs- / Abschlagsmitteilung</option>
+                <option value="cancellation">Kündigung</option>
+              </optgroup>
+              <option value="other">Sonstiges</option>
+            </select>
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+            <button
+              onClick={() => setTxDlg(false)}
+              className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition"
+            >
+              Abbrechen
+            </button>
+            <button
+              onClick={handleLinkToTx}
+              disabled={!selectedTxId}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50"
+            >
+              Verknüpfen
             </button>
           </div>
         </div>

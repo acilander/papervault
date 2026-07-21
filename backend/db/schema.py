@@ -145,6 +145,26 @@ CREATE TABLE IF NOT EXISTS document_traces (
     FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_document_traces_doc_id ON document_traces(document_id);
+
+CREATE TABLE IF NOT EXISTS transactions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    title         TEXT NOT NULL,
+    status        TEXT DEFAULT 'open',
+    type          TEXT DEFAULT 'discrete',
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS transaction_documents (
+    transaction_id INTEGER NOT NULL,
+    document_id    INTEGER NOT NULL,
+    role           TEXT NOT NULL,
+    created_at     TEXT NOT NULL,
+    PRIMARY KEY (transaction_id, document_id),
+    FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_transaction_docs_doc ON transaction_documents(document_id);
 """
 
 MIGRATIONS = [
@@ -239,6 +259,28 @@ MIGRATIONS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_document_traces_doc_id ON document_traces(document_id)",
+    """
+    CREATE TABLE IF NOT EXISTS transactions (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        title         TEXT NOT NULL,
+        status        TEXT DEFAULT 'open',
+        type          TEXT DEFAULT 'discrete',
+        created_at    TEXT NOT NULL,
+        updated_at    TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS transaction_documents (
+        transaction_id INTEGER NOT NULL,
+        document_id    INTEGER NOT NULL,
+        role           TEXT NOT NULL,
+        created_at     TEXT NOT NULL,
+        PRIMARY KEY (transaction_id, document_id),
+        FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
+        FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_transaction_docs_doc ON transaction_documents(document_id)",
 ]
 
 def init_db():

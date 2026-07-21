@@ -536,3 +536,55 @@ export const assignUnassignedIdentifier = (unassignedId: number, data: { sender_
 export const deleteUnassignedIdentifier = (unassignedId: number) =>
   api.delete<{ ok: boolean }>(`/identifiers/unassigned/${unassignedId}`).then(r => r.data)
 
+// ── Transactions API ──────────────────────────────────────────────────────────
+
+export interface TransactionDocument extends Document {
+  role: string
+  linked_at: string
+}
+
+export interface Transaction {
+  id: number
+  title: string
+  status: 'open' | 'closed' | 'cancelled'
+  type: 'discrete' | 'continuous'
+  created_at: string
+  updated_at: string
+  document_count: number
+}
+
+export interface TransactionDetail {
+  id: number
+  title: string
+  status: 'open' | 'closed' | 'cancelled'
+  type: 'discrete' | 'continuous'
+  created_at: string
+  updated_at: string
+  documents: TransactionDocument[]
+}
+
+export const getTransactions = (params?: { status?: string; type?: string }) =>
+  api.get<Transaction[]>('/transactions/', { params }).then(r => r.data)
+
+export const createTransaction = (data: { title: string; status?: string; type?: string }) =>
+  api.post<TransactionDetail>('/transactions/', data).then(r => r.data)
+
+export const getTransaction = (id: number) =>
+  api.get<TransactionDetail>(`/transactions/${id}`).then(r => r.data)
+
+export const updateTransaction = (id: number, data: { title?: string; status?: string; type?: string }) =>
+  api.patch<TransactionDetail>(`/transactions/${id}`, data).then(r => r.data)
+
+export const deleteTransaction = (id: number) =>
+  api.delete(`/transactions/${id}`).then(r => r.data)
+
+export const addDocumentToTransaction = (txId: number, documentId: number, role: string) =>
+  api.post<TransactionDetail>(`/transactions/${txId}/documents`, { document_id: documentId, role }).then(r => r.data)
+
+export const removeDocumentFromTransaction = (txId: number, documentId: number) =>
+  api.delete<TransactionDetail>(`/transactions/${txId}/documents/${documentId}`).then(r => r.data)
+
+export const getDocumentTransactions = (documentId: number) =>
+  api.get<{ id: number; title: string; status: string; type: string; role: string; linked_at: string }[]>(`/transactions/document/${documentId}`).then(r => r.data)
+
+

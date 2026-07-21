@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import { CheckCircle, RefreshCw, Trash2, Square, CheckSquare, EyeOff, Activity, MoreHorizontal, Save } from 'lucide-react'
-import { addDocumentType, getDocuments, confirmDocument, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, getDocumentTraces, ignoreDocument, updateDocument, pdfUrl, type Document, type DocumentTrace } from '../api'
+import { CheckCircle, RefreshCw, Trash2, Square, CheckSquare, EyeOff, Activity, MoreHorizontal, Save, Link as LinkIcon, FolderKanban } from 'lucide-react'
+import { addDocumentType, getDocuments, confirmDocument, reprocessDocument, reclassifyDocumentLive, deleteDocumentWithFile, getDocumentTraces, ignoreDocument, updateDocument, pdfUrl, createTransaction, addDocumentToTransaction, type Document, type DocumentTrace } from '../api'
 import { useConfig } from '../ConfigContext'
 import SenderDatalist from '../components/SenderDatalist'
 import { Button, useConfirm, useToast } from '../components/ui'
@@ -44,6 +44,39 @@ export default function Inbox() {
   
   // Selection state
   const [selected, setSelected] = useState<Set<number>>(new Set())
+
+  // Bulk transactions state
+  const [bulkTxOpen, setBulkTxOpen] = useState(false)
+  const [bulkTxTitle, setBulkTxTitle] = useState('')
+  const [bulkTxType, setBulkTxType] = useState('discrete')
+
+  const handleCreateBulkTx = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!bulkTxTitle.trim()) return
+    try {
+      const tx = await createTransaction({ title: bulkTxTitle, status: 'open', type: bulkTxType })
+      const roles: Record<string, string> = {
+        Warenrechnung: 'invoice',
+        Dienstleistungsrechnung: 'invoice',
+        Lieferschein: 'delivery_note',
+        Vertrag: 'contract_doc',
+        Kontoauszug: 'periodic_statement',
+        Mahnung: 'reminder',
+        Sonstiges: 'other'
+      }
+      for (const docId of selected) {
+        const dItem = docs.find(d => d.id === docId)
+        const role = dItem ? (roles[dItem.document_type || ''] || 'other') : 'other'
+        await addDocumentToTransaction(tx.id, docId, role)
+      }
+      toast('Vorgang angelegt und ausgewählte Dokumente verknüpft', 'success')
+      setBulkTxOpen(false)
+      setBulkTxTitle('')
+      setSelected(new Set())
+    } catch (err: any) {
+      toast('Fehler beim Erstellen des Vorgangs: ' + err.message, 'error')
+    }
+  }
 
   const fetchForTab = useCallback(async (tab: InboxTab) => {
     if (tab === 'processing') {
@@ -353,6 +386,9 @@ export default function Inbox() {
           </h1>
           {docs.length > 0 && selected.size > 0 && (
             <div className="flex gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setBulkTxOpen(true)} className="flex items-center gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/20">
+                <LinkIcon size={12} /> Vorgang erstellen ({selected.size})
+              </Button>
               <Button variant="secondary" size="sm" onClick={() => { setReprocessAllHint(''); setReprocessAllDlg(true) }}>
                 <RefreshCw size={12} /> {selected.size} reklassifizieren
               </Button>
@@ -749,6 +785,63 @@ export default function Inbox() {
                 Klassifizieren
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk transaction creation modal */}
+      {bulkTxOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 border border-gray-200 dark:border-gray-800">
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+              <FolderKanban className="w-5 h-5 text-indigo-500" /> Vorgang erstellen
+            </h3>
+            <p className="text-xs text-gray-500">
+              Erstelle einen gemeinsamen Vorgang für die {selected.size} ausgewählten Belege.
+            </p>
+            
+            <form onSubmit={handleCreateBulkTx} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Vorgangs-Bezeichnung</label>
+                <input
+                  type="text"
+                  value={bulkTxTitle}
+                  onChange={(e) => setBulkTxTitle(e.target.value)}
+                  placeholder="z.B. Heizungswartung, Kreditvertrag"
+                  className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 mt-1.5"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Vorgangsart</label>
+                <select
+                  value={bulkTxType}
+                  onChange={(e) => setBulkTxType(e.target.value)}
+                  className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 mt-1.5"
+                >
+                  <option value="discrete">Diskrete Kette (Einkauf, Rechnungsfluss)</option>
+                  <option value="continuous">Dauer-Vertrag / Bankvorgang</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => setBulkTxOpen(false)}
+                  className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition"
+                >
+                  Erstellen &amp; verknüpfen
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

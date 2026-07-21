@@ -94,3 +94,45 @@ class StatsOut(BaseModel):
     confidence_medium: int = 0
     confidence_low: int = 0
     monthly_fix_costs: float = 0.0
+
+
+class TransactionCreate(BaseModel):
+    title: str
+    status: Optional[str] = "open"
+    type: Optional[str] = "discrete"
+
+
+class TransactionUpdate(BaseModel):
+    title: Optional[str] = None
+    status: Optional[str] = None
+    type: Optional[str] = None
+
+
+class TransactionDocAdd(BaseModel):
+    document_id: int
+    role: str
+
+
+class TransactionDocumentOut(DocumentListOut):
+    role: str
+    linked_at: str
+
+
+class TransactionOut(BaseModel):
+    id: int
+    title: str
+    status: str
+    type: str
+    created_at: str
+    updated_at: str
+    document_count: int
+
+
+class TransactionDetailOut(BaseModel):
+    id: int
+    title: str
+    status: str
+    type: str
+    created_at: str
+    updated_at: str
+    documents: list[TransactionDocumentOut]
