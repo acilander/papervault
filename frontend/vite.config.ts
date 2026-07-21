@@ -30,6 +30,7 @@ export default defineConfig({
       '/low-value-rules': 'http://localhost:8000',
       '/tax': 'http://localhost:8000',
       '/identifiers': 'http://localhost:8000',
+      '/transactions': 'http://localhost:8000',
     },
   },
 })
