@@ -20,22 +20,18 @@ import {
   Activity,
   CheckCircle,
   XCircle,
-  FileText,
   Search,
   Check,
   X,
   Link as LinkIcon,
-  Eye,
-  Layers,
-  ArrowRight,
-  TrendingUp,
-  AlertTriangle
+  Layers
 } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Modal, Select, Spinner } from '../components/ui'
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, Modal, Select, Spinner } from '../components/ui'
 import { useToast } from '../components/ToastProvider'
 import { useConfirm } from '../components/ConfirmProvider'
+import { useConfig } from '../ConfigContext'
 
-const ROLE_LABELS: Record<string, { label: string; color: string }> = {
+const DEFAULT_ROLE_LABELS: Record<string, { label: string; color: string }> = {
   quote: { label: 'Angebot', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
   order: { label: 'Bestellung', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' },
   confirmation: { label: 'Auftragsbestätigung', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' },
@@ -52,6 +48,9 @@ const ROLE_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 export default function Transactions() {
+  const { config } = useConfig()
+  const ROLE_LABELS = config?.transaction_roles || DEFAULT_ROLE_LABELS
+
   const [txs, setTxs] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('')
@@ -538,23 +537,9 @@ export default function Transactions() {
                 onChange={(e) => setSelectedRole(e.target.value)}
                 className="w-full text-xs mt-1.5"
               >
-                <optgroup label="Diskrete Einkaufskette">
-                  <option value="quote">Angebot</option>
-                  <option value="order">Bestellung</option>
-                  <option value="confirmation">Auftragsbestätigung</option>
-                  <option value="delivery_note">Lieferschein</option>
-                  <option value="invoice">Rechnung</option>
-                  <option value="reminder">Mahnung / Zahlungserinnerung</option>
-                </optgroup>
-                <optgroup label="Laufender Dauervertrag">
-                  <option value="contract_doc">Vertragsurkunde / Versicherungsschein</option>
-                  <option value="terms">AGBs / Tarifblätter / Konditionen</option>
-                  <option value="payment_plan">Abschlags- / Tilgungsplan</option>
-                  <option value="periodic_statement">Auszug / Jahresabrechnung</option>
-                  <option value="change_notice">Änderungs- / Abschlagsmitteilung</option>
-                  <option value="cancellation">Kündigung</option>
-                </optgroup>
-                <option value="other">Sonstiges</option>
+                {Object.entries(ROLE_LABELS).map(([key, r]: any) => (
+                  <option key={key} value={key}>{r.label}</option>
+                ))}
               </Select>
             </div>
 
