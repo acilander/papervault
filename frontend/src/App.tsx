@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
-import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Inbox, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package, ScrollText, Wrench, BookOpen, Calculator, Fingerprint, FolderKanban } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, Activity, Sun, Moon, AlertTriangle, Archive, MessageSquare, ScanSearch, ShieldCheck, FolderOpen, Settings as SettingsIcon, Package, ScrollText, Wrench, BookOpen, Calculator, Fingerprint, FolderKanban } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import DocumentDetail from './pages/DocumentDetail'
@@ -45,7 +45,7 @@ const navGroups: NavGroup[] = [
     title: 'Eingang & Suche',
     items: [
       { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/inbox', label: 'Dokumentprüfung', icon: Inbox },
+      { to: '/inbox', label: 'Dokumentprüfung', icon: Archive },
       { to: '/documents', label: 'Dokumente', icon: FileText },
       { to: '/transactions', label: 'Vorgänge', icon: FolderKanban },
       { to: '/chat', label: 'KI-Suche', icon: MessageSquare },
