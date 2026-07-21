@@ -146,6 +146,7 @@ SENDER_SUBFOLDERS="true"            # Use TARGET_BASE/{Category}/{Year}/{Sender}
 *   **Tailwind CSS v4:** Vite relies on `@tailwindcss/vite` plugin configuration. Avoid using deprecated `@apply` structures where vanilla utilities or custom CSS files are preferred.
 *   **Linter:** `oxlint` is configured and used as the default fast linter in `package.json` under `npm run lint`. Ensure all frontend modifications compile cleanly and satisfy oxlint rules.
 *   **Filtering & Routing:** Page states (active filters, document lists) should reflect in the React Router URL state to maintain bookmarkable, back-button-friendly navigations.
+*   **Vite Proxy Mandate (LESSON LEARNED):** When adding ANY new API root endpoint (e.g., `/transactions`, `/duplicates`, etc.), you **MUST** immediately register it in `frontend/vite.config.ts` under `server.proxy`. If a route is missing from the proxy rules, Vite will fall back to serving the SPA `index.html` (HTML string) for that request. This causes JSON parsing to fail and results in a fatal React runtime crash (blank dark screen with no clear network error). Always ensure proxy rules and backend routers are 100% in sync!
 
 ### E. Single Source of Truth (SSOT) Rule
 *   **Definition:** Core system definitions, classifications (e.g., categories, allowed document types), and configuration constants must be defined in exactly one place (the backend configuration, e.g. `config.py`) and dynamically exposed via APIs (e.g. `/stats/categories` and `/stats/document-types`).
