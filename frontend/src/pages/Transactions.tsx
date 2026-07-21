@@ -24,10 +24,29 @@ import {
   Check,
   X,
   Link as LinkIcon,
-  Layers
+  Layers,
+  RefreshCw
 } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Modal, Select, Spinner, useToast, useConfirm } from '../components/ui'
+import { Button, useToast, useConfirm } from '../components/ui'
 import { useConfig } from '../ConfigContext'
+
+function Spinner() {
+  return <RefreshCw className="w-4 h-4 animate-spin text-indigo-500 inline-block" />
+}
+
+function Modal({ title, onClose, children, className = '' }: { title: string; onClose: () => void; children: React.ReactNode; className?: string }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className={`bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full p-6 space-y-4 border border-gray-200 dark:border-gray-800 ${className}`} onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-800 pb-2">
+          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">{title}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 font-bold">×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
 
 const DEFAULT_ROLE_LABELS: Record<string, { label: string; color: string }> = {
   quote: { label: 'Angebot', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
@@ -113,7 +132,7 @@ export default function Transactions() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newTx.title.strip()) return
+    if (!newTx.title.trim()) return
     try {
       const created = await createTransaction(newTx)
       toast('Vorgang erfolgreich angelegt', 'success')
@@ -174,7 +193,7 @@ export default function Transactions() {
   }
 
   const handleSearchDocs = async () => {
-    if (!docSearch.strip()) {
+    if (!docSearch.trim()) {
       setDocResults([])
       return
     }
@@ -207,9 +226,9 @@ export default function Transactions() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-2xl font-black text-gray-800 dark:text-gray-100 flex items-center gap-2">
             <FolderKanban className="w-6 h-6 text-indigo-500" />
@@ -225,36 +244,34 @@ export default function Transactions() {
       </div>
 
       {/* Grid Layout (List on Left, Interactive Timeline on Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 overflow-hidden">
         {/* Left: Filter & Transactions List (5cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <Card>
-            <CardHeader className="pb-3 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-              <CardTitle className="text-sm font-bold text-gray-500 uppercase tracking-wider">Filter &amp; Suche</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 grid grid-cols-2 gap-3">
+        <div className="lg:col-span-5 space-y-4 h-full flex flex-col overflow-hidden">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 space-y-3 shrink-0 shadow-sm">
+            <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Filter &amp; Suche</h3>
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Status</label>
-                <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full text-xs py-1.5">
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 mt-1">
                   <option value="">Alle</option>
                   <option value="open">Offen (Aktiv)</option>
                   <option value="closed">Geschlossen (Erledigt)</option>
                   <option value="cancelled">Abgebrochen</option>
-                </Select>
+                </select>
               </div>
               <div>
                 <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Vorgangsart</label>
-                <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-full text-xs py-1.5">
+                <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 mt-1">
                   <option value="">Alle</option>
                   <option value="discrete">Einkaufsprozess (Mahnkette)</option>
                   <option value="continuous">Dauer-Vertrag / Bank</option>
-                </Select>
+                </select>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Transactions List */}
-          <div className="space-y-3">
+          <div className="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin">
             {loading ? (
               <div className="py-12 text-center text-gray-400"><Spinner /> Lade Vorgänge...</div>
             ) : txs.length === 0 ? (
@@ -296,22 +313,22 @@ export default function Transactions() {
                     <div className="flex items-center gap-2 shrink-0">
                       {tx.status === 'open' && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-50 dark:bg-yellow-950/40 text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
-                          <Activity className="w-3 h-3" /> Offen
+                          <Activity className="w-3.5 h-3.5" /> Offen
                         </span>
                       )}
                       {tx.status === 'closed' && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400 flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3" /> Erledigt
+                          <CheckCircle className="w-3.5 h-3.5" /> Erledigt
                         </span>
                       )}
                       {tx.status === 'cancelled' && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center gap-1">
-                          <XCircle className="w-3 h-3" /> Abgebrochen
+                          <XCircle className="w-3.5 h-3.5" /> Abgebrochen
                         </span>
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(tx.id) }}
-                        className="p-1 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         title="Vorgang löschen"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -325,29 +342,29 @@ export default function Transactions() {
         </div>
 
         {/* Right: Interactive Timeline Details (7cols) */}
-        <div className="lg:col-span-7">
+        <div className="lg:col-span-7 h-full flex flex-col overflow-hidden">
           {activeTxId === null ? (
-            <div className="p-8 text-center text-gray-400 dark:text-gray-600 border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 rounded-3xl min-h-[400px] flex flex-col justify-center items-center">
+            <div className="p-8 text-center text-gray-400 dark:text-gray-600 border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 rounded-3xl h-full flex flex-col justify-center items-center shadow-sm">
               <FolderKanban className="w-12 h-12 text-gray-200 dark:text-gray-800 mb-2" />
               <h3 className="font-bold text-gray-700 dark:text-gray-300">Kein Vorgang ausgewählt</h3>
               <p className="text-xs text-gray-400 max-w-sm mt-1">Wähle links einen Vorgang aus, um den Belegfluss, die Timeline und Verträge anzuzeigen.</p>
             </div>
           ) : detailLoading ? (
-            <div className="p-12 text-center text-gray-400 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl min-h-[400px] flex justify-center items-center">
+            <div className="p-12 text-center text-gray-400 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl h-full flex justify-center items-center shadow-sm">
               <Spinner />
             </div>
           ) : activeTx === null ? (
-            <div className="p-8 text-center text-red-500 bg-white dark:bg-gray-900 border border-red-100 dark:border-red-900/30 rounded-3xl min-h-[400px] flex justify-center items-center">
+            <div className="p-8 text-center text-red-500 bg-white dark:bg-gray-900 border border-red-100 dark:border-red-900/30 rounded-3xl h-full flex justify-center items-center shadow-sm">
               Vorgang konnte nicht geladen werden.
             </div>
           ) : (
-            <Card className="rounded-3xl border-gray-100 dark:border-gray-800">
-              <CardHeader className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-start flex-wrap gap-4 bg-gray-50/50 dark:bg-gray-900/30 rounded-t-3xl">
+            <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl shadow-sm h-full flex flex-col overflow-hidden">
+              <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-start flex-wrap gap-4 bg-gray-50/50 dark:bg-gray-900/30 shrink-0">
                 <div className="space-y-1 min-w-0 flex-1">
                   <div className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1">
                     <Layers className="w-3 h-3" /> {activeTx.type === 'continuous' ? 'Dauervertrag / Laufender Vorgang' : 'Einkaufs-Prozess-Kette'}
                   </div>
-                  <CardTitle className="text-lg font-black text-gray-800 dark:text-gray-100 truncate">{activeTx.title}</CardTitle>
+                  <h2 className="text-lg font-black text-gray-800 dark:text-gray-100 truncate">{activeTx.title}</h2>
                   <p className="text-[10px] text-gray-400">Erstellt am {new Date(activeTx.created_at).toLocaleDateString('de-DE')}</p>
                 </div>
 
@@ -390,18 +407,18 @@ export default function Transactions() {
                     <Plus className="w-3.5 h-3.5" /> Beleg verknüpfen
                   </Button>
                 </div>
-              </CardHeader>
+              </div>
 
-              <CardContent className="p-6">
+              <div className="p-6 flex-1 overflow-y-auto scrollbar-thin">
                 {activeTx.documents.length === 0 ? (
-                  <div className="py-12 text-center text-gray-400 text-xs flex flex-col items-center justify-center">
+                  <div className="py-12 text-center text-gray-400 text-xs flex flex-col items-center justify-center h-full">
                     <LinkIcon className="w-8 h-8 text-gray-200 dark:text-gray-800 mb-2" />
                     Noch keine Belege mit diesem Vorgang verknüpft.<br />
                     Klicke oben auf "Beleg verknüpfen" um Dokumente hinzuzufügen.
                   </div>
                 ) : (
                   <div className="relative border-l border-indigo-100 dark:border-indigo-950 ml-4 pl-6 space-y-6">
-                    {activeTx.documents.map((doc, idx) => {
+                    {activeTx.documents.map((doc) => {
                       const roleMeta = ROLE_LABELS[doc.role] || { label: doc.role, color: 'bg-gray-100 text-gray-800' }
                       return (
                         <div key={doc.id} className="relative group">
@@ -448,8 +465,8 @@ export default function Transactions() {
                     })}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -459,12 +476,13 @@ export default function Transactions() {
         <Modal title="Neuen Vorgang anlegen" onClose={() => setCreateFormOpen(false)}>
           <form onSubmit={handleCreate} className="space-y-4">
             <div>
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Vorgangs-Bezeichnung</label>
-              <Input
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Vorgangs-Bezeichnung</label>
+              <input
+                type="text"
                 value={newTx.title}
                 onChange={(e) => setNewTx(prev => ({ ...prev, title: e.target.value }))}
                 placeholder="z.B. Waschmaschinenkauf MediaMarkt, Stromvertrag Vattenfall"
-                className="w-full text-sm mt-1.5"
+                className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 mt-1.5"
                 required
                 autoFocus
               />
@@ -472,37 +490,37 @@ export default function Transactions() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Vorgangsart</label>
-                <Select
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Vorgangsart</label>
+                <select
                   value={newTx.type}
                   onChange={(e) => setNewTx(prev => ({ ...prev, type: e.target.value }))}
-                  className="w-full text-sm mt-1.5"
+                  className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 mt-1.5"
                 >
                   <option value="discrete">Diskrete Kette (Einkauf, Rechnungsfluss)</option>
                   <option value="continuous">Dauer-Vertrag / Bankvorgang</option>
-                </Select>
+                </select>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Anfangs-Status</label>
-                <Select
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Anfangs-Status</label>
+                <select
                   value={newTx.status}
                   onChange={(e) => setNewTx(prev => ({ ...prev, status: e.target.value }))}
-                  className="w-full text-sm mt-1.5"
+                  className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 mt-1.5"
                 >
                   <option value="open">Offen (Aktiv)</option>
                   <option value="closed">Geschlossen (Erledigt)</option>
-                </Select>
+                </select>
               </div>
             </div>
 
             <div className="flex justify-end space-x-2 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <Button type="button" onClick={() => setCreateFormOpen(false)} className="border rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition">
+              <button type="button" onClick={() => setCreateFormOpen(false)} className="px-4 py-2 border rounded-lg text-xs text-gray-600 hover:bg-gray-50 transition">
                 Abbrechen
-              </Button>
-              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-sm">
+              </button>
+              <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-xs transition">
                 Vorgang erstellen
-              </Button>
+              </button>
             </div>
           </form>
         </Modal>
@@ -515,12 +533,13 @@ export default function Transactions() {
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                <Input
+                <input
+                  type="text"
                   value={docSearch}
                   onChange={(e) => setDocSearch(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearchDocs()}
                   placeholder="Dateiname, Absender oder Rechnungsnr. suchen..."
-                  className="w-full pl-9 text-xs"
+                  className="w-full pl-9 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-400"
                 />
               </div>
               <Button onClick={handleSearchDocs} className="bg-gray-800 hover:bg-gray-900 text-white font-semibold text-xs py-1.5 rounded-lg shrink-0">
@@ -530,15 +549,15 @@ export default function Transactions() {
 
             <div>
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Beleg-Rolle im Vorgang</label>
-              <Select
+              <select
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value)}
-                className="w-full text-xs mt-1.5"
+                className="w-full text-xs border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 mt-1.5"
               >
                 {Object.entries(ROLE_LABELS).map(([key, r]: any) => (
                   <option key={key} value={key}>{r.label}</option>
                 ))}
-              </Select>
+              </select>
             </div>
 
             <div className="max-h-[250px] overflow-y-auto space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
