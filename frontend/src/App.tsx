@@ -193,7 +193,7 @@ function AppContent() {
                       {label === 'Absender' && badges.unreviewed > 0 && (
                         <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">{badges.unreviewed}</span>
                       )}
-                      {label === 'Prüfung' && (badges.review + badges.failed) > 0 && (
+                      {label === 'Dokumentprüfung' && (badges.review + badges.failed) > 0 && (
                         <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300">{badges.review + badges.failed}</span>
                       )}
                       {label === 'Duplikate' && badges.duplicates > 0 && (

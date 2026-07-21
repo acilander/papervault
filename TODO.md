@@ -79,5 +79,8 @@ Hier sind die Meilensteine dokumentiert, die im Rahmen des Architektur-Refactori
 *   **[x] Human-in-the-Loop Daten-Locking** (`backend/db/schema.py`)
     *   *Umsetzung:* Einführung der Spalte `verified` in der Haupttabelle `documents` zur dauerhaften Sperrung manuell verifizierter Belege vor KI-Abweichungen ("AI-Drift").
 
-- warum passt .env nicht zu .env.example?
-- ist nach dem umbau migrate_path.py un dMIGRATION_GUIDE noch aktuell?
+[x] wenn ich irrelevant oder "Bestätigen & Archivieren" drücke, verschwindet spalte 2 aber spalte 3 mit der Vorschau bleibt angezeigt. Es soll aber einfach das nächste dokument ausgewählt und angezeigt werden. Wenn es keines mehr gibt soll spalte 2 und 3 leer sein.
+
+[x] bei Duplikate wird (1) angezeigt, obwohl es keine duplikate gibt
+
+[x] in dokumnetenprüfun steht keine Zahl obwohl 17 dokumente zu prüfen sind

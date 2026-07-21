@@ -87,6 +87,22 @@ export default function Inbox() {
     return () => clearInterval(t)
   }, [refresh])
 
+  useEffect(() => {
+    if (loading) return
+    if (activeId !== null) {
+      const exists = docs.some(d => d.id === activeId)
+      if (!exists) {
+        if (docs.length > 0) {
+          setActiveId(docs[0].id)
+        } else {
+          setActiveId(null)
+        }
+      }
+    } else if (docs.length > 0) {
+      setActiveId(docs[0].id)
+    }
+  }, [docs, activeId, loading])
+
   const initEdit = (doc: Document): EditState => ({
     sender: doc.sender ?? '',
     date: doc.date ?? '',
@@ -94,6 +110,23 @@ export default function Inbox() {
     document_type: doc.document_type ?? '',
     summary: doc.summary ?? '',
   })
+
+  const getNextActiveId = (idsToRemove: number[] | Set<number>) => {
+    const toRemove = idsToRemove instanceof Set ? idsToRemove : new Set(idsToRemove)
+    const currentIdx = docs.findIndex(x => x.id === activeId)
+    if (currentIdx === -1) return null
+    for (let i = currentIdx + 1; i < docs.length; i++) {
+      if (!toRemove.has(docs[i].id)) {
+        return docs[i].id
+      }
+    }
+    for (let i = currentIdx - 1; i >= 0; i--) {
+      if (!toRemove.has(docs[i].id)) {
+        return docs[i].id
+      }
+    }
+    return null
+  }
 
   const toggleSelect = (id: number) => {
     const next = new Set(selected)
@@ -124,7 +157,11 @@ export default function Inbox() {
         })
       }
       await confirmDocument(doc.id)
+      const nextActiveId = getNextActiveId([doc.id])
       setDocs(d => d.filter(x => x.id !== doc.id))
+      if (activeId === doc.id) {
+        setActiveId(nextActiveId)
+      }
       setSelected(prev => {
         const next = new Set(prev)
         next.delete(doc.id)
@@ -141,6 +178,10 @@ export default function Inbox() {
   const reprocessSelected = async (hint?: string) => {
     const toReprocess = docs.filter(d => selected.has(d.id))
     if (!toReprocess.length) return
+    const nextActiveId = getNextActiveId(selected)
+    if (selected.has(activeId ?? -1)) {
+      setActiveId(nextActiveId)
+    }
     for (const doc of toReprocess) {
       await reprocessDocument(doc.id, hint || undefined)
     }
@@ -152,7 +193,10 @@ export default function Inbox() {
     const toConfirm = docs.filter(d => selected.has(d.id))
     if (!toConfirm.length) return
     if (!await confirm({ title: `${toConfirm.length} Dokumente archivieren?`, description: 'Die markierten Dokumente werden endgültig in ihre Archivordner verschoben.', confirmLabel: 'Archivieren' })) return
-    
+    const nextActiveId = getNextActiveId(selected)
+    if (selected.has(activeId ?? -1)) {
+      setActiveId(nextActiveId)
+    }
     for (const doc of toConfirm) {
       await confirmDoc(doc)
     }
@@ -221,7 +265,11 @@ export default function Inbox() {
     setBusy(b => ({ ...b, [doc.id]: 'ignore' }))
     try {
       await ignoreDocument(doc.id)
+      const nextActiveId = getNextActiveId([doc.id])
       setDocs(d => d.filter(x => x.id !== doc.id))
+      if (activeId === doc.id) {
+        setActiveId(nextActiveId)
+      }
       setSelected(prev => {
         const next = new Set(prev)
         next.delete(doc.id)
@@ -240,6 +288,10 @@ export default function Inbox() {
     const toIgnore = docs.filter(d => selected.has(d.id))
     if (!toIgnore.length) return
     if (!await confirm({ title: `${toIgnore.length} Dokumente als irrelevant markieren?`, description: 'Die markierten Dokumente werden aus der Prüfung entfernt und bei erneutem Import ignoriert.', confirmLabel: 'Irrelevant markieren', variant: 'danger' })) return
+    const nextActiveId = getNextActiveId(selected)
+    if (selected.has(activeId ?? -1)) {
+      setActiveId(nextActiveId)
+    }
     for (const doc of toIgnore) {
       await ignoreDocument(doc.id)
     }
@@ -254,7 +306,11 @@ export default function Inbox() {
     setBusy(b => ({ ...b, [doc.id]: 'delete' }))
     try {
       await deleteDocumentWithFile(doc.id)
+      const nextActiveId = getNextActiveId([doc.id])
       setDocs(d => d.filter(x => x.id !== doc.id))
+      if (activeId === doc.id) {
+        setActiveId(nextActiveId)
+      }
       setSelected(prev => {
         const next = new Set(prev)
         next.delete(doc.id)

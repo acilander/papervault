@@ -104,7 +104,7 @@ export default function Duplicates() {
     setLoading(true)
     setPage(1)
     try {
-      const res = await axios.get(`/duplicates/?min_score=${minScore}`)
+      const res = await axios.get(`/monitor/duplicates?min_score=${minScore}`)
       setPairs(Array.isArray(res.data) ? res.data : (res.data?.pairs || []))
       const cleanup = await getCleanupStats()
       setCleanupBytes(cleanup.total_bytes_saved)
