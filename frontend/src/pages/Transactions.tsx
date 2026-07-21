@@ -26,9 +26,7 @@ import {
   Link as LinkIcon,
   Layers
 } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Modal, Select, Spinner } from '../components/ui'
-import { useToast } from '../components/ToastProvider'
-import { useConfirm } from '../components/ConfirmProvider'
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, Modal, Select, Spinner, useToast, useConfirm } from '../components/ui'
 import { useConfig } from '../ConfigContext'
 
 const DEFAULT_ROLE_LABELS: Record<string, { label: string; color: string }> = {
