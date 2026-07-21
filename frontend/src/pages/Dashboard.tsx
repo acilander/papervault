@@ -150,7 +150,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               {stats.low_value > 0 && (
                 <span className="flex items-center gap-1 text-xs text-gray-500 font-medium bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 rounded-full" title="Unwichtige Kassenbons und temporäre Belege (Papierballast) automatisch gefiltert">
-                  ⚠️ {stats.low_value} Ballast-Belege
+                  ⚠️ {stats.low_value} Belege mit geringem Wert
                 </span>
               )}
               {quality.expiring_soon > 0 && (
