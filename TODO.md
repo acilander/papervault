@@ -84,3 +84,9 @@ Hier sind die Meilensteine dokumentiert, die im Rahmen des Architektur-Refactori
 [x] bei Duplikate wird (1) angezeigt, obwohl es keine duplikate gibt
 
 [x] in dokumnetenprüfun steht keine Zahl obwohl 17 dokumente zu prüfen sind
+
+[x] Gibt es in der Dokumentenprüfung einen shortcut um einen neuen Dokumententyp anzulegen? 
+
+[x] benötigen wir einen Vorgänge tab um die vorgänge sortiert und filterbar aufzulisten und einen schnellen zugriff auf die dokumeten gruppen zu haben?
+
+[x] warum hat dokumentenprüfung kein Icon?

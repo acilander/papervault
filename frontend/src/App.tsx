@@ -190,7 +190,7 @@ function AppContent() {
                         }`
                       }
                     >
-                      <Icon size={16} />
+                      <Icon size={16} className="shrink-0" />
                       <span className="flex-1">{label}</span>
                       {label === 'Absender' && badges.unreviewed > 0 && (
                         <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">{badges.unreviewed}</span>

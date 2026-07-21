@@ -542,7 +542,7 @@ export default function Inbox() {
                               ? 'bg-yellow-50 dark:bg-yellow-950/20 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800/60'
                               : 'bg-red-50 dark:bg-red-950/20 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/60'
                           }`}>
-                            <p className="font-semibold">{activeDoc.confidence === 'high' ? '🟢 KI-Vertrauen: hoch' : activeDoc.confidence === 'medium' ? '🟡 KI-Vertrauen: mittel' : '� KI-Vertrauen: niedrig'}</p>
+                            <p className="font-semibold">{activeDoc.confidence === 'high' ? '🟢 KI-Vertrauen: hoch' : activeDoc.confidence === 'medium' ? '🟡 KI-Vertrauen: mittel' : '🔴 KI-Vertrauen: niedrig'}</p>
                             {confidenceReason && <p className="mt-1">{confidenceReason}</p>}
                           </div>
                         )}

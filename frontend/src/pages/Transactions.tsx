@@ -226,7 +226,7 @@ export default function Transactions() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 h-full flex flex-col overflow-hidden">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center shrink-0">
         <div>
@@ -244,9 +244,9 @@ export default function Transactions() {
       </div>
 
       {/* Grid Layout (List on Left, Interactive Timeline on Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left: Filter & Transactions List (5cols) */}
-        <div className="lg:col-span-5 space-y-4 h-full flex flex-col overflow-hidden">
+        <div className="lg:col-span-5 space-y-4">
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 space-y-3 shrink-0 shadow-sm">
             <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Filter &amp; Suche</h3>
             <div className="grid grid-cols-2 gap-3">
